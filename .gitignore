@@ -1,0 +1,8 @@
+# Local-only / internal — not part of the public GitHub Pages site
+.claude/
+OLD/
+cloudflare-backend/
+*.lnk
+_serve.ps1
+REGRESSION_CHECKLIST.md
+Read REGRESSION_CHECKLIST.md and mo.txt
