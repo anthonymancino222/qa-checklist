@@ -191,7 +191,11 @@ body.sidebar-expanded .nav-status {
   margin-left: var(--sidebar-w);
   flex: 1;
   padding: 24px;
-  max-width: 860px;
+  /* 860px is the preferred cap, but on a narrower screen (or with a browser
+     side panel eating width) sidebar-w + 860px can exceed the viewport —
+     take whichever is smaller so .main never pushes the page wider than
+     what's actually visible. */
+  max-width: min(860px, calc(100vw - var(--sidebar-w)));
   transition: margin-left .15s;
 }
 
