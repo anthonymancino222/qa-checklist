@@ -54,6 +54,7 @@
   --mono: 'IBM Plex Mono', monospace;
 
   --header-h: 58px;
+  --header-h-live: 58px;
   --sidebar-w: 60px;
   --sidebar-w-expanded: 232px;
 }
@@ -134,14 +135,14 @@ body.es [data-es] { display: inline; }
 /* ── Layout ── */
 .layout {
   display: flex;
-  padding-top: var(--header-h);
+  padding-top: var(--header-h-live);
   min-height: 100vh;
 }
 
 /* ── Sidebar ── */
 .sidebar {
   position: fixed;
-  top: var(--header-h); bottom: 0; left: 0;
+  top: var(--header-h-live); bottom: 0; left: 0;
   width: var(--sidebar-w);
   background: var(--surface);
   border-right: 1px solid var(--border);
@@ -6870,17 +6871,21 @@ function _applyTextScale(idx){
 // The header can wrap onto extra rows (large text-size zoom, long Spanish
 // labels, a narrow tablet), so its height is no longer a fixed constant —
 // re-measure it whenever something that affects its content size changes,
-// and keep --header-h in sync so the sidebar/main content never overlap it.
+// and keep --header-h-live in sync so the sidebar/main content never overlap
+// it. This writes to a SEPARATE variable from --header-h (which only sets
+// the header's own min-height) on purpose: the ResizeObserver below watches
+// the header itself, so writing back into a variable that ALSO controls the
+// header's own size would create a measure-grow-remeasure feedback loop
+// (this shipped once and the header grew without bound on load — real bug).
 function _syncHeaderHeight(){
   var header = document.querySelector('.app-header');
   if (!header) return;
   // getBoundingClientRect() returns the already-zoomed on-screen height,
-  // but --header-h feeds back into CSS lengths (top/padding-top) that
+  // but --header-h-live feeds back into CSS lengths (top/padding-top) that
   // `zoom` will scale AGAIN — divide it back out so the two don't compound.
-  // +2px safety margin absorbs sub-pixel rounding at fractional zoom levels.
   var zoom = parseFloat(document.documentElement.style.zoom) || 1;
   var h = header.getBoundingClientRect().height / zoom;
-  if (h > 0) document.documentElement.style.setProperty('--header-h', (h + 2) + 'px');
+  if (h > 0) document.documentElement.style.setProperty('--header-h-live', (h + 2) + 'px');
 }
 // ResizeObserver is the backstop: it fires on ANY real size change to the
 // header — zoom, language switch, orientation change, font swap, a future
