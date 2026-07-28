@@ -54,7 +54,6 @@
   --mono: 'IBM Plex Mono', monospace;
 
   --header-h: 58px;
-  --header-h-live: 58px;
   --sidebar-w: 60px;
   --sidebar-w-expanded: 232px;
 }
@@ -62,6 +61,13 @@ body.sidebar-expanded { --sidebar-w: var(--sidebar-w-expanded); }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
+/* The header's height isn't a constant — it wraps onto extra rows at large
+   text-size zoom, long Spanish labels, or a narrow screen. Rather than
+   measuring it in JS and feeding a CSS variable back in (tried twice,
+   fragile — real devices kept landing at slightly different numbers than
+   this pane could verify), body is a fixed-height flex column: header sizes
+   itself naturally, .layout gets whatever's left. No pixel math anywhere,
+   so the sidebar can never end up overlapping the header again. */
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -69,11 +75,12 @@ body {
   font-size: 15px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column;
+  overflow: hidden;
 }
 
 /* ── App header ── */
 .app-header {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
   min-height: var(--header-h);
   background: var(--black);
   border-top: 5px solid var(--pink);
@@ -135,20 +142,20 @@ body.es [data-es] { display: inline; }
 /* ── Layout ── */
 .layout {
   display: flex;
-  padding-top: var(--header-h-live);
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0; /* let this shrink below its content's natural size so the
+                    children's own overflow-y:auto is what scrolls, not the
+                    page — the classic nested-flexbox-scroll requirement */
+  overflow: hidden;
 }
 
 /* ── Sidebar ── */
 .sidebar {
-  position: fixed;
-  top: var(--header-h-live); bottom: 0; left: 0;
   width: var(--sidebar-w);
   background: var(--surface);
   border-right: 1px solid var(--border);
   overflow-y: auto; overflow-x: hidden;
   padding: 16px 8px;
-  z-index: 40;
   transition: width .15s;
 }
 .nav-group { margin-bottom: 18px; }
@@ -188,15 +195,15 @@ body.sidebar-expanded .nav-status {
 
 /* ── Main content ── */
 .main {
-  margin-left: var(--sidebar-w);
   flex: 1;
   padding: 24px;
+  overflow-y: auto;
   /* 860px is the preferred cap, but on a narrower screen (or with a browser
      side panel eating width) sidebar-w + 860px can exceed the viewport —
      take whichever is smaller so .main never pushes the page wider than
      what's actually visible. */
   max-width: min(860px, calc(100vw - var(--sidebar-w)));
-  transition: margin-left .15s;
+  transition: max-width .15s;
 }
 
 /* ── View header ── */
@@ -925,7 +932,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
   /* Main: full-width, padded above bottom nav */
   .main {
-    margin-left: 0;
     padding: 12px 12px calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
   }
 
@@ -6722,7 +6728,7 @@ function switchView(id) {
     var moreBtn = document.getElementById('bnav-more');
     if (moreBtn) moreBtn.classList.add('active');
   }
-  window.scrollTo(0,0);
+  _scrollMainToTop();
   closeSidebar();
 }
 
@@ -6870,43 +6876,7 @@ function _textScaleIdx(){
 }
 function _applyTextScale(idx){
   document.documentElement.style.zoom = TEXT_SCALE_LEVELS[idx];
-  _syncHeaderHeight();
 }
-// The header can wrap onto extra rows (large text-size zoom, long Spanish
-// labels, a narrow tablet), so its height is no longer a fixed constant —
-// re-measure it whenever something that affects its content size changes,
-// and keep --header-h-live in sync so the sidebar/main content never overlap
-// it. This writes to a SEPARATE variable from --header-h (which only sets
-// the header's own min-height) on purpose: the ResizeObserver below watches
-// the header itself, so writing back into a variable that ALSO controls the
-// header's own size would create a measure-grow-remeasure feedback loop
-// (this shipped once and the header grew without bound on load — real bug).
-function _syncHeaderHeight(){
-  var header = document.querySelector('.app-header');
-  if (!header) return;
-  // getBoundingClientRect() returns the already-zoomed on-screen height,
-  // but --header-h-live feeds back into CSS lengths (top/padding-top) that
-  // `zoom` will scale AGAIN — divide it back out so the two don't compound.
-  var zoom = parseFloat(document.documentElement.style.zoom) || 1;
-  var h = header.getBoundingClientRect().height / zoom;
-  if (h > 0) document.documentElement.style.setProperty('--header-h-live', (h + 2) + 'px');
-}
-// ResizeObserver is the backstop: it fires on ANY real size change to the
-// header — zoom, language switch, orientation change, font swap, a future
-// header edit — so this stays correct even for triggers nothing explicitly
-// calls _syncHeaderHeight() for. The explicit calls elsewhere (text-size
-// buttons, language toggle) just make the resize feel instant instead of
-// waiting a frame for the observer to report back.
-if (window.ResizeObserver) {
-  var _headerRO = new ResizeObserver(function(){ _syncHeaderHeight(); });
-  document.addEventListener('DOMContentLoaded', function(){
-    var header = document.querySelector('.app-header');
-    if (header) _headerRO.observe(header);
-  });
-} else {
-  window.addEventListener('resize', _syncHeaderHeight);
-}
-window.addEventListener('load', _syncHeaderHeight);
 function stepTextSize(dir){
   var idx = Math.max(0, Math.min(TEXT_SCALE_LEVELS.length - 1, _textScaleIdx() + dir));
   localStorage.setItem(TEXT_SCALE_KEY, idx);
@@ -6918,6 +6888,12 @@ function resetTextSize(){
 }
 _applyTextScale(_textScaleIdx());
 
+// .main (not the page) is what actually scrolls now that body is a fixed
+// flex shell — this replaces the old window.scrollTo(0,0) calls.
+function _scrollMainToTop(){
+  var main = document.getElementById('mainContent');
+  if (main) main.scrollTop = 0;
+}
 function isEsLang(){ return document.body.classList.contains('es'); }
 // Reads only the currently-active-language span's text out of an element
 // that wraps data-en/data-es pairs — el.textContent would otherwise
@@ -6932,7 +6908,6 @@ function toggleAppLang(){
   const isEs = isEsLang();
   const label = document.getElementById('appLangLabel');
   if (label) label.textContent = isEs ? 'English' : 'Español';
-  _syncHeaderHeight();
   // Collapsed sidebar nav items rely on the title attribute as their only
   // visible label (icon-only rail) — keep it in sync with the nav-label text.
   document.querySelectorAll('.nav-item[title]').forEach(function(item){
@@ -9529,7 +9504,7 @@ function saveCurrentEntry() {
   if (tab) { tab.classList.add('done'); tab.classList.remove('active'); }
 }
 
-function jumpTo(idx) { saveCurrentEntry(); loadProduct(idx); window.scrollTo(0,0); }
+function jumpTo(idx) { saveCurrentEntry(); loadProduct(idx); _scrollMainToTop(); }
 function prevProduct() {
   if (jobState.current === 0) {
     showConfirm('Entries will be preserved.', function(ok){
@@ -9538,14 +9513,14 @@ function prevProduct() {
     }, { title: 'Go back to job setup?', okLabel: 'Go back', danger: false });
     return;
   }
-  saveCurrentEntry(); loadProduct(jobState.current - 1); window.scrollTo(0,0);
+  saveCurrentEntry(); loadProduct(jobState.current - 1); _scrollMainToTop();
 }
 function nextProduct() {
   if (jobState.multiSig && !iSigHasMark) { showAlert('Please sign before continuing.'); return; }
   if (_requireAllAnswered('inspect', CHECKLIST)) return;
   saveCurrentEntry();
   var next = jobState.current + 1;
-  if (next < jobState.count) { loadProduct(next); window.scrollTo(0,0); }
+  if (next < jobState.count) { loadProduct(next); _scrollMainToTop(); }
   else submitJob();
 }
 function goBackSetup() {
@@ -9997,7 +9972,7 @@ function startNewJob() {
   kamaTimers = {};
   _iSigListenersAdded = false;
   showQCScreen('qc-setup');
-  window.scrollTo(0,0);
+  _scrollMainToTop();
 }
 
 /* ══════════════════════════════════
