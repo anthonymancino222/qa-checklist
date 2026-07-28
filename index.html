@@ -598,6 +598,19 @@ textarea.input {
   font-style: italic;
 }
 .sig-placeholder.hidden { display: none; }
+/* Locked by default — a signature pad sitting right next to other tap
+   targets on a busy checklist screen is an easy place to leave an
+   accidental stray mark. Tapping the lock is a deliberate, one-tap
+   confirmation that this is where the person actually means to sign. */
+.sig-lock-overlay {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: rgba(245,245,243,.94);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.sig-lock-overlay.unlocked { display: none; }
+.sig-lock-icon { font-size: 26px; line-height: 1; }
+.sig-lock-text { font-size: 14px; font-weight: 700; color: var(--text-secondary); }
 .sig-clear {
   margin-top: 7px;
   padding: 6px 16px;
@@ -1938,6 +1951,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             <div class="sig-wrap">
               <canvas id="op-sig-canvas" width="600" height="160"></canvas>
               <div class="sig-placeholder" id="op-sig-placeholder"><span data-en>Operator signs here</span><span data-es>El operador firma aquí</span></div>
+              <div class="sig-lock-overlay" id="op-sig-lock" onclick="_unlockSig('op-sig-lock')">
+                <span class="sig-lock-icon">🔒</span>
+                <span class="sig-lock-text"><span data-en>Tap to sign</span><span data-es>Toque para firmar</span></span>
+              </div>
             </div>
             <button class="sig-clear" onclick="clearOpSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
           </div>
@@ -1965,6 +1982,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             <div class="sig-wrap">
               <canvas id="sig-canvas" width="600" height="160"></canvas>
               <div class="sig-placeholder" id="sig-placeholder"><span data-en>Sign here</span><span data-es>Firme aquí</span></div>
+              <div class="sig-lock-overlay" id="sig-lock" onclick="_unlockSig('sig-lock')">
+                <span class="sig-lock-icon">🔒</span>
+                <span class="sig-lock-text"><span data-en>Tap to sign</span><span data-es>Toque para firmar</span></span>
+              </div>
             </div>
             <button class="sig-clear" onclick="clearSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
           </div>
@@ -2073,6 +2094,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="sig-wrap">
             <canvas id="inspect-sig-canvas" width="600" height="160"></canvas>
             <div class="sig-placeholder" id="inspect-sig-placeholder"><span data-en>Sign here</span><span data-es>Firme aquí</span></div>
+            <div class="sig-lock-overlay" id="inspect-sig-lock" onclick="_unlockSig('inspect-sig-lock')">
+              <span class="sig-lock-icon">🔒</span>
+              <span class="sig-lock-text"><span data-en>Tap to sign</span><span data-es>Toque para firmar</span></span>
+            </div>
           </div>
           <button class="sig-clear" onclick="clearInspectSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
         </div>
@@ -2252,6 +2277,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <div class="sig-wrap">
                 <canvas id="cm-op-sig-canvas" width="600" height="160"></canvas>
                 <div class="sig-placeholder" id="cm-op-sig-placeholder"><span data-en>Operator signs here</span><span data-es>El operador firma aquí</span></div>
+                <div class="sig-lock-overlay" id="cm-op-sig-lock" onclick="_unlockSig('cm-op-sig-lock')">
+                  <span class="sig-lock-icon">🔒</span>
+                  <span class="sig-lock-text"><span data-en>Tap to sign</span><span data-es>Toque para firmar</span></span>
+                </div>
               </div>
               <button class="sig-clear" onclick="clearCMOpSig()"><span data-en>Clear</span><span data-es>Borrar</span></button>
             </div>
@@ -2298,6 +2327,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <div class="sig-wrap">
                 <canvas id="cm-qa-sig-canvas" width="600" height="160"></canvas>
                 <div class="sig-placeholder" id="cm-qa-sig-placeholder"><span data-en>QA signs here</span><span data-es>Calidad firma aquí</span></div>
+                <div class="sig-lock-overlay" id="cm-qa-sig-lock" onclick="_unlockSig('cm-qa-sig-lock')">
+                  <span class="sig-lock-icon">🔒</span>
+                  <span class="sig-lock-text"><span data-en>Tap to sign</span><span data-es>Toque para firmar</span></span>
+                </div>
               </div>
               <button class="sig-clear" onclick="clearCMQASig()"><span data-en>Clear</span><span data-es>Borrar</span></button>
             </div>
@@ -2789,6 +2822,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             <div class="sig-pad-wrap" style="position:relative;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;">
               <canvas id="ship-sig-canvas" style="width:100%;height:140px;display:block;touch-action:none;"></canvas>
               <div id="ship-sig-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:15px;pointer-events:none;"><span data-en>Sign here</span><span data-es>Firme aquí</span></div>
+              <div class="sig-lock-overlay" id="ship-sig-lock" onclick="_unlockSig('ship-sig-lock')">
+                <span class="sig-lock-icon">🔒</span>
+                <span class="sig-lock-text"><span data-en>Tap to sign</span><span data-es>Toque para firmar</span></span>
+              </div>
             </div>
             <button type="button" class="btn" style="margin-top:8px;" onclick="clearShipSig()"><span data-en>Clear signature</span><span data-es>Borrar firma</span></button>
           </div>
@@ -4527,6 +4564,28 @@ function renderInProgress() {
 }
 
 /* ══════════════════════════════════
+   SIGNATURE PAD LOCK
+   Every signature pad starts locked behind a tap-to-unlock overlay — a
+   canvas sitting right in the middle of a busy checklist screen is an easy
+   place to leave an accidental stray mark while scrolling/reaching past it.
+   Re-locked on Clear and whenever a screen/modal (re)builds its signature
+   pads, so it's never left unlocked for the next job that lands there.
+══════════════════════════════════ */
+function _unlockSig(lockId){
+  var lock = document.getElementById(lockId);
+  if (lock) lock.classList.add('unlocked');
+}
+function _relockSig(lockId){
+  var lock = document.getElementById(lockId);
+  if (lock) lock.classList.remove('unlocked');
+}
+function _relockAllSigPads(){
+  document.querySelectorAll('.sig-lock-overlay').forEach(function(lock){
+    lock.classList.remove('unlocked');
+  });
+}
+
+/* ══════════════════════════════════
    CONTINUE-JOB MODAL
 ══════════════════════════════════ */
 var cmOpSigCanvas, cmOpSigCtx;
@@ -4539,6 +4598,7 @@ var cmQaSigState  = { val: false };
 function initCMSigPad(canvasId, hasMark, drawingVar, placeholderId) {
   var canvas = document.getElementById(canvasId);
   if (!canvas) return null;
+  _relockSig(canvasId.replace('-canvas', '-lock'));
   var ctx = canvas.getContext('2d');
   var dpr = window.devicePixelRatio || 1;
   var rect = canvas.getBoundingClientRect();
@@ -4562,12 +4622,14 @@ function clearCMOpSig() {
   cmOpSigCtx.clearRect(0, 0, cmOpSigCanvas.width, cmOpSigCanvas.height);
   cmOpMarkState.val = false;
   var ph = document.getElementById('cm-op-sig-placeholder'); if (ph) ph.classList.remove('hidden');
+  _relockSig('cm-op-sig-lock');
 }
 function clearCMQASig() {
   if (!cmQaSigCtx) return;
   cmQaSigCtx.clearRect(0, 0, cmQaSigCanvas.width, cmQaSigCanvas.height);
   cmQaMarkState.val = false;
   var ph = document.getElementById('cm-qa-sig-placeholder'); if (ph) ph.classList.remove('hidden');
+  _relockSig('cm-qa-sig-lock');
 }
 
 function openContinueModal(id) {
@@ -7027,6 +7089,7 @@ function _resizeSigCanvas(canvas, ctx) {
 function initSignaturePad() {
   sigCanvas = document.getElementById('sig-canvas');
   sigCtx = sigCanvas.getContext('2d');
+  _relockSig('sig-lock');
 
   // Scale canvas for device pixel ratio (may be 0x0 if container is hidden at load)
   var dpr = window.devicePixelRatio || 1;
@@ -7076,6 +7139,7 @@ function clearSignature() {
   sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
   sigHasMark = false;
   document.getElementById('sig-placeholder').classList.remove('hidden');
+  _relockSig('sig-lock');
 }
 
 function getSignatureDataURL() {
@@ -7137,6 +7201,7 @@ function initOpSigPad() {
   opSigCanvas = document.getElementById('op-sig-canvas');
   if (!opSigCanvas) return;
   opSigCtx = opSigCanvas.getContext('2d');
+  _relockSig('op-sig-lock');
   // Size canvas now only if visible; otherwise sizeOpSigCanvas() is called later
   var rect = opSigCanvas.getBoundingClientRect();
   if (rect.width > 0) {
@@ -7178,6 +7243,7 @@ function clearOpSignature() {
   opSigCtx.clearRect(0, 0, opSigCanvas.width, opSigCanvas.height);
   opSigHasMark = false;
   document.getElementById('op-sig-placeholder').classList.remove('hidden');
+  _relockSig('op-sig-lock');
 }
 
 function getOpSignatureDataURL() {
@@ -10275,6 +10341,7 @@ function initInspectSigPad() {
   iSigCanvas = document.getElementById('inspect-sig-canvas');
   if (!iSigCanvas) return;
   iSigCtx = iSigCanvas.getContext('2d');
+  _relockSig('inspect-sig-lock');
 
   if (!_iSigResizeCanvas()) {
     // Canvas has no width yet — retry until layout is done
@@ -10318,6 +10385,7 @@ function clearInspectSignature() {
   iSigCtx.clearRect(0, 0, iSigCanvas.width, iSigCanvas.height);
   iSigHasMark = false;
   document.getElementById('inspect-sig-placeholder').classList.remove('hidden');
+  _relockSig('inspect-sig-lock');
 }
 
 function resetInspectSig() {
@@ -13628,6 +13696,7 @@ function clearShipSig(){
   shipSigHasMark.val = false;
   var ph = document.getElementById('ship-sig-placeholder');
   if (ph) ph.classList.remove('hidden');
+  _relockSig('ship-sig-lock');
 }
 
 function submitShippingApproval(){
