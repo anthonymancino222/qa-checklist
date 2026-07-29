@@ -221,6 +221,18 @@ body.sidebar-expanded .nav-status {
   text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 12px;
 }
 
+/* ── FAQ page ── */
+.faq-search-wrap { position: relative; }
+.faq-search-icon {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  font-size: 16px; pointer-events: none;
+}
+.faq-group { display: flex; flex-direction: column; gap: 14px; }
+.faq-group-title {
+  font-size: 17px; font-weight: 800; color: var(--text-primary);
+  margin: 6px 0 -2px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
+}
+
 /* ── Form fields ── */
 .field { margin-bottom: 14px; }
 .field:last-child { margin-bottom: 0; }
@@ -3346,70 +3358,96 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       </div>
       <div style="padding:0 16px 24px;display:flex;flex-direction:column;gap:14px;max-width:720px;">
 
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>🔤 How do I make the text bigger or smaller?</span><span data-es>🔤 ¿Cómo hago el texto más grande o más pequeño?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:8px;"><span data-en>Look at the top of the screen. You will see three buttons: <b>A−</b>, a number like <b>100%</b>, and <b>A+</b>.</span><span data-es>Mire la parte de arriba de la pantalla. Verá tres botones: <b>A−</b>, un número como <b>100%</b>, y <b>A+</b>.</span></p>
-          <ul style="font-size:16px;line-height:1.8;padding-left:22px;margin:0;">
-            <li><span data-en><b>A+</b> makes the text a little bigger each time you tap it.</span><span data-es><b>A+</b> hace el texto un poco más grande cada vez que lo toca.</span></li>
-            <li><span data-en><b>A−</b> makes the text a little smaller each time you tap it.</span><span data-es><b>A−</b> hace el texto un poco más pequeño cada vez que lo toca.</span></li>
-            <li><span data-en>The button with the <b>number</b> (like 100%) jumps between 3 common sizes — small, medium, and large — so you can get to a comfortable size fast.</span><span data-es>El botón con el <b>número</b> (como 100%) cambia entre 3 tamaños comunes — pequeño, mediano y grande — para llegar rápido a un tamaño cómodo.</span></li>
-          </ul>
+        <div class="faq-search-wrap">
+          <span class="faq-search-icon">🔎</span>
+          <input type="text" id="faq-search" class="input" oninput="filterFaq()"
+                 placeholder="Search... / Buscar..." data-ph-en="Search..." data-ph-es="Buscar..."
+                 style="padding-left:40px;">
+        </div>
+        <div id="faq-no-results" style="display:none;font-size:16px;color:var(--text-secondary);padding:10px 4px;">
+          <span data-en>No matches found. Try a different word.</span><span data-es>No se encontraron resultados. Intente otra palabra.</span>
         </div>
 
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>🌐 How do I change the app to Spanish or English?</span><span data-es>🌐 ¿Cómo cambio la aplicación a español o inglés?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>Tap the round <b>🌐 globe button</b>. It's near the top of the screen (and also as a floating circle button if you're inside a form). Tapping it switches the whole app between English and Spanish right away.</span><span data-es>Toque el botón redondo <b>🌐 del globo</b>. Está cerca de la parte de arriba de la pantalla (y también como un botón circular flotante si está dentro de un formulario). Al tocarlo, toda la aplicación cambia entre inglés y español al instante.</span></p>
+        <div class="faq-group" data-faq-group="basics">
+          <div class="faq-group-title"><span data-en>📱 App Basics</span><span data-es>📱 Lo Básico de la Aplicación</span></div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>🔤 How do I make the text bigger or smaller?</span><span data-es>🔤 ¿Cómo hago el texto más grande o más pequeño?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin-bottom:8px;"><span data-en>Look at the top of the screen. You will see three buttons: <b>A−</b>, a number like <b>100%</b>, and <b>A+</b>.</span><span data-es>Mire la parte de arriba de la pantalla. Verá tres botones: <b>A−</b>, un número como <b>100%</b>, y <b>A+</b>.</span></p>
+            <ul style="font-size:16px;line-height:1.8;padding-left:22px;margin:0;">
+              <li><span data-en><b>A+</b> makes the text a little bigger each time you tap it.</span><span data-es><b>A+</b> hace el texto un poco más grande cada vez que lo toca.</span></li>
+              <li><span data-en><b>A−</b> makes the text a little smaller each time you tap it.</span><span data-es><b>A−</b> hace el texto un poco más pequeño cada vez que lo toca.</span></li>
+              <li><span data-en>The button with the <b>number</b> (like 100%) jumps between 3 common sizes — small, medium, and large — so you can get to a comfortable size fast.</span><span data-es>El botón con el <b>número</b> (como 100%) cambia entre 3 tamaños comunes — pequeño, mediano y grande — para llegar rápido a un tamaño cómodo.</span></li>
+            </ul>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>🌐 How do I change the app to Spanish or English?</span><span data-es>🌐 ¿Cómo cambio la aplicación a español o inglés?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>Tap the round <b>🌐 globe button</b>. It's near the top of the screen (and also as a floating circle button if you're inside a form). Tapping it switches the whole app between English and Spanish right away.</span><span data-es>Toque el botón redondo <b>🌐 del globo</b>. Está cerca de la parte de arriba de la pantalla (y también como un botón circular flotante si está dentro de un formulario). Al tocarlo, toda la aplicación cambia entre inglés y español al instante.</span></p>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>☰ How do I get to other screens, like NCR or Records?</span><span data-es>☰ ¿Cómo llego a otras pantallas, como RNC o Registros?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>On the left side of the screen, you'll see small icons stacked in a column. Tap the <b>☰ menu button</b> above them to show the full names next to each icon. Tap any icon to go to that screen.</span><span data-es>En el lado izquierdo de la pantalla, verá íconos pequeños en una columna. Toque el botón <b>☰ de menú</b> arriba de ellos para mostrar el nombre completo junto a cada ícono. Toque cualquier ícono para ir a esa pantalla.</span></p>
+          </div>
         </div>
 
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>☰ How do I get to other screens, like NCR or Records?</span><span data-es>☰ ¿Cómo llego a otras pantallas, como RNC o Registros?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>On the left side of the screen, you'll see small icons stacked in a column. Tap the <b>☰ menu button</b> above them to show the full names next to each icon. Tap any icon to go to that screen.</span><span data-es>En el lado izquierdo de la pantalla, verá íconos pequeños en una columna. Toque el botón <b>☰ de menú</b> arriba de ellos para mostrar el nombre completo junto a cada ícono. Toque cualquier ícono para ir a esa pantalla.</span></p>
+        <div class="faq-group" data-faq-group="checklists">
+          <div class="faq-group-title"><span data-en>✅ Checklists &amp; Signatures</span><span data-es>✅ Listas y Firmas</span></div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>🔒 Why can't I sign my name? It looks locked.</span><span data-es>🔒 ¿Por qué no puedo firmar? Se ve bloqueado.</span></div>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>That's on purpose. Every signature box starts <b>locked</b> so you don't accidentally draw on it while scrolling. Tap once on the <b>🔒 lock</b> to unlock it, then sign with your finger or a stylus. If you make a mistake, tap <b>Clear</b> — it will lock again automatically so it's ready for the next signature.</span><span data-es>Eso es a propósito. Cada casilla de firma empieza <b>bloqueada</b> para que no dibuje en ella por accidente mientras se desplaza. Toque una vez el <b>🔒 candado</b> para desbloquearla, y luego firme con el dedo o un lápiz óptico. Si se equivoca, toque <b>Borrar</b> — se bloqueará otra vez automáticamente para la siguiente firma.</span></p>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>▾ What does "Expand" / "Collapse" mean on the checklist?</span><span data-es>▾ ¿Qué significa "Expandir" / "Contraer" en la lista?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>The checklist can be hidden to save space, or shown so you can answer each item. Tap the bar that says <b>▾ Expand</b> to open it, or <b>▴ Collapse</b> to close it again. It also tells you how many items you've already answered, like "5 of 11 answered."</span><span data-es>La lista se puede ocultar para ahorrar espacio, o mostrar para que responda cada punto. Toque la barra que dice <b>▾ Expandir</b> para abrirla, o <b>▴ Contraer</b> para cerrarla otra vez. También le dice cuántos puntos ya respondió, como "5 de 11 respondidas."</span></p>
+          </div>
         </div>
 
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>🔒 Why can't I sign my name? It looks locked.</span><span data-es>🔒 ¿Por qué no puedo firmar? Se ve bloqueado.</span></div>
-          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>That's on purpose. Every signature box starts <b>locked</b> so you don't accidentally draw on it while scrolling. Tap once on the <b>🔒 lock</b> to unlock it, then sign with your finger or a stylus. If you make a mistake, tap <b>Clear</b> — it will lock again automatically so it's ready for the next signature.</span><span data-es>Eso es a propósito. Cada casilla de firma empieza <b>bloqueada</b> para que no dibuje en ella por accidente mientras se desplaza. Toque una vez el <b>🔒 candado</b> para desbloquearla, y luego firme con el dedo o un lápiz óptico. Si se equivoca, toque <b>Borrar</b> — se bloqueará otra vez automáticamente para la siguiente firma.</span></p>
+        <div class="faq-group" data-faq-group="shipping">
+          <div class="faq-group-title"><span data-en>📦 Shipping</span><span data-es>📦 Envíos</span></div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>📦 What is "Split Ship" and how do I use it correctly?</span><span data-es>📦 ¿Qué es "Envío Dividido" (Split Ship) y cómo se usa correctamente?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin-bottom:8px;"><span data-en>Use <b>Split Ship</b> when the job is <b>100% finished</b> and the full quantity is ready — but it needs to go out as more than one delivery (for example, 2 or 3 separate truck loads).</span><span data-es>Use <b>Envío Dividido</b> cuando el trabajo está <b>100% terminado</b> y toda la cantidad está lista — pero necesita salir en más de una entrega (por ejemplo, 2 o 3 camiones separados).</span></p>
+            <ol style="font-size:16px;line-height:1.9;padding-left:22px;margin:0 0 8px;">
+              <li><span data-en>Tap <b>Finish Job</b> and fill in the checklist like normal, including the <b>total quantity produced</b> (the full amount, not just one truck's worth).</span><span data-es>Toque <b>Terminar Trabajo</b> y llene la lista como siempre, incluyendo la <b>cantidad total producida</b> (la cantidad completa, no solo la de un camión).</span></li>
+              <li><span data-en>Under <b>Shipment Type</b>, tap <b>Split Ship</b>.</span><span data-es>En <b>Tipo de Envío</b>, toque <b>Envío Dividido</b>.</span></li>
+              <li><span data-en>Tap how many shipments there will be (2, 3, 4, or Other).</span><span data-es>Toque cuántos envíos habrá (2, 3, 4, u Otro).</span></li>
+              <li><span data-en>A box appears for each shipment. Type how many pieces go in each one — every box needs a number.</span><span data-es>Aparece una casilla para cada envío. Escriba cuántas piezas van en cada uno — cada casilla necesita un número.</span></li>
+              <li><span data-en>Tap <b>Finish Job ✓</b>. Quality will review all the shipments together and sign <b>one time</b> to release everything at once.</span><span data-es>Toque <b>Terminar Trabajo ✓</b>. Calidad revisará todos los envíos juntos y firmará <b>una sola vez</b> para liberar todo a la vez.</span></li>
+            </ol>
+            <p style="font-size:15px;line-height:1.6;margin:0;color:var(--text-secondary);"><span data-en><b>Remember:</b> only use Split Ship if the job is already fully done. If part of it still needs to run later, use Partial Run instead (next question below).</span><span data-es><b>Recuerde:</b> use Envío Dividido solo si el trabajo ya está completamente terminado. Si una parte todavía necesita correr después, use Corrida Parcial en su lugar (siguiente pregunta abajo).</span></p>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>⏸️ What is "Partial Run" (Partial Ship) and how do I use it correctly?</span><span data-es>⏸️ ¿Qué es "Corrida Parcial" (Partial Ship) y cómo se usa correctamente?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin-bottom:8px;"><span data-en>Use <b>Partial Run</b> when you have <b>not</b> finished the whole order yet — you're only running <b>part of it now</b>, and the rest will be run later (maybe another day or shift).</span><span data-es>Use <b>Corrida Parcial</b> cuando <b>todavía no</b> ha terminado toda la orden — solo está corriendo <b>una parte ahora</b>, y el resto se correrá después (tal vez otro día o turno).</span></p>
+            <ol style="font-size:16px;line-height:1.9;padding-left:22px;margin:0 0 8px;">
+              <li><span data-en>Tap <b>Finish Job</b> and enter the <b>Final Quantity Produced</b> — this is only the amount you made <b>right now</b>, not the whole order.</span><span data-es>Toque <b>Terminar Trabajo</b> e ingrese la <b>Cantidad Final Producida</b> — esto es solo la cantidad que hizo <b>ahora mismo</b>, no toda la orden.</span></li>
+              <li><span data-en>Under <b>Shipment Type</b>, tap <b>Partial Run</b>.</span><span data-es>En <b>Tipo de Envío</b>, toque <b>Corrida Parcial</b>.</span></li>
+              <li><span data-en>Tap <b>Finish Job ✓</b>. Quality reviews and signs for the amount you made right now.</span><span data-es>Toque <b>Terminar Trabajo ✓</b>. Calidad revisa y firma por la cantidad que hizo ahora.</span></li>
+              <li><span data-en>If pieces are still left on the order, the app automatically creates a new card in the <b>"Partial Shipped"</b> column for the rest — you don't need to write anything down.</span><span data-es>Si todavía quedan piezas en la orden, la aplicación crea automáticamente una nueva tarjeta en la columna <b>"Enviado Parcial"</b> para el resto — no necesita anotar nada.</span></li>
+              <li><span data-en>When it's time to run the rest, open that "Partial Shipped" card — the remaining quantity is already filled in for you. Repeat these steps for each partial run until the whole order is done.</span><span data-es>Cuando sea hora de correr el resto, abra esa tarjeta de "Enviado Parcial" — la cantidad restante ya está llena para usted. Repita estos pasos por cada corrida parcial hasta terminar toda la orden.</span></li>
+            </ol>
+            <p style="font-size:15px;line-height:1.6;margin:0;color:var(--text-secondary);"><span data-en><b>Remember:</b> with Partial Run, Quality signs off <b>every time</b> you finish a piece of the order — that's normal and expected, not a mistake.</span><span data-es><b>Recuerde:</b> con Corrida Parcial, Calidad firma <b>cada vez</b> que termina una parte de la orden — eso es normal y se espera, no es un error.</span></p>
+          </div>
         </div>
 
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>▾ What does "Expand" / "Collapse" mean on the checklist?</span><span data-es>▾ ¿Qué significa "Expandir" / "Contraer" en la lista?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>The checklist can be hidden to save space, or shown so you can answer each item. Tap the bar that says <b>▾ Expand</b> to open it, or <b>▴ Collapse</b> to close it again. It also tells you how many items you've already answered, like "5 of 11 answered."</span><span data-es>La lista se puede ocultar para ahorrar espacio, o mostrar para que responda cada punto. Toque la barra que dice <b>▾ Expandir</b> para abrirla, o <b>▴ Contraer</b> para cerrarla otra vez. También le dice cuántos puntos ya respondió, como "5 de 11 respondidas."</span></p>
-        </div>
+        <div class="faq-group" data-faq-group="misc">
+          <div class="faq-group-title"><span data-en>🗂️ Misc</span><span data-es>🗂️ Otros</span></div>
 
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>📦 What is "Split Ship" and how do I use it correctly?</span><span data-es>📦 ¿Qué es "Envío Dividido" (Split Ship) y cómo se usa correctamente?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:8px;"><span data-en>Use <b>Split Ship</b> when the job is <b>100% finished</b> and the full quantity is ready — but it needs to go out as more than one delivery (for example, 2 or 3 separate truck loads).</span><span data-es>Use <b>Envío Dividido</b> cuando el trabajo está <b>100% terminado</b> y toda la cantidad está lista — pero necesita salir en más de una entrega (por ejemplo, 2 o 3 camiones separados).</span></p>
-          <ol style="font-size:16px;line-height:1.9;padding-left:22px;margin:0 0 8px;">
-            <li><span data-en>Tap <b>Finish Job</b> and fill in the checklist like normal, including the <b>total quantity produced</b> (the full amount, not just one truck's worth).</span><span data-es>Toque <b>Terminar Trabajo</b> y llene la lista como siempre, incluyendo la <b>cantidad total producida</b> (la cantidad completa, no solo la de un camión).</span></li>
-            <li><span data-en>Under <b>Shipment Type</b>, tap <b>Split Ship</b>.</span><span data-es>En <b>Tipo de Envío</b>, toque <b>Envío Dividido</b>.</span></li>
-            <li><span data-en>Tap how many shipments there will be (2, 3, 4, or Other).</span><span data-es>Toque cuántos envíos habrá (2, 3, 4, u Otro).</span></li>
-            <li><span data-en>A box appears for each shipment. Type how many pieces go in each one — every box needs a number.</span><span data-es>Aparece una casilla para cada envío. Escriba cuántas piezas van en cada uno — cada casilla necesita un número.</span></li>
-            <li><span data-en>Tap <b>Finish Job ✓</b>. Quality will review all the shipments together and sign <b>one time</b> to release everything at once.</span><span data-es>Toque <b>Terminar Trabajo ✓</b>. Calidad revisará todos los envíos juntos y firmará <b>una sola vez</b> para liberar todo a la vez.</span></li>
-          </ol>
-          <p style="font-size:15px;line-height:1.6;margin:0;color:var(--text-secondary);"><span data-en><b>Remember:</b> only use Split Ship if the job is already fully done. If part of it still needs to run later, use Partial Run instead (next question below).</span><span data-es><b>Recuerde:</b> use Envío Dividido solo si el trabajo ya está completamente terminado. Si una parte todavía necesita correr después, use Corrida Parcial en su lugar (siguiente pregunta abajo).</span></p>
-        </div>
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>📷 The "Take Photo" button for scanning a tag doesn't fill in the job — why?</span><span data-es>📷 El botón de "Tomar Foto" para escanear una etiqueta no llena el trabajo — ¿por qué?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>That auto-fill-from-photo feature is turned off for now while we make it work better with slower internet. For now, please type the job number and other details by hand. This will come back in a future update.</span><span data-es>Esa función de llenado automático desde una foto está apagada por ahora mientras la mejoramos para internet más lento. Por ahora, escriba a mano el número de trabajo y los demás datos. Esto regresará en una actualización futura.</span></p>
+          </div>
 
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>⏸️ What is "Partial Run" (Partial Ship) and how do I use it correctly?</span><span data-es>⏸️ ¿Qué es "Corrida Parcial" (Partial Ship) y cómo se usa correctamente?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin-bottom:8px;"><span data-en>Use <b>Partial Run</b> when you have <b>not</b> finished the whole order yet — you're only running <b>part of it now</b>, and the rest will be run later (maybe another day or shift).</span><span data-es>Use <b>Corrida Parcial</b> cuando <b>todavía no</b> ha terminado toda la orden — solo está corriendo <b>una parte ahora</b>, y el resto se correrá después (tal vez otro día o turno).</span></p>
-          <ol style="font-size:16px;line-height:1.9;padding-left:22px;margin:0 0 8px;">
-            <li><span data-en>Tap <b>Finish Job</b> and enter the <b>Final Quantity Produced</b> — this is only the amount you made <b>right now</b>, not the whole order.</span><span data-es>Toque <b>Terminar Trabajo</b> e ingrese la <b>Cantidad Final Producida</b> — esto es solo la cantidad que hizo <b>ahora mismo</b>, no toda la orden.</span></li>
-            <li><span data-en>Under <b>Shipment Type</b>, tap <b>Partial Run</b>.</span><span data-es>En <b>Tipo de Envío</b>, toque <b>Corrida Parcial</b>.</span></li>
-            <li><span data-en>Tap <b>Finish Job ✓</b>. Quality reviews and signs for the amount you made right now.</span><span data-es>Toque <b>Terminar Trabajo ✓</b>. Calidad revisa y firma por la cantidad que hizo ahora.</span></li>
-            <li><span data-en>If pieces are still left on the order, the app automatically creates a new card in the <b>"Partial Shipped"</b> column for the rest — you don't need to write anything down.</span><span data-es>Si todavía quedan piezas en la orden, la aplicación crea automáticamente una nueva tarjeta en la columna <b>"Enviado Parcial"</b> para el resto — no necesita anotar nada.</span></li>
-            <li><span data-en>When it's time to run the rest, open that "Partial Shipped" card — the remaining quantity is already filled in for you. Repeat these steps for each partial run until the whole order is done.</span><span data-es>Cuando sea hora de correr el resto, abra esa tarjeta de "Enviado Parcial" — la cantidad restante ya está llena para usted. Repita estos pasos por cada corrida parcial hasta terminar toda la orden.</span></li>
-          </ol>
-          <p style="font-size:15px;line-height:1.6;margin:0;color:var(--text-secondary);"><span data-en><b>Remember:</b> with Partial Run, Quality signs off <b>every time</b> you finish a piece of the order — that's normal and expected, not a mistake.</span><span data-es><b>Recuerde:</b> con Corrida Parcial, Calidad firma <b>cada vez</b> que termina una parte de la orden — eso es normal y se espera, no es un error.</span></p>
-        </div>
-
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>📷 The "Take Photo" button for scanning a tag doesn't fill in the job — why?</span><span data-es>📷 El botón de "Tomar Foto" para escanear una etiqueta no llena el trabajo — ¿por qué?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>That auto-fill-from-photo feature is turned off for now while we make it work better with slower internet. For now, please type the job number and other details by hand. This will come back in a future update.</span><span data-es>Esa función de llenado automático desde una foto está apagada por ahora mientras la mejoramos para internet más lento. Por ahora, escriba a mano el número de trabajo y los demás datos. Esto regresará en una actualización futura.</span></p>
-        </div>
-
-        <div class="card" style="margin:0;">
-          <div class="card-label"><span data-en>💾 Will I lose my work if I close the app or lose internet?</span><span data-es>💾 ¿Perderé mi trabajo si cierro la aplicación o se va el internet?</span></div>
-          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>No. Your work is saved on this device as you go, even without internet. When the internet comes back, it also saves a copy online automatically — you don't need to do anything extra.</span><span data-es>No. Su trabajo se guarda en este dispositivo mientras trabaja, incluso sin internet. Cuando el internet regresa, también guarda una copia en línea automáticamente — no necesita hacer nada más.</span></p>
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>💾 Will I lose my work if I close the app or lose internet?</span><span data-es>💾 ¿Perderé mi trabajo si cierro la aplicación o se va el internet?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>No. Your work is saved on this device as you go, even without internet. When the internet comes back, it also saves a copy online automatically — you don't need to do anything extra.</span><span data-es>No. Su trabajo se guarda en este dispositivo mientras trabaja, incluso sin internet. Cuando el internet regresa, también guarda una copia en línea automáticamente — no necesita hacer nada más.</span></p>
+          </div>
         </div>
 
       </div>
@@ -6851,6 +6889,28 @@ function finishJob() {
       }, { okLabel: isEs?'Terminar trabajo':'Finish job', danger: false });
     }
   }
+}
+
+/* Search box on the Help/FAQ page — matches against a card's full text (both
+   languages at once, so a search works no matter which language is showing),
+   hides non-matching cards, and hides a whole topic group if none of its
+   cards match. */
+function filterFaq(){
+  var input = document.getElementById('faq-search');
+  var q = input ? input.value.trim().toLowerCase() : '';
+  var anyVisible = false;
+  document.querySelectorAll('.faq-group').forEach(function(group){
+    var groupHasVisible = false;
+    group.querySelectorAll('.card').forEach(function(card){
+      var match = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
+      card.style.display = match ? '' : 'none';
+      if (match) groupHasVisible = true;
+    });
+    group.style.display = groupHasVisible ? '' : 'none';
+    if (groupHasVisible) anyVisible = true;
+  });
+  var noResults = document.getElementById('faq-no-results');
+  if (noResults) noResults.style.display = anyVisible ? 'none' : 'block';
 }
 
 /* ══════════════════════════════════
