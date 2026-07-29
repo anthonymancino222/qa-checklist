@@ -3768,14 +3768,22 @@ function _passcodeCancel(){
    effect on cards rendered AFTER toggling — a card already open when you
    toggle needs to be closed and reopened to pick up the change. */
 var _dataEditMode = false;
-function toggleDataEditMode(){
+// onToggled (optional) fires right after the mode flips, so a "DATA EDIT"
+// button placed inside an already-open job summary card can re-render
+// itself immediately — without it, the pencils only show up the next time
+// that card is opened, which isn't obvious from inside the popup itself.
+function toggleDataEditMode(onToggled){
   var isEs = isEsLang();
   showPasscodePrompt(isEs ? 'Se requiere un código para editar campos del trabajo.' : 'A passcode is required to edit job fields.', function(ok){
     if (!ok) return;
     _dataEditMode = !_dataEditMode;
-    showToast(_dataEditMode
-      ? (isEs ? '✏️ Modo de edición activado — reabra la tarjeta del trabajo para ver los lápices.' : '✏️ Edit mode ON — reopen the job card to see the pencils.')
-      : (isEs ? 'Modo de edición desactivado.' : 'Edit mode OFF.'), 'pass');
+    if (typeof onToggled === 'function') {
+      onToggled();
+    } else {
+      showToast(_dataEditMode
+        ? (isEs ? '✏️ Modo de edición activado — reabra la tarjeta del trabajo para ver los lápices.' : '✏️ Edit mode ON — reopen the job card to see the pencils.')
+        : (isEs ? 'Modo de edición desactivado.' : 'Edit mode OFF.'), 'pass');
+    }
   });
 }
 function _startEditField(rowId, editId){
@@ -8303,6 +8311,11 @@ function _renderQaJobSummary(job) {
       _custComboHTML(job) +
     '</div>';
   document.getElementById('cm-qa-job-summary').innerHTML =
+    '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">' +
+      '<button type="button" onclick="toggleDataEditMode(function(){ var f=_findJobById(\''+job.id+'\'); if(f) _renderQaJobSummary(f.job); })" style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;">' +
+        (_dataEditMode ? (_qaEs?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (_qaEs?'✏️ EDITAR DATOS':'✏️ DATA EDIT')) +
+      '</button>' +
+    '</div>' +
     '<div style="font-size:14px;line-height:1.8;">' +
     '<div><strong>' + (_qaEs ? 'Trabajo:' : 'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
     '<div id="cm-qa-station-row"><strong>' + (_qaEs ? 'Estación:' : 'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—') +
@@ -8382,6 +8395,11 @@ function _renderProdSummary(job) {
     // (the actual order changing after the job started running).
     var _qtyExecEditable = _dataEditMode && cmIsGluer && !_jobIsGluerFirstPass(job);
     summary.innerHTML =
+      '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">' +
+        '<button type="button" onclick="toggleDataEditMode(function(){ var f=_findJobById(\''+job.id+'\'); if(f) _renderProdSummary(f.job); })" style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;">' +
+          (_dataEditMode ? (_prodSumEs?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (_prodSumEs?'✏️ EDITAR DATOS':'✏️ DATA EDIT')) +
+        '</button>' +
+      '</div>' +
       (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
