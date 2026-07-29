@@ -1547,7 +1547,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
         <div class="card">
           <div class="card-label"><span data-en>Job info</span><span data-es>Información del Trabajo</span></div>
-          <div style="margin-bottom:14px;">
+          <!-- Load-tag photo scan (OCR) — hidden for now, needs reliable internet to load
+               the text-reader on first use each session; revisit once wifi is better. -->
+          <div style="margin-bottom:14px;display:none;">
             <div style="display:flex;gap:8px;">
               <label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-color:var(--pink);color:var(--pink);font-size:14px;padding:12px;">
                 📷 <span data-en>Take Photo</span><span data-es>Tomar Foto</span>
@@ -2926,7 +2928,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           </select>
         </div>
       </div>
-      <div class="field-row single" style="margin-bottom:12px">
+      <!-- Load-tag photo scan (OCR) — hidden for now, needs reliable internet to load
+           the text-reader on first use each session; revisit once wifi is better. -->
+      <div class="field-row single" style="margin-bottom:12px;display:none;">
         <div class="field-group">
           <div style="display:flex;gap:8px;">
             <label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid #1d4ed8;color:#1d4ed8;background:#fff;border-radius:8px;font-size:15px;padding:10px;">
@@ -6867,8 +6871,8 @@ var STATION_LABELS = {
   'Long Gluer':       ['Long Gluer', 'Pegadora Larga'],
   'Short Gluer':      ['Short Gluer', 'Pegadora Corta'],
   'Packing':          ['Packing', 'Empaque'],
-  'Samples':          ['Samples', 'Muestras'],
-  'Vendor':           ['Vendor', 'Proveedor']
+  'Samples':          ['Samples', 'Trabajos de Muestra'],
+  'Vendor':           ['Vendor', 'Trabajos de Vendedor']
 };
 function stationLabel(station){
   var pair = STATION_LABELS[station];
@@ -12285,7 +12289,9 @@ function ncrFormHTML() {
   var h = '<button class="ncr-back" onclick="ncrCancel()">← ' + (isEs?'Atrás':'Back') + '</button>' +
     '<div class="card">' + stepTitle(1, ncrPathTitle(ncrState.path) + (isEs?' — Información del Trabajo':' — Job Info')) +
     prefillHTML +
-    '<div style="margin-bottom:14px;">' +
+    /* Load-tag photo scan (OCR) — hidden for now, needs reliable internet to
+       load the text-reader on first use each session; revisit once wifi is better. */
+    '<div style="margin-bottom:14px;display:none;">' +
     '<div style="display:flex;gap:8px;">' +
     '<label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-color:var(--pink);color:var(--pink);font-size:14px;padding:12px;">' +
     '📷 ' + (isEs?'Tomar Foto':'Take Photo') +
