@@ -1560,16 +1560,30 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="view-sub"><span data-en>Enter job details, then inspect each product.</span><span data-es>Ingrese los detalles del trabajo y luego inspeccione cada producto.</span></div>
         </div>
 
-        <!-- Draft resume banner -->
-        <div id="qc-draft-banner" style="display:none;background:rgba(var(--pink-rgb,220,38,127),.08);border:2px solid var(--pink);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
-          <div style="font-size:15px;font-weight:800;color:var(--pink);margin-bottom:4px;">📋 <span data-en>Saved entry found</span><span data-es>Entrada guardada encontrada</span></div>
-          <div id="qc-draft-info" style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;"></div>
-          <div style="display:flex;gap:8px;">
-            <button onclick="resumeDraft()" style="flex:1;padding:9px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;"><span data-en>Resume Entry</span><span data-es>Reanudar Entrada</span></button>
-            <button onclick="discardDraft()" style="flex:1;padding:9px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;"><span data-en>Discard</span><span data-es>Descartar</span></button>
+        <!-- Landing — the first thing shown when arriving at this tab, and
+             again before each new job. Forces a fresh sync before typing
+             starts, since a stale local copy was the direct cause of
+             operators losing a full checklist's worth of work ("redo it,
+             it never saved" after ~13 hrs without a sync). -->
+        <div id="qc-landing">
+          <!-- Draft resume banner -->
+          <div id="qc-draft-banner" style="display:none;background:rgba(var(--pink-rgb,220,38,127),.08);border:2px solid var(--pink);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+            <div style="font-size:15px;font-weight:800;color:var(--pink);margin-bottom:4px;">📋 <span data-en>Saved entry found</span><span data-es>Entrada guardada encontrada</span></div>
+            <div id="qc-draft-info" style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="resumeDraft()" style="flex:1;padding:9px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;"><span data-en>Resume Entry</span><span data-es>Reanudar Entrada</span></button>
+              <button onclick="discardDraft()" style="flex:1;padding:9px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;"><span data-en>Discard</span><span data-es>Descartar</span></button>
+            </div>
+          </div>
+
+          <div class="card" style="text-align:center;padding:36px 20px;">
+            <div style="font-size:40px;margin-bottom:10px;">📋</div>
+            <div style="font-size:15px;color:var(--text-secondary);margin-bottom:20px;"><span data-en>Ready to log a job?</span><span data-es>¿Listo para registrar un trabajo?</span></div>
+            <button class="btn-primary" style="width:100%;padding:18px;font-size:18px;" onclick="openQcSyncGate()">▶ <span data-en>Start New Job</span><span data-es>Iniciar Nuevo Trabajo</span></button>
           </div>
         </div>
 
+        <div id="qc-setup-form" style="display:none;">
         <div class="card">
           <div class="card-label"><span data-en>Job info</span><span data-es>Información del Trabajo</span></div>
           <!-- Load-tag photo scan (OCR) — hidden for now, needs reliable internet to load
@@ -2034,6 +2048,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         <button id="post-body-save-btn" onclick="saveDraft()" style="display:none;width:100%;margin-top:8px;padding:12px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">💾 <span data-en>Save Progress</span><span data-es>Guardar Progreso</span></button>
         <button id="post-body-cancel-btn" onclick="cancelEntry()" style="display:none;width:100%;margin-top:8px;padding:12px;background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">✕ <span data-en>Cancel Entry</span><span data-es>Cancelar Entrada</span></button>
         </div><!-- /post-station-body -->
+        </div><!-- /qc-setup-form -->
 
       </div>
 
@@ -2156,7 +2171,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="summary-card" id="success-summary"></div>
           <div class="btn-row">
             <button class="btn-secondary" onclick="exportCSV()"><span data-en>Export CSV</span><span data-es>Exportar CSV</span></button>
-            <button class="btn-primary" onclick="startNewJob()"><span data-en>New job →</span><span data-es>Nuevo trabajo →</span></button>
+            <button class="btn-primary" onclick="beginFreshJobEntry()"><span data-en>New job →</span><span data-es>Nuevo trabajo →</span></button>
           </div>
           <div id="ncr-followup" style="display:none;margin-top:10px;">
             <button class="btn-primary" style="background:var(--red)" onclick="switchView('ncr')"><span data-en>Open NCR form →</span><span data-es>Abrir formulario NCR →</span></button>
@@ -2694,6 +2709,23 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         <div style="display:flex;gap:10px;padding:20px;">
           <button class="btn" style="flex:1;" onclick="_passcodeCancel()"><span data-en>Cancel</span><span data-es>Cancelar</span></button>
           <button class="btn-primary" style="flex:1;" onclick="_passcodeCheck()"><span data-en>Confirm</span><span data-es>Confirmar</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync-before-new-job gate — shown when Start New Job is tapped on the
+         QC Approval landing. Forces a push+pull before the blank job-info
+         form appears, so an operator never starts typing into a copy of the
+         app that's hours out of sync with what the server has. -->
+    <div class="continue-overlay" id="qcSyncOverlay" onclick="if(event.target===this)qcSyncCancel()">
+      <div class="continue-modal" style="max-width:360px;width:100%;">
+        <div style="padding:24px 20px 6px;">
+          <div style="font-size:17px;font-weight:800;color:var(--text-primary);margin-bottom:10px;"><span data-en>🔄 Sync Before Starting a New Job</span><span data-es>🔄 Sincronizar Antes de un Nuevo Trabajo</span></div>
+          <div style="font-size:14px;color:var(--text-secondary);line-height:1.55;margin-bottom:4px;"><span data-en>Tap Sync Now to confirm everything is up to date before you begin.</span><span data-es>Toque Sincronizar Ahora para confirmar que todo está actualizado antes de comenzar.</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding:20px;">
+          <button class="btn-primary" id="qc-sync-now-btn" style="width:100%;padding:14px;font-size:16px;" onclick="qcSyncNowClick()">🔄 <span data-en>Sync Now</span><span data-es>Sincronizar Ahora</span></button>
+          <button class="btn" style="width:100%;" onclick="qcSyncCancel()"><span data-en>Cancel</span><span data-es>Cancelar</span></button>
         </div>
       </div>
     </div>
@@ -4333,7 +4365,7 @@ function _syncPushAll(type, list) {
   }).filter(Boolean);
   if (!records.length) { _syncMarkPending(type, false); return; }
   _syncMarkPending(type, true);
-  fetch(QA_BACKEND_URL + '/records/bulk', {
+  return fetch(QA_BACKEND_URL + '/records/bulk', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-Key': QA_BACKEND_API_KEY },
     body: JSON.stringify({ records: records })
@@ -4374,7 +4406,7 @@ function _syncDeleteRecord(type, id){
 function _syncPullAndMerge(type, currentList, saveFn) {
   if (!QA_BACKEND_URL) return;
   var idField = _syncIdField(type);
-  fetch(QA_BACKEND_URL + '/records?type=' + type)
+  return fetch(QA_BACKEND_URL + '/records?type=' + type)
     .then(function(res){ return res.json(); })
     .then(function(json){
       var remote = (json.records || []).filter(function(r){ return !r.deleted; });
@@ -4390,6 +4422,22 @@ function _syncInitialPull() {
   _syncPullAndMerge('ncr', ncrLoad(), ncrSave);
   _syncPullAndMerge('ncr_draft', ncrDraftLoad(), ncrDraftSave);
   _syncRetryPending(); // also flush anything left over from a prior offline session
+}
+// Push-then-pull across every synced store, resolving once all requests
+// settle (success or failure — a failed fetch shouldn't hang the "Sync Now"
+// button forever). Capped at 8s so a dead connection doesn't strand the
+// operator on the sync screen indefinitely — after the cap, whatever
+// finished, finished; anything still pending is picked up by the normal
+// online/30s retry loop.
+function _syncNowAll() {
+  var jobs = ipLoad(), ncrs = ncrLoad(), drafts = ncrDraftLoad();
+  var tasks = [
+    _syncPushAll('job', jobs), _syncPushAll('ncr', ncrs), _syncPushAll('ncr_draft', drafts),
+    _syncPullAndMerge('job', jobs, ipSave), _syncPullAndMerge('ncr', ncrs, ncrSave), _syncPullAndMerge('ncr_draft', drafts, ncrDraftSave)
+  ].map(function(p){ return Promise.resolve(p).catch(function(){}); });
+  var allDone = Promise.all(tasks);
+  var timeout = new Promise(function(resolve){ setTimeout(resolve, 8000); });
+  return Promise.race([allDone, timeout]);
 }
 
 /* ══════════════════════════════════
@@ -7064,7 +7112,7 @@ function switchView(id) {
   if (v) v.classList.add('active');
   if (id === 'inprogress') renderInProgress();
   if (id === 'qarelease')  renderQARelease();
-  if (id === 'qc')         checkDraftBanner();
+  if (id === 'qc')         { checkDraftBanner(); checkQcLanding(); }
   if (id === 'ncr')        renderNCRView();
   if (id === 'ncrprog')    renderNCRProgress();
   if (id === 'ncrpie')     renderNCRPie();
@@ -10092,8 +10140,10 @@ function submitJob() {
     hasFail ? 'fail' : 'pass'
   );
 
-  // Reset immediately for next entry
-  startNewJob();
+  // Reset for next entry — routed through the sync gate so an operator
+  // never starts the next job on a copy of the app that's fallen out of
+  // sync with the server.
+  beginFreshJobEntry();
 }
 
 function row(label, value, raw) {
@@ -10178,6 +10228,20 @@ function saveDraft() {
   }
 }
 
+// Re-gates the QC tab behind the Start-New-Job / sync screen every time it's
+// navigated to — not just on first page load. Never touches qc-inspect (an
+// operator already mid-checklist on this tab isn't "arriving" at it), and
+// never erases anything: it only toggles which block is visible, so typed
+// fields sitting behind the landing are still there if the operator resumes
+// without going through Start New Job.
+function checkQcLanding() {
+  var setupScreen = document.getElementById('qc-setup');
+  if (!setupScreen || !setupScreen.classList.contains('active')) return;
+  var landing = document.getElementById('qc-landing');
+  var form = document.getElementById('qc-setup-form');
+  if (landing) landing.style.display = 'block';
+  if (form) form.style.display = 'none';
+}
 function checkDraftBanner() {
   var drafts = loadDrafts();
   var banner = document.getElementById('qc-draft-banner');
@@ -10203,6 +10267,55 @@ function checkDraftBanner() {
   }).join('') : '<div style="font-size:14px;color:var(--text-secondary);"><b style="color:var(--pink);">' + escHtml(drafts[0].station || '—') + '</b> · Job ' + escHtml(drafts[0].jobNumber || '—') + ' · ' + escHtml(drafts[0].ts || '') + '</div>';
 }
 
+// Swaps the QC-tab landing (draft banner + Start New Job button) for the
+// actual job-info form. Shared by the sync-gate completion and by Resume
+// Entry, since resuming a draft should reveal the form too.
+function _qcRevealForm() {
+  var landing = document.getElementById('qc-landing');
+  var form = document.getElementById('qc-setup-form');
+  if (landing) landing.style.display = 'none';
+  if (form) form.style.display = 'block';
+}
+// Used by the QA-success screen's "New job →" button — that button already
+// expresses "start a new job" intent, so it goes straight to the sync gate
+// rather than making the operator land on the landing screen and tap Start
+// New Job again.
+function beginFreshJobEntry() {
+  showQCScreen('qc-setup');
+  var landing = document.getElementById('qc-landing');
+  var form = document.getElementById('qc-setup-form');
+  if (form) form.style.display = 'none';
+  if (landing) landing.style.display = 'block';
+  checkDraftBanner();
+  openQcSyncGate();
+}
+function openQcSyncGate() {
+  var btn = document.getElementById('qc-sync-now-btn');
+  if (btn) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.innerHTML = '🔄 ' + (isEsLang() ? 'Sincronizar Ahora' : 'Sync Now');
+  }
+  document.getElementById('qcSyncOverlay').classList.add('open');
+}
+function qcSyncCancel() {
+  document.getElementById('qcSyncOverlay').classList.remove('open');
+}
+function qcSyncNowClick() {
+  var btn = document.getElementById('qc-sync-now-btn');
+  var isEs = isEsLang();
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '.6';
+    btn.innerHTML = '⏳ ' + (isEs ? 'Sincronizando…' : 'Syncing…');
+  }
+  _syncNowAll().then(function(){
+    document.getElementById('qcSyncOverlay').classList.remove('open');
+    _qcRevealForm();
+    startNewJob();
+    showToast(isEs ? '✓ Sincronizado — listo para un nuevo trabajo' : '✓ Synced — ready for a new job', 'pass');
+  });
+}
 function resumeDraft(id) {
   var drafts = loadDrafts();
   var draft = null;
@@ -10211,6 +10324,7 @@ function resumeDraft(id) {
 
   if (draft.screen === 'qc-setup') {
     showQCScreen('qc-setup');
+    _qcRevealForm();
     if (draft.jobNumber) document.getElementById('setup-job').value = draft.jobNumber;
     if (draft.station) { document.getElementById('setup-station').value = draft.station; onStationChange(draft.station); }
     if (draft.customer) { document.getElementById('setup-customer').value = draft.customer; document.getElementById('customer-search').value = draft.customerDisplay || draft.customer; }
