@@ -993,6 +993,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
   /* Kanban: vertical stack on mobile — no horizontal overflow that breaks fixed bottom nav */
   .kanban-wrap { flex-direction: column; overflow-x: visible; gap: 10px; }
+  #ip-kanban-scroll-top { display: none; }
   .kanban-col { flex: none !important; width: 100% !important; min-height: 0 !important; }
 
   /* Header clear-data button: compact but still readable */
@@ -2198,10 +2199,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button class="vmt-btn" id="ip-view-list-btn" onclick="setInProgressViewMode('list')">☰ <span data-en>List</span><span data-es>Lista</span></button>
         </div>
       </div>
+      <!-- Mirrors ip-kanban-wrap's horizontal scrollbar up here too — with
+           several tall columns, the native scrollbar sits at the bottom of
+           the tallest one, which can be a long way down the page. -->
+      <div id="ip-kanban-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:16px;margin-bottom:2px;" onscroll="_syncKanbanScroll(this, document.getElementById('ip-kanban-wrap'))">
+        <div id="ip-kanban-scroll-top-spacer" style="height:1px;"></div>
+      </div>
       <!-- openColJobsSheet's 2nd argument becomes a sheet title elsewhere in
            JS — left as English literals for now (dynamic-string territory,
            same follow-up bucket as the scanner-title reads above). -->
-      <div class="kanban-wrap" id="ip-kanban-wrap">
+      <div class="kanban-wrap" id="ip-kanban-wrap" onscroll="_syncKanbanScroll(this, document.getElementById('ip-kanban-scroll-top'))">
         <div class="kanban-col">
           <div class="kanban-col-head" onclick="openColJobsSheet('makeready','In Make Ready')" style="cursor:pointer;">
             <span class="kanban-col-title"><span data-en>In Make Ready</span><span data-es>En Preparación</span></span>
@@ -4382,6 +4389,9 @@ function _syncRetryPending() {
   if (pending.ncr) _syncPushAll('ncr', ncrLoad());
   if (pending.ncr_draft) _syncPushAll('ncr_draft', ncrDraftLoad());
 }
+window.addEventListener('resize', function(){
+  if (typeof _syncKanbanScrollWidth === 'function') _syncKanbanScrollWidth();
+});
 window.addEventListener('online', _syncRetryPending);
 setInterval(_syncRetryPending, 30000);
 // Soft-deletes one record on the server. Nothing calls the Worker's DELETE
@@ -4770,6 +4780,20 @@ function closeColJobsSheet(e) {
   document.getElementById('col-jobs-sheet').style.display = 'none';
 }
 
+// Keeps the top mirror scrollbar and the real kanban-wrap in lockstep in
+// either direction. The scrollLeft check avoids the two onscroll handlers
+// re-triggering each other in an infinite loop.
+function _syncKanbanScroll(source, target) {
+  if (!target || target.scrollLeft === source.scrollLeft) return;
+  target.scrollLeft = source.scrollLeft;
+}
+// The mirror bar has no content of its own — its spacer just needs to be as
+// wide as the real board so its scrollbar's thumb is proportioned the same.
+function _syncKanbanScrollWidth() {
+  var wrap = document.getElementById('ip-kanban-wrap');
+  var spacer = document.getElementById('ip-kanban-scroll-top-spacer');
+  if (wrap && spacer) spacer.style.width = wrap.scrollWidth + 'px';
+}
 function renderInProgress() {
   updateQAReleaseBadge();
   var jobs = ipLoad();
@@ -4931,6 +4955,10 @@ function renderInProgress() {
       }
     });
   });
+  // Card content just changed the board's total width — resync the mirror
+  // scrollbar's spacer. Reading scrollWidth below forces the layout that
+  // was just invalidated, so this doesn't need to wait for a paint frame.
+  _syncKanbanScrollWidth();
 }
 
 /* ══════════════════════════════════
@@ -7324,6 +7352,7 @@ function _applyTextScale(idx){
   // especially for anyone who doesn't read English well.
   var btn = document.getElementById('text-size-preset-btn');
   if (btn) btn.textContent = Math.round(TEXT_SCALE_LEVELS[idx] * 100) + '%';
+  if (typeof _syncKanbanScrollWidth === 'function') _syncKanbanScrollWidth();
 }
 function stepTextSize(dir){
   var idx = Math.max(0, Math.min(TEXT_SCALE_LEVELS.length - 1, _textScaleIdx() + dir));
