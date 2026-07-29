@@ -1466,7 +1466,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <div class="text-size-ctrl" role="group" aria-label="Text size">
       <span class="text-size-ctrl-label"><span data-en>Text size:</span><span data-es>Tamaño del texto:</span></span>
       <button type="button" onclick="stepTextSize(-1)" title="Decrease text size" aria-label="Decrease text size">A−</button>
-      <button type="button" onclick="cyclePresetTextSize()" title="Cycle text size (100% / 130% / 200%)" aria-label="Cycle text size preset">A</button>
+      <button type="button" id="text-size-preset-btn" onclick="cyclePresetTextSize()" title="Tap to jump between 3 sizes: 100% / 130% / 200%" aria-label="Jump between 3 text sizes">100%</button>
       <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
     </div>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
@@ -1518,6 +1518,12 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <div class="nav-group-label"><span data-en>Records</span><span data-es>Registros</span></div>
       <div class="nav-item" id="nav-records" onclick="switchView('records')" title="Records">
         <span class="nav-icon">🗄️</span><span class="nav-label"><span data-en>Records</span><span data-es>Registros</span></span>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label"><span data-en>Help</span><span data-es>Ayuda</span></div>
+      <div class="nav-item" id="nav-faq" onclick="switchView('faq')" title="Help / FAQ">
+        <span class="nav-icon">❓</span><span class="nav-label"><span data-en>Help / FAQ</span><span data-es>Ayuda / Preguntas</span></span>
       </div>
     </div>
   </nav>
@@ -3325,6 +3331,61 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button type="button" class="tgl" data-recfilter="rca" onclick="setRecordsFilter('rca',this)">RCA</button>
         </div>
         <div id="records-list"></div>
+      </div>
+    </div>
+
+    <!-- ══ HELP / FAQ ══
+         Written for anyone, including someone who doesn't read English well
+         or didn't finish high school — short sentences, everyday words, and
+         the same icons the buttons actually use so people can match them
+         up by sight, not just by text. -->
+    <div id="view-faq" class="screen">
+      <div class="view-header">
+        <div class="view-title"><span data-en>Help / FAQ</span><span data-es>Ayuda / Preguntas Frecuentes</span></div>
+        <div class="view-sub"><span data-en>Simple answers for common questions about using this app.</span><span data-es>Respuestas sencillas a preguntas comunes sobre cómo usar esta aplicación.</span></div>
+      </div>
+      <div style="padding:0 16px 24px;display:flex;flex-direction:column;gap:14px;max-width:720px;">
+
+        <div class="card" style="margin:0;">
+          <div class="card-label"><span data-en>🔤 How do I make the text bigger or smaller?</span><span data-es>🔤 ¿Cómo hago el texto más grande o más pequeño?</span></div>
+          <p style="font-size:16px;line-height:1.6;margin-bottom:8px;"><span data-en>Look at the top of the screen. You will see three buttons: <b>A−</b>, a number like <b>100%</b>, and <b>A+</b>.</span><span data-es>Mire la parte de arriba de la pantalla. Verá tres botones: <b>A−</b>, un número como <b>100%</b>, y <b>A+</b>.</span></p>
+          <ul style="font-size:16px;line-height:1.8;padding-left:22px;margin:0;">
+            <li><span data-en><b>A+</b> makes the text a little bigger each time you tap it.</span><span data-es><b>A+</b> hace el texto un poco más grande cada vez que lo toca.</span></li>
+            <li><span data-en><b>A−</b> makes the text a little smaller each time you tap it.</span><span data-es><b>A−</b> hace el texto un poco más pequeño cada vez que lo toca.</span></li>
+            <li><span data-en>The button with the <b>number</b> (like 100%) jumps between 3 common sizes — small, medium, and large — so you can get to a comfortable size fast.</span><span data-es>El botón con el <b>número</b> (como 100%) cambia entre 3 tamaños comunes — pequeño, mediano y grande — para llegar rápido a un tamaño cómodo.</span></li>
+          </ul>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="card-label"><span data-en>🌐 How do I change the app to Spanish or English?</span><span data-es>🌐 ¿Cómo cambio la aplicación a español o inglés?</span></div>
+          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>Tap the round <b>🌐 globe button</b>. It's near the top of the screen (and also as a floating circle button if you're inside a form). Tapping it switches the whole app between English and Spanish right away.</span><span data-es>Toque el botón redondo <b>🌐 del globo</b>. Está cerca de la parte de arriba de la pantalla (y también como un botón circular flotante si está dentro de un formulario). Al tocarlo, toda la aplicación cambia entre inglés y español al instante.</span></p>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="card-label"><span data-en>☰ How do I get to other screens, like NCR or Records?</span><span data-es>☰ ¿Cómo llego a otras pantallas, como RNC o Registros?</span></div>
+          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>On the left side of the screen, you'll see small icons stacked in a column. Tap the <b>☰ menu button</b> above them to show the full names next to each icon. Tap any icon to go to that screen.</span><span data-es>En el lado izquierdo de la pantalla, verá íconos pequeños en una columna. Toque el botón <b>☰ de menú</b> arriba de ellos para mostrar el nombre completo junto a cada ícono. Toque cualquier ícono para ir a esa pantalla.</span></p>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="card-label"><span data-en>🔒 Why can't I sign my name? It looks locked.</span><span data-es>🔒 ¿Por qué no puedo firmar? Se ve bloqueado.</span></div>
+          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>That's on purpose. Every signature box starts <b>locked</b> so you don't accidentally draw on it while scrolling. Tap once on the <b>🔒 lock</b> to unlock it, then sign with your finger or a stylus. If you make a mistake, tap <b>Clear</b> — it will lock again automatically so it's ready for the next signature.</span><span data-es>Eso es a propósito. Cada casilla de firma empieza <b>bloqueada</b> para que no dibuje en ella por accidente mientras se desplaza. Toque una vez el <b>🔒 candado</b> para desbloquearla, y luego firme con el dedo o un lápiz óptico. Si se equivoca, toque <b>Borrar</b> — se bloqueará otra vez automáticamente para la siguiente firma.</span></p>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="card-label"><span data-en>▾ What does "Expand" / "Collapse" mean on the checklist?</span><span data-es>▾ ¿Qué significa "Expandir" / "Contraer" en la lista?</span></div>
+          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>The checklist can be hidden to save space, or shown so you can answer each item. Tap the bar that says <b>▾ Expand</b> to open it, or <b>▴ Collapse</b> to close it again. It also tells you how many items you've already answered, like "5 of 11 answered."</span><span data-es>La lista se puede ocultar para ahorrar espacio, o mostrar para que responda cada punto. Toque la barra que dice <b>▾ Expandir</b> para abrirla, o <b>▴ Contraer</b> para cerrarla otra vez. También le dice cuántos puntos ya respondió, como "5 de 11 respondidas."</span></p>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="card-label"><span data-en>📷 The "Take Photo" button for scanning a tag doesn't fill in the job — why?</span><span data-es>📷 El botón de "Tomar Foto" para escanear una etiqueta no llena el trabajo — ¿por qué?</span></div>
+          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>That auto-fill-from-photo feature is turned off for now while we make it work better with slower internet. For now, please type the job number and other details by hand. This will come back in a future update.</span><span data-es>Esa función de llenado automático desde una foto está apagada por ahora mientras la mejoramos para internet más lento. Por ahora, escriba a mano el número de trabajo y los demás datos. Esto regresará en una actualización futura.</span></p>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="card-label"><span data-en>💾 Will I lose my work if I close the app or lose internet?</span><span data-es>💾 ¿Perderé mi trabajo si cierro la aplicación o se va el internet?</span></div>
+          <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>No. Your work is saved on this device as you go, even without internet. When the internet comes back, it also saves a copy online automatically — you don't need to do anything extra.</span><span data-es>No. Su trabajo se guarda en este dispositivo mientras trabaja, incluso sin internet. Cuando el internet regresa, también guarda una copia en línea automáticamente — no necesita hacer nada más.</span></p>
+        </div>
+
       </div>
     </div>
 
@@ -6946,6 +7007,12 @@ function _textScaleIdx(){
 }
 function _applyTextScale(idx){
   document.documentElement.style.zoom = TEXT_SCALE_LEVELS[idx];
+  // The middle button shows the live percentage instead of a plain "A" —
+  // a static letter gave no hint that tapping it changes anything at all.
+  // Seeing the number itself change is a much more universal signal,
+  // especially for anyone who doesn't read English well.
+  var btn = document.getElementById('text-size-preset-btn');
+  if (btn) btn.textContent = Math.round(TEXT_SCALE_LEVELS[idx] * 100) + '%';
 }
 function stepTextSize(dir){
   var idx = Math.max(0, Math.min(TEXT_SCALE_LEVELS.length - 1, _textScaleIdx() + dir));
@@ -15695,6 +15762,10 @@ function handleLoadTagPhoto(input){
     <button class="more-sheet-item" onclick="switchView('records');closeMoreSheet()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       Records
+    </button>
+    <button class="more-sheet-item" onclick="switchView('faq');closeMoreSheet()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Help / FAQ
     </button>
   </div>
 </div>
