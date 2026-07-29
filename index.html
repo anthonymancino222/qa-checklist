@@ -2283,6 +2283,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               </div>
             </div>
           </div>
+          <button id="cm-data-edit-btn" onclick="_cmToggleDataEdit()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--pink);color:var(--pink);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">✏️ DATA EDIT</button>
           <button class="continue-close" onclick="closeContinueModal()" style="align-self:flex-start;">✕</button>
         </div>
         <div class="continue-modal-body">
@@ -4997,6 +4998,15 @@ function openContinueModal(id) {
   document.getElementById('cm-panel-op').style.display   = 'none';
   document.getElementById('cm-panel-qa').style.display   = 'none';
   document.getElementById('cm-panel-prod').style.display = 'none';
+  // DATA EDIT lives in the modal header (not buried in the summary card
+  // below the fold) so it's the first thing visible when the popup opens —
+  // only production/QA-release panels have editable summary fields.
+  var dataEditBtn = document.getElementById('cm-data-edit-btn');
+  var dataEditShown = (job.process === 'production' || job.process === 'qa_pending' || job.process === 'qa_release');
+  if (dataEditBtn) {
+    dataEditBtn.style.display = dataEditShown ? 'inline-block' : 'none';
+    dataEditBtn.textContent = _dataEditMode ? (isEsLang()?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (isEsLang()?'✏️ EDITAR DATOS':'✏️ DATA EDIT');
+  }
 
   if (job.process === 'makeready' || job.process === 'inspection') {
     // Operator panel: checklist + op sig
@@ -8359,11 +8369,6 @@ function _renderQaJobSummary(job) {
       _custComboHTML(job) +
     '</div>';
   document.getElementById('cm-qa-job-summary').innerHTML =
-    '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">' +
-      '<button type="button" onclick="toggleDataEditMode(function(){ var f=_findJobById(\''+job.id+'\'); if(f) _renderQaJobSummary(f.job); })" style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;">' +
-        (_dataEditMode ? (_qaEs?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (_qaEs?'✏️ EDITAR DATOS':'✏️ DATA EDIT')) +
-      '</button>' +
-    '</div>' +
     '<div style="font-size:14px;line-height:1.8;">' +
     '<div><strong>' + (_qaEs ? 'Trabajo:' : 'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
     '<div id="cm-qa-station-row"><strong>' + (_qaEs ? 'Estación:' : 'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—') +
@@ -8443,11 +8448,6 @@ function _renderProdSummary(job) {
     // (the actual order changing after the job started running).
     var _qtyExecEditable = _dataEditMode && cmIsGluer && !_jobIsGluerFirstPass(job);
     summary.innerHTML =
-      '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">' +
-        '<button type="button" onclick="toggleDataEditMode(function(){ var f=_findJobById(\''+job.id+'\'); if(f) _renderProdSummary(f.job); })" style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;">' +
-          (_dataEditMode ? (_prodSumEs?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (_prodSumEs?'✏️ EDITAR DATOS':'✏️ DATA EDIT')) +
-        '</button>' +
-      '</div>' +
       (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
@@ -10288,6 +10288,20 @@ function beginFreshJobEntry() {
   if (landing) landing.style.display = 'block';
   checkDraftBanner();
   openQcSyncGate();
+}
+// Header DATA EDIT toggle inside an already-open job summary popup — re-runs
+// whichever panel (production or QA release) is currently visible so the
+// pencils appear immediately, and refreshes the header button's own label.
+function _cmToggleDataEdit() {
+  toggleDataEditMode(function(){
+    var f = _findJobById(continueJobId);
+    if (f) {
+      if (document.getElementById('cm-panel-prod').style.display === 'block') _renderProdSummary(f.job);
+      if (document.getElementById('cm-panel-qa').style.display === 'block') _renderQaJobSummary(f.job);
+    }
+    var btn = document.getElementById('cm-data-edit-btn');
+    if (btn) btn.textContent = _dataEditMode ? (isEsLang()?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (isEsLang()?'✏️ EDITAR DATOS':'✏️ DATA EDIT');
+  });
 }
 function openQcSyncGate() {
   var btn = document.getElementById('qc-sync-now-btn');
