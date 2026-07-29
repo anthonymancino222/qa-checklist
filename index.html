@@ -3813,8 +3813,9 @@ function toggleDataEditMode(onToggled){
     if (typeof onToggled === 'function') {
       onToggled();
     } else {
+      if (typeof renderInProgress === 'function' && document.getElementById('col-production')) renderInProgress();
       showToast(_dataEditMode
-        ? (isEs ? '✏️ Modo de edición activado — reabra la tarjeta del trabajo para ver los lápices.' : '✏️ Edit mode ON — reopen the job card to see the pencils.')
+        ? (isEs ? '✏️ Modo de edición activado' : '✏️ Edit mode ON')
         : (isEs ? 'Modo de edición desactivado.' : 'Edit mode OFF.'), 'pass');
     }
   });
@@ -4552,6 +4553,28 @@ function _syncViewToggle(tileBtnId, listBtnId, mode) {
 }
 
 /* Flat list row: one job per row, no batch grouping, always individually tappable */
+// Per-job delete from the Job in Progress kanban — only reachable while
+// DATA EDIT mode is on, which is itself passcode-gated, so this doesn't
+// re-prompt the passcode per delete; a confirm dialog is still the guard
+// against an accidental tap.
+function deleteIPJob(jobId) {
+  var isEs = isEsLang();
+  showConfirm(
+    isEs ? 'Esto eliminará este trabajo de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this job. This cannot be undone.',
+    function(ok){
+      if (!ok) return;
+      _deleteRecordById('job', jobId);
+      renderInProgress();
+      renderQARelease();
+      showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+    },
+    { okLabel: isEs ? 'Eliminar' : 'Delete' }
+  );
+}
+function _jpDeleteBtnHTML(jobId) {
+  if (!_dataEditMode) return '';
+  return '<button title="' + (isEsLang()?'Eliminar trabajo':'Delete job') + '" style="flex:0 0 auto;padding:7px 10px;font-size:14px;font-weight:700;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:7px;cursor:pointer;" onclick="event.stopPropagation();deleteIPJob(\'' + jobId + '\')">🗑️</button>';
+}
 function _buildJPListRow(job, opts) {
   opts = opts || {};
   var row = document.createElement('div');
@@ -4575,7 +4598,10 @@ function _buildJPListRow(job, opts) {
       '<div class="jp-list-btns">' +
         '<button style="background:#f1f5f9;border:1px solid #cbd5e1;color:#1e293b;" onclick="event.stopPropagation();openContinueModal(\'' + jobId + '\')">' + jp('details') + '</button>' +
         '<button style="background:#0ea5e9;border:none;color:#fff;" onclick="event.stopPropagation();openQuickNoteModal(\'' + jobId + '\')">' + jp('note') + '</button>' +
+        _jpDeleteBtnHTML(jobId) +
       '</div>';
+  } else if (_dataEditMode) {
+    btnsHTML = '<div class="jp-list-btns">' + _jpDeleteBtnHTML(job.id) + '</div>';
   }
   row.innerHTML =
     thumbHTML +
@@ -4884,6 +4910,7 @@ function renderInProgress() {
             '<div class="jp-prod-wrap-btns">' +
               '<button style="flex:1;padding:7px 0;font-size:14px;font-weight:700;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:7px;cursor:pointer;color:#1e293b;" onclick="event.stopPropagation();openContinueModal(\'' + jobId + '\')">' + jp('viewDetails') + '</button>' +
               '<button style="flex:1;padding:7px 0;font-size:14px;font-weight:700;background:#0ea5e9;border:none;border-radius:7px;cursor:pointer;color:#fff;" onclick="event.stopPropagation();openQuickNoteModal(\'' + jobId + '\')">' + jp('addNote') + '</button>' +
+              _jpDeleteBtnHTML(jobId) +
             '</div>';
           el.appendChild(wrap);
         } else {
@@ -4897,7 +4924,8 @@ function renderInProgress() {
               '<div class="jp-card-job">' + escHtml(job.jobNumber) + '</div>' +
               '<div class="jp-card-form">' + subLine + '</div>' +
               '<div class="jp-card-badges">' + badge + '</div>' +
-            '</div>';
+            '</div>' +
+            (_dataEditMode ? '<div style="display:flex;padding:8px 12px 10px;border-top:1px solid var(--border);">' + _jpDeleteBtnHTML(job.id) + '</div>' : '');
           el.appendChild(card);
         }
       }
