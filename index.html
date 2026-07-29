@@ -1488,7 +1488,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
     </div>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
-    <button onclick="clearAllJobs()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--red);color:var(--red);background:transparent;cursor:pointer;letter-spacing:.04em;">CLEAR DATA</button>
+    <button onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
+    <button onclick="clearAllJobs()" style="font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;border:1px solid var(--border-mid);color:var(--text-tertiary);background:transparent;cursor:pointer;" title="Testing only — wipes every job">Clear All (Testing)</button>
     <div class="user-chip" id="headerUser">—</div>
   </div>
 </header>
@@ -3760,6 +3761,76 @@ function _passcodeCancel(){
   if (cb) cb(false);
 }
 
+/* Data Edit mode — passcode-gated, resets to OFF on every reload (never
+   persisted) so it can't be left on by accident. While on, the Station,
+   Operator, and CAD Style lines in a job's summary card grow an edit
+   pencil, same pattern as the existing Qty to Execute editor. Only takes
+   effect on cards rendered AFTER toggling — a card already open when you
+   toggle needs to be closed and reopened to pick up the change. */
+var _dataEditMode = false;
+function toggleDataEditMode(){
+  var isEs = isEsLang();
+  showPasscodePrompt(isEs ? 'Se requiere un código para editar campos del trabajo.' : 'A passcode is required to edit job fields.', function(ok){
+    if (!ok) return;
+    _dataEditMode = !_dataEditMode;
+    showToast(_dataEditMode
+      ? (isEs ? '✏️ Modo de edición activado — reabra la tarjeta del trabajo para ver los lápices.' : '✏️ Edit mode ON — reopen the job card to see the pencils.')
+      : (isEs ? 'Modo de edición desactivado.' : 'Edit mode OFF.'), 'pass');
+  });
+}
+function _startEditField(rowId, editId){
+  var row = document.getElementById(rowId); if (row) row.style.display = 'none';
+  var edit = document.getElementById(editId); if (edit) edit.style.display = 'block';
+}
+function _cancelEditField(rowId, editId){
+  var edit = document.getElementById(editId); if (edit) edit.style.display = 'none';
+  var row = document.getElementById(rowId); if (row) row.style.display = '';
+}
+function _stationOptionsHTML(current){
+  return Object.keys(STATION_LABELS).map(function(s){
+    return '<option value="' + escHtml(s) + '"' + (s === current ? ' selected' : '') + '>' + escHtml(stationLabel(s)) + '</option>';
+  }).join('');
+}
+function _currentCadStyle(job){
+  var entry = (job.checklist || []).filter(function(x){ return x.id === 'gl-cad-style'; })[0];
+  return entry ? entry.val : '';
+}
+function _cadStyleOptionsHTML(current){
+  var options = ['STE','STE with Partition','Sleeve','Auto Bottom','Pocket folder','N/A'];
+  return options.map(function(o){
+    return '<option value="' + escHtml(o) + '"' + (o === current ? ' selected' : '') + '>' + escHtml(o) + '</option>';
+  }).join('');
+}
+function _findJobById(jobId){
+  var jobs = ipLoad();
+  for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === jobId) return { job: jobs[i], jobs: jobs }; }
+  return null;
+}
+function _saveEditJobStation(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var sel = document.getElementById(prefix + '-station-input');
+  found.job.station = sel.value;
+  ipSave(found.jobs);
+  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+}
+function _saveEditJobOperator(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var input = document.getElementById(prefix + '-operator-input');
+  found.job.operatorName = input.value.trim();
+  ipSave(found.jobs);
+  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+}
+function _saveEditJobCadStyle(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var sel = document.getElementById(prefix + '-cad-input');
+  if (!found.job.checklist) found.job.checklist = [];
+  var entry = found.job.checklist.filter(function(x){ return x.id === 'gl-cad-style'; })[0];
+  if (entry) entry.val = sel.value;
+  else found.job.checklist.push({ id: 'gl-cad-style', val: sel.value });
+  ipSave(found.jobs);
+  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+}
+
 /* ══════════════════════════════════
    GLOBAL DICTATION (speech-to-text)
    One floating mic that appears whenever ANY text field or textarea is
@@ -5053,33 +5124,8 @@ function openContinueModal(id) {
       document.getElementById('cm-qa-packer-info').style.display = 'none';
 
       // Job Summary — quick-reference info for QA tech (mirrors the production-panel summary)
-      var _qaSummaryQty = 0;
-      if (job.checklist) {
-        _qaSummaryQty = _glOrderedQty(job.checklist);
-      }
-      var _qaSummaryCad = _gluerCadSummaryLine(job);
-      var _qaQtyLines = _jobQtySummaryLines(job);
-      var _qaEs = isEsLang();
-      var _qaCustomerHTML =
-        '<div style="margin:10px 0;">' +
-          '<label style="font-size:14px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">' + (_qaEs ? 'Cliente' : 'Customer') + '</label>' +
-          _custComboHTML(job) +
-        '</div>';
       document.getElementById('cm-qa-job-summary-card').style.display = 'block';
-      document.getElementById('cm-qa-job-summary').innerHTML =
-        '<div style="font-size:14px;line-height:1.8;">' +
-        '<div><strong>' + (_qaEs ? 'Trabajo:' : 'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
-        '<div><strong>' + (_qaEs ? 'Estación:' : 'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—')     + '</div>' +
-        '<div><strong>' + (_qaEs ? 'Producto:' : 'Product:') + '</strong> '  + escHtml(job.productNumber||'—') + '</div>' +
-        '<div><strong>' + (_qaEs ? 'Operador:' : 'Operator:') + '</strong> ' + escHtml(job.operatorName||'—')+ '</div>' +
-        (_qaSummaryCad ? '<div><strong>' + (_qaEs ? 'Estilo CAD:' : 'CAD Style:') + '</strong> ' + escHtml(_qaSummaryCad) + '</div>' : '') +
-        '<div><strong>' + (_qaEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> ' + escHtml(_qaQtyLines.qtyExec) + '</div>' +
-        '<div><strong>' + (_qaEs ? 'Cantidad Final Producida:' : 'Final Qty Produced:') + '</strong> ' + escHtml(_qaQtyLines.finalQty) + '</div>' +
-        (job.shipmentType === 'split' ? '<div><strong>' + (_qaEs ? 'Envío:' : 'Shipment:') + '</strong> ' + (_qaEs ? ('Dividido — ' + (job.splitCount||2) + ' envíos') : ('Split — ' + (job.splitCount||2) + ' shipments')) + (job.splitQtys ? ' (' + job.splitQtys.join(' / ') + ')' : '') + '</div>' : '') +
-        '<div><strong>' + (_qaEs ? 'Iniciado:' : 'Started:') + '</strong> '  + escHtml(job.timestamp||'—')   + '</div>' +
-        '</div>' +
-        _qaCustomerHTML +
-        (_qaSummaryQty ? '<div style="margin-top:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px 16px;">' + _aqlHTML(getAQLInfo(_qaSummaryQty)) + '</div>' : '');
+      _renderQaJobSummary(job);
 
       {
         // ── Standard full-checklist gluer release ──
@@ -8240,6 +8286,64 @@ function _jobQtySummaryLines(job) {
     finalQty: finalQty ? (finalQty.toLocaleString() + ' pcs') : _QTY_NOT_RECORDED
   };
 }
+// Builds/refreshes the QA-release Job Summary card — same reasoning as
+// _renderProdSummary below: pulled into its own function so editing
+// Station/Operator/CAD Style can re-render it without duplicating the block.
+function _renderQaJobSummary(job) {
+  var _qaSummaryQty = 0;
+  if (job.checklist) {
+    _qaSummaryQty = _glOrderedQty(job.checklist);
+  }
+  var _qaSummaryCad = _gluerCadSummaryLine(job);
+  var _qaQtyLines = _jobQtySummaryLines(job);
+  var _qaEs = isEsLang();
+  var _qaCustomerHTML =
+    '<div style="margin:10px 0;">' +
+      '<label style="font-size:14px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">' + (_qaEs ? 'Cliente' : 'Customer') + '</label>' +
+      _custComboHTML(job) +
+    '</div>';
+  document.getElementById('cm-qa-job-summary').innerHTML =
+    '<div style="font-size:14px;line-height:1.8;">' +
+    '<div><strong>' + (_qaEs ? 'Trabajo:' : 'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
+    '<div id="cm-qa-station-row"><strong>' + (_qaEs ? 'Estación:' : 'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—') +
+      (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-station-row\',\'cm-qa-station-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
+    '</div>' +
+    (_dataEditMode ? '<div id="cm-qa-station-edit" style="display:none;margin:8px 0;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<select class="input" id="cm-qa-station-input" style="width:auto;min-width:180px;">' + _stationOptionsHTML(job.station) + '</select>' +
+        '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobStation(\''+job.id+'\',\'cm-qa\')">✓ ' + (_qaEs?'Guardar':'Save') + '</button>' +
+        '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-station-row\',\'cm-qa-station-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
+      '</div>' +
+    '</div>' : '') +
+    '<div><strong>' + (_qaEs ? 'Producto:' : 'Product:') + '</strong> '  + escHtml(job.productNumber||'—') + '</div>' +
+    '<div id="cm-qa-operator-row"><strong>' + (_qaEs ? 'Operador:' : 'Operator:') + '</strong> ' + escHtml(job.operatorName||'—') +
+      (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-operator-row\',\'cm-qa-operator-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
+    '</div>' +
+    (_dataEditMode ? '<div id="cm-qa-operator-edit" style="display:none;margin:8px 0;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<input class="input" id="cm-qa-operator-input" type="text" value="' + escHtml(job.operatorName||'') + '" style="width:180px;">' +
+        '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobOperator(\''+job.id+'\',\'cm-qa\')">✓ ' + (_qaEs?'Guardar':'Save') + '</button>' +
+        '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-operator-row\',\'cm-qa-operator-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
+      '</div>' +
+    '</div>' : '') +
+    ((_qaSummaryCad || _dataEditMode) ? '<div id="cm-qa-cad-row"><strong>' + (_qaEs ? 'Estilo CAD:' : 'CAD Style:') + '</strong> ' + escHtml(_qaSummaryCad || '—') +
+      (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-cad-row\',\'cm-qa-cad-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
+    '</div>' : '') +
+    (_dataEditMode ? '<div id="cm-qa-cad-edit" style="display:none;margin:8px 0;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<select class="input" id="cm-qa-cad-input" style="width:auto;min-width:180px;">' + _cadStyleOptionsHTML(_currentCadStyle(job)) + '</select>' +
+        '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobCadStyle(\''+job.id+'\',\'cm-qa\')">✓ ' + (_qaEs?'Guardar':'Save') + '</button>' +
+        '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-cad-row\',\'cm-qa-cad-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
+      '</div>' +
+    '</div>' : '') +
+    '<div><strong>' + (_qaEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> ' + escHtml(_qaQtyLines.qtyExec) + '</div>' +
+    '<div><strong>' + (_qaEs ? 'Cantidad Final Producida:' : 'Final Qty Produced:') + '</strong> ' + escHtml(_qaQtyLines.finalQty) + '</div>' +
+    (job.shipmentType === 'split' ? '<div><strong>' + (_qaEs ? 'Envío:' : 'Shipment:') + '</strong> ' + (_qaEs ? ('Dividido — ' + (job.splitCount||2) + ' envíos') : ('Split — ' + (job.splitCount||2) + ' shipments')) + (job.splitQtys ? ' (' + job.splitQtys.join(' / ') + ')' : '') + '</div>' : '') +
+    '<div><strong>' + (_qaEs ? 'Iniciado:' : 'Started:') + '</strong> '  + escHtml(job.timestamp||'—')   + '</div>' +
+    '</div>' +
+    _qaCustomerHTML +
+    (_qaSummaryQty ? '<div style="margin-top:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px 16px;">' + _aqlHTML(getAQLInfo(_qaSummaryQty)) + '</div>' : '');
+}
 // Builds/refreshes the production-panel Job Summary card — pulled into its
 // own function (rather than inline in openContinueModal) so editing Qty to
 // Execute can re-render it, AQL box included, without duplicating this
@@ -8276,15 +8380,42 @@ function _renderProdSummary(job) {
     // where Qty to Execute both (a) drives the AQL bracket shown right
     // below it and (b) is realistically off from what make-ready recorded
     // (the actual order changing after the job started running).
-    var _qtyExecEditable = cmIsGluer && !_jobIsGluerFirstPass(job);
+    var _qtyExecEditable = _dataEditMode && cmIsGluer && !_jobIsGluerFirstPass(job);
     summary.innerHTML =
       (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
-      '<div><strong>' + (_prodSumEs?'Estación:':'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—')     + '</div>' +
+      '<div id="cm-prod-station-row"><strong>' + (_prodSumEs?'Estación:':'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—') +
+        (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-prod-station-row\',\'cm-prod-station-edit\')" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
+      '</div>' +
+      (_dataEditMode ? '<div id="cm-prod-station-edit" style="display:none;margin:8px 0;">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<select class="input" id="cm-prod-station-input" style="width:auto;min-width:180px;">' + _stationOptionsHTML(job.station) + '</select>' +
+          '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobStation(\''+job.id+'\',\'cm-prod\')">✓ ' + (_prodSumEs?'Guardar':'Save') + '</button>' +
+          '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-prod-station-row\',\'cm-prod-station-edit\')">✕ ' + (_prodSumEs?'Cancelar':'Cancel') + '</button>' +
+        '</div>' +
+      '</div>' : '') +
       '<div><strong>' + (cmIsGluer ? (_prodSumEs?'Producto':'Product') : (_prodSumEs?'Forma':'Form')) + ':</strong> ' + escHtml((cmIsGluer ? job.productNumber : job.formNumber)||'—') + '</div>' +
-      '<div><strong>' + (_prodSumEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName||'—')+ '</div>' +
-      (_summaryCad ? '<div><strong>' + (_prodSumEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(_summaryCad) + '</div>' : '') +
+      '<div id="cm-prod-operator-row"><strong>' + (_prodSumEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName||'—') +
+        (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-prod-operator-row\',\'cm-prod-operator-edit\')" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
+      '</div>' +
+      (_dataEditMode ? '<div id="cm-prod-operator-edit" style="display:none;margin:8px 0;">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<input class="input" id="cm-prod-operator-input" type="text" value="' + escHtml(job.operatorName||'') + '" style="width:180px;">' +
+          '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobOperator(\''+job.id+'\',\'cm-prod\')">✓ ' + (_prodSumEs?'Guardar':'Save') + '</button>' +
+          '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-prod-operator-row\',\'cm-prod-operator-edit\')">✕ ' + (_prodSumEs?'Cancelar':'Cancel') + '</button>' +
+        '</div>' +
+      '</div>' : '') +
+      ((_summaryCad || (_dataEditMode && cmIsGluer)) ? '<div id="cm-prod-cad-row"><strong>' + (_prodSumEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(_summaryCad || '—') +
+        (_dataEditMode && cmIsGluer ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-prod-cad-row\',\'cm-prod-cad-edit\')" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
+      '</div>' : '') +
+      (_dataEditMode && cmIsGluer ? '<div id="cm-prod-cad-edit" style="display:none;margin:8px 0;">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<select class="input" id="cm-prod-cad-input" style="width:auto;min-width:180px;">' + _cadStyleOptionsHTML(_currentCadStyle(job)) + '</select>' +
+          '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobCadStyle(\''+job.id+'\',\'cm-prod\')">✓ ' + (_prodSumEs?'Guardar':'Save') + '</button>' +
+          '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-prod-cad-row\',\'cm-prod-cad-edit\')">✕ ' + (_prodSumEs?'Cancelar':'Cancel') + '</button>' +
+        '</div>' +
+      '</div>' : '') +
       '<div id="cm-prod-qtyexec-row"><strong>' + (_prodSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' +
         '<span id="cm-prod-qtyexec-display">' + escHtml(_prodQtyLines.qtyExec) + '</span>' +
         (_qtyExecEditable ? ' <button type="button" class="edit-qty-btn" onclick="_startEditQtyToExecute()" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
