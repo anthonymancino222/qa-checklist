@@ -6,3 +6,6 @@ cloudflare-backend/
 _serve.ps1
 REGRESSION_CHECKLIST.md
 Read REGRESSION_CHECKLIST.md and mo.txt
+*.docx
+~$*
+*.txt
