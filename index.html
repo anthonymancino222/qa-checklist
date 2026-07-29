@@ -884,6 +884,12 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .jp-list-job { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .jp-list-sub { font-size: 14px; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jp-list-badges { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+.jp-list-delete {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  font-size: 18px; padding: 8px; border-radius: 8px; opacity: .55;
+  -webkit-tap-highlight-color: transparent;
+}
+.jp-list-delete:hover, .jp-list-delete:active { opacity: 1; background: var(--red-soft); }
 .jp-list-btns { display: flex; gap: 6px; flex-shrink: 0; }
 .jp-list-btns button { padding: 6px 10px; font-size: 13.5px; font-weight: 700; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .jp-list-section-title { font-size: 14px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); margin: 18px 0 8px; }
@@ -2669,6 +2675,28 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       </div>
     </div>
 
+    <!-- Passcode gate — used before "Clear Data" and before deleting any
+         single record, so nobody can wipe data on purpose or by accident
+         without knowing the code. This is a friction/deterrent check, not
+         real server-side security — anyone reading the page source can find
+         the code — but it stops accidental taps and casual misuse, which is
+         the actual risk this was built for. -->
+    <div class="continue-overlay" id="passcodeOverlay" onclick="if(event.target===this)_passcodeCancel()">
+      <div class="continue-modal" style="max-width:340px;width:100%;">
+        <div style="padding:24px 20px 6px;">
+          <div style="font-size:17px;font-weight:800;color:var(--text-primary);margin-bottom:10px;"><span data-en>🔑 Passcode Required</span><span data-es>🔑 Se Requiere Código</span></div>
+          <div id="passcode-message" style="font-size:14px;color:var(--text-secondary);line-height:1.55;margin-bottom:12px;"></div>
+          <input type="password" inputmode="numeric" id="passcode-input" class="input" placeholder="••••••••" data-ph-en="••••••••" data-ph-es="••••••••"
+                 style="text-align:center;font-size:22px;letter-spacing:6px;" onkeydown="if(event.key==='Enter')_passcodeCheck()">
+          <div id="passcode-error" style="display:none;color:var(--red);font-size:14px;margin-top:8px;"></div>
+        </div>
+        <div style="display:flex;gap:10px;padding:20px;">
+          <button class="btn" style="flex:1;" onclick="_passcodeCancel()"><span data-en>Cancel</span><span data-es>Cancelar</span></button>
+          <button class="btn-primary" style="flex:1;" onclick="_passcodeCheck()"><span data-en>Confirm</span><span data-es>Confirmar</span></button>
+        </div>
+      </div>
+    </div>
+
     <div class="continue-overlay" id="recordViewOverlay" onclick="if(event.target===this)closeRecordView()">
       <div class="continue-modal" id="recordViewModal">
         <div class="continue-modal-head">
@@ -3691,6 +3719,47 @@ function _alertResolve(){
   if (cb) cb();
 }
 
+/* Passcode gate — required before "Clear Data" and before deleting any
+   single record. Note this is a UI-level deterrent, not real security: the
+   code lives in this file's JS, so it stops accidental taps and casual
+   misuse, not a determined person reading page source. That's the actual
+   problem this was built to solve (per the request that added it). */
+var CLEAR_DATA_PASSCODE = '05071987';
+var _passcodeCallback = null;
+function showPasscodePrompt(message, onVerified){
+  var msgEl = document.getElementById('passcode-message');
+  var inputEl = document.getElementById('passcode-input');
+  var errEl = document.getElementById('passcode-error');
+  if (msgEl) msgEl.textContent = message || '';
+  if (inputEl) inputEl.value = '';
+  if (errEl) errEl.style.display = 'none';
+  _passcodeCallback = onVerified;
+  document.getElementById('passcodeOverlay').classList.add('open');
+  setTimeout(function(){ if (inputEl) inputEl.focus(); }, 50);
+}
+function _passcodeCheck(){
+  var inputEl = document.getElementById('passcode-input');
+  var errEl = document.getElementById('passcode-error');
+  if (inputEl && inputEl.value === CLEAR_DATA_PASSCODE) {
+    document.getElementById('passcodeOverlay').classList.remove('open');
+    var cb = _passcodeCallback;
+    _passcodeCallback = null;
+    if (cb) cb(true);
+  } else {
+    if (errEl) {
+      errEl.textContent = isEsLang() ? 'Código incorrecto. Intente de nuevo.' : 'Incorrect passcode. Try again.';
+      errEl.style.display = 'block';
+    }
+    if (inputEl) { inputEl.value = ''; inputEl.focus(); }
+  }
+}
+function _passcodeCancel(){
+  document.getElementById('passcodeOverlay').classList.remove('open');
+  var cb = _passcodeCallback;
+  _passcodeCallback = null;
+  if (cb) cb(false);
+}
+
 /* ══════════════════════════════════
    GLOBAL DICTATION (speech-to-text)
    One floating mic that appears whenever ANY text field or textarea is
@@ -4202,6 +4271,19 @@ function _syncRetryPending() {
 }
 window.addEventListener('online', _syncRetryPending);
 setInterval(_syncRetryPending, 30000);
+// Soft-deletes one record on the server. Nothing calls the Worker's DELETE
+// endpoint anywhere else in the app today — removing a record only from
+// local storage would silently come back on the next sync pull, since the
+// server still has it and doesn't know it was deleted. RCA isn't synced to
+// the backend at all yet, so this is a no-op for that type — the local
+// removal is the whole story there.
+function _syncDeleteRecord(type, id){
+  if (!QA_BACKEND_URL || type === 'rca') return;
+  fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(id), {
+    method: 'DELETE',
+    headers: { 'X-API-Key': QA_BACKEND_API_KEY }
+  }).catch(function(){ /* offline — server copy stays until this succeeds some other time */ });
+}
 
 // One-time pull-and-merge on app load — brings in any records created on a
 // DIFFERENT device that this one hasn't seen yet. Deliberately conservative
@@ -4255,23 +4337,26 @@ function ipSave(jobs) {
   _syncPushAll('job', jobs);
 }
 function clearAllJobs() {
-  showConfirm('Clear all jobs? This cannot be undone.', function(ok1){
-    if (!ok1) return;
-    showConfirm('Are you sure? All job data will be permanently deleted.', function(ok2){
-      if (!ok2) return;
-      // Clear all localStorage keys directly
-      localStorage.removeItem('moquin-qa-inprogress');
-      localStorage.removeItem('moquin-qa-drafts');
-      localStorage.removeItem('moquin-qa-draft'); // legacy single-draft key
-      // Reset in-memory state
-      _ipMem = []; _ipLoaded = true;
-      sessionLog = [];
-      renderBoard();
-      startNewJob();
-      checkDraftBanner();
-      if (typeof renderRecords === 'function') renderRecords();
-    }, { okLabel: 'Delete everything' });
-  }, { okLabel: 'Continue' });
+  showPasscodePrompt(isEsLang() ? 'Se requiere un código para borrar datos.' : 'A passcode is required to clear data.', function(okCode){
+    if (!okCode) return;
+    showConfirm('Clear all jobs? This cannot be undone.', function(ok1){
+      if (!ok1) return;
+      showConfirm('Are you sure? All job data will be permanently deleted.', function(ok2){
+        if (!ok2) return;
+        // Clear all localStorage keys directly
+        localStorage.removeItem('moquin-qa-inprogress');
+        localStorage.removeItem('moquin-qa-drafts');
+        localStorage.removeItem('moquin-qa-draft'); // legacy single-draft key
+        // Reset in-memory state
+        _ipMem = []; _ipLoaded = true;
+        sessionLog = [];
+        renderBoard();
+        startNewJob();
+        checkDraftBanner();
+        if (typeof renderRecords === 'function') renderRecords();
+      }, { okLabel: 'Delete everything' });
+    }, { okLabel: 'Continue' });
+  });
 }
 function ipAdd(record) {
   var jobs = ipLoad();
@@ -14007,6 +14092,47 @@ function _recNorm(list, type){
   });
 }
 
+/* Delete ONE record — passcode-gated, then a plain-language confirm, so
+   nothing here can be triggered by an accidental tap. This is the targeted
+   alternative to a blanket "clear everything" button: pick exactly the one
+   bad/test/duplicate entry and remove only that. */
+function deleteRecordEntry(type, id){
+  var isEs = isEsLang();
+  showPasscodePrompt(isEs ? 'Se requiere un código para eliminar un registro.' : 'A passcode is required to delete a record.', function(okCode){
+    if (!okCode) return;
+    showConfirm(
+      isEs ? 'Esto eliminará este registro de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this record. This cannot be undone.',
+      function(okConfirm){
+        if (!okConfirm) return;
+        _deleteRecordById(type, id);
+        renderRecords();
+        showToast(isEs ? 'Registro eliminado' : 'Record deleted', 'pass');
+      },
+      { okLabel: isEs ? 'Eliminar' : 'Delete' }
+    );
+  });
+}
+function _deleteRecordById(type, id){
+  var idStr = String(id);
+  if (type === 'job'){
+    ipSave(ipLoad().filter(function(j){ return String(j.id) !== idStr; }));
+  } else if (type === 'ncr'){
+    ncrSave(ncrLoad().filter(function(n){ return String(n.ncrId) !== idStr; }));
+  } else if (type === 'ncr_draft'){
+    ncrDraftSave(ncrDraftLoad().filter(function(d){ return String(d.__draftId) !== idStr; }));
+  } else if (type === 'rca'){
+    // RCA ids are synthetic ('rca-<index>') since RCA records have no
+    // stable id of their own — splice out that index directly.
+    var idx = parseInt(idStr.replace('rca-', ''), 10);
+    var list = rcaLoadRecords();
+    if (idx >= 0 && idx < list.length){
+      list.splice(idx, 1);
+      localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+    }
+  }
+  _syncDeleteRecord(type, idStr);
+}
+
 function renderRecords(){
   var el = document.getElementById('records-list');
   if (!el) return;
@@ -14066,6 +14192,7 @@ function renderRecords(){
         '<span class="jp-badge" style="background:var(--surface-raised);color:var(--text-secondary);">' + escHtml(r.status || '—') + '</span>' +
         '<div style="font-size:13.5px;color:var(--text-tertiary);margin-top:4px;">' + escHtml(r.ts || '') + '</div>' +
       '</div>' +
+      '<button type="button" class="jp-list-delete" onclick="event.stopPropagation();deleteRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')" title="Delete this record" aria-label="Delete this record">🗑️</button>' +
     '</div>';
   }).join('');
 }
