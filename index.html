@@ -4448,11 +4448,21 @@ function _syncPullAndMerge(type, currentList, saveFn) {
   return fetch(QA_BACKEND_URL + '/records?type=' + type)
     .then(function(res){ return res.json(); })
     .then(function(json){
-      var remote = (json.records || []).filter(function(r){ return !r.deleted; });
+      var records = json.records || [];
+      var remote = records.filter(function(r){ return !r.deleted; });
+      var deletedIds = {};
+      records.forEach(function(r){ if (r.deleted) deletedIds[String(r.id)] = true; });
       var localIds = {};
       currentList.forEach(function(r){ localIds[String(r[idField])] = true; });
       var additions = remote.filter(function(r){ return !localIds[String(r.id)]; }).map(function(r){ return r.data; });
-      if (additions.length) saveFn(currentList.concat(additions));
+      // A record deleted on ANOTHER device never used to disappear here —
+      // this only ever added, so a stale local copy stuck around forever,
+      // and could even resurrect the "deleted" record server-side the next
+      // time this device pushed (the bulk-upsert endpoint always clears
+      // `deleted` on conflict). Pruning locally-held records the server has
+      // since deleted closes that loop.
+      var pruned = currentList.filter(function(r){ return !deletedIds[String(r[idField])]; });
+      if (additions.length || pruned.length !== currentList.length) saveFn(pruned.concat(additions));
     })
     .catch(function(){ /* offline at startup — just use what's local */ });
 }
