@@ -5064,7 +5064,7 @@ function openContinueModal(id) {
   // opened from Records, which should stay a read-only look-up even for a
   // job that's technically still in flight.
   var editBtn = document.getElementById('cm-edit-btn');
-  var editAllowed = (job.process === 'makeready' || job.process === 'qa_pending' || job.process === 'production') && !_openedFromRecords;
+  var editAllowed = (job.process === 'makeready' || job.process === 'qa_pending' || job.process === 'production' || job.process === 'qa_release') && !_openedFromRecords;
   if (editBtn) editBtn.style.display = editAllowed ? 'inline-block' : 'none';
   _openedFromRecords = false;
   cancelJobEdit();
@@ -6714,7 +6714,7 @@ function cancelJobEdit() {
     var jobs = ipLoad();
     for (var i = 0; i < jobs.length; i++) {
       if (jobs[i].id === continueJobId) {
-        var allowed = jobs[i].process === 'makeready' || jobs[i].process === 'qa_pending' || jobs[i].process === 'production';
+        var allowed = jobs[i].process === 'makeready' || jobs[i].process === 'qa_pending' || jobs[i].process === 'production' || jobs[i].process === 'qa_release';
         if (allowed) btn.style.display = 'inline-block';
         break;
       }
@@ -6742,6 +6742,7 @@ function saveJobEdit() {
   document.getElementById('cm-sub').textContent = stationLabel(job.station) + cmCustomer + (cmIsGluer ? (newProd ? ' · ' + jp('product') + ' ' + newProd : '') : (newProd ? ' · ' + jp('form') + ' ' + newProd : ''));
   cancelJobEdit();
   renderInProgress();
+  if (typeof renderQARelease === 'function') renderQARelease();
   showToast(isEsLang() ? 'Detalles del trabajo actualizados' : 'Job details updated', 'pass');
 }
 
