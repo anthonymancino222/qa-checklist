@@ -13295,6 +13295,26 @@ function ncrFinalize(){
   switchView('ncrprog');
 }
 
+// Passcode + confirm, same pattern as Records view's per-record delete —
+// there was previously no way to remove a mistaken/test NCR once submitted.
+function deleteNCRInProgress(ncrId){
+  var isEs = isEsLang();
+  showPasscodePrompt(isEs ? 'Se requiere un código para eliminar un RNC.' : 'A passcode is required to delete an NCR.', function(okCode){
+    if (!okCode) return;
+    showConfirm(
+      isEs ? 'Esto eliminará este RNC de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this NCR. This cannot be undone.',
+      function(ok){
+        if (!ok) return;
+        _deleteRecordById('ncr', ncrId);
+        ncrState.detailId = null;
+        updateNCRBadges();
+        renderNCRProgress();
+        showToast(isEs ? 'RNC eliminado' : 'NCR deleted', 'pass');
+      },
+      { okLabel: isEs ? 'Eliminar' : 'Delete' }
+    );
+  });
+}
 /* ── NCR in Progress view ── */
 function renderNCRProgress(){
   var el = document.getElementById('ncrprog-body');
@@ -13316,6 +13336,7 @@ function renderNCRProgress(){
           '<input type="text" class="input" id="ncr-close-reportedby-other" placeholder="' + (_npEs ? 'Ingrese el nombre' : 'Enter name') + '" style="margin-top:7px;display:none"></div>' +
           '<button class="btn-primary" onclick="ncrClose(\''+n.ncrId+'\')">' + (_npEs ? 'Cerrar RNC ✓' : 'Close NCR ✓') + '</button></div>';
       }
+      h += '<button class="ncr-secondary" style="border-color:var(--red);color:var(--red);margin-top:12px;" onclick="deleteNCRInProgress(\''+n.ncrId+'\')">🗑️ ' + (_npEs ? 'Eliminar RNC' : 'Delete NCR') + '</button>';
       el.innerHTML = h;
       return;
     }
