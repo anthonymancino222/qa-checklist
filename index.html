@@ -893,6 +893,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .jp-list-btns { display: flex; gap: 6px; flex-shrink: 0; }
 .jp-list-btns button { padding: 6px 10px; font-size: 13.5px; font-weight: 700; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .jp-list-section-title { font-size: 14px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text-secondary); margin: 18px 0 8px; }
+
+/* Records year/month drill-down — same organizing pattern as the Gluer
+   Shift Handoff app's History tab: pick a year, then a month, instead of
+   scrolling one long unsorted list. Bypassed entirely while searching. */
+.records-nav-label { font-size: 13px; font-weight: 700; color: var(--text-tertiary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
+.records-nav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.records-nav-btn { padding: 14px 8px; font-size: 15px; font-weight: 800; border-radius: 10px; border: 2px solid var(--pink); background: #fff; color: var(--pink); cursor: pointer; }
+.records-nav-btn:hover, .records-nav-btn:active { background: var(--pink); color: #fff; }
+.records-back-btn { background: rgba(255,31,143,.08); color: var(--pink); border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; }
 .jp-list-section-title:first-child { margin-top: 0; }
 .bnav-alert-dot { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; display: none; }
 
@@ -3411,6 +3420,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button type="button" class="tgl" data-recfilter="ncr" onclick="setRecordsFilter('ncr',this)">NCR</button>
           <button type="button" class="tgl" data-recfilter="rca" onclick="setRecordsFilter('rca',this)">RCA</button>
         </div>
+        <div id="records-year-month-nav"></div>
         <div id="records-list"></div>
       </div>
     </div>
@@ -14527,6 +14537,64 @@ function _deleteRecordById(type, id){
   _syncDeleteRecord(type, idStr);
 }
 
+// Records year/month drill-down state — same organizing pattern as the
+// Gluer Shift Handoff app's History tab (pick a year, then a month, rather
+// than one long unsorted list). A search term bypasses this entirely, same
+// as that app: search runs across every record regardless of what year/
+// month is currently selected.
+var recordsSelectedYear = null;
+var recordsSelectedMonth = null;
+var RECORDS_MONTH_NAMES_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var RECORDS_MONTH_NAMES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function selectRecordsYear(y){ recordsSelectedYear = y; recordsSelectedMonth = null; renderRecords(); }
+function selectRecordsMonth(m){ recordsSelectedMonth = m; renderRecords(); }
+function backToRecordsYears(){ recordsSelectedYear = null; recordsSelectedMonth = null; renderRecords(); }
+function backToRecordsMonths(){ recordsSelectedMonth = null; renderRecords(); }
+// Record timestamps come from several different fields/formats depending
+// on type (see _recNorm) — some records legitimately have none at all
+// (e.g. a job with no shipping/finish timestamp yet). Those just don't
+// appear in the year/month browse, same as dateless rows in the Gluer app;
+// they're still reachable via search.
+function _recordsValidDate(ts){
+  if (!ts) return null;
+  var d = new Date(ts);
+  return isNaN(d.getTime()) ? null : d;
+}
+function renderRecordsYearMonthNav(all, searching){
+  var nav = document.getElementById('records-year-month-nav');
+  if (!nav) return;
+  if (searching){ nav.innerHTML = ''; return; }
+  var isEs = isEsLang();
+  var monthNames = isEs ? RECORDS_MONTH_NAMES_ES : RECORDS_MONTH_NAMES_EN;
+  var withDates = all.filter(function(r){ return _recordsValidDate(r.ts); });
+
+  if (!recordsSelectedYear){
+    var years = [];
+    withDates.forEach(function(r){ var y = _recordsValidDate(r.ts).getFullYear(); if (years.indexOf(y) === -1) years.push(y); });
+    years.sort(function(a,b){ return b-a; });
+    if (!years.length){ nav.innerHTML = ''; return; }
+    nav.innerHTML = '<div class="records-nav-label">' + (isEs?'Seleccione un año:':'Select a year:') + '</div>' +
+      '<div class="records-nav-grid">' + years.map(function(y){ return '<button type="button" class="records-nav-btn" onclick="selectRecordsYear(' + y + ')">' + y + '</button>'; }).join('') + '</div>';
+    return;
+  }
+
+  if (recordsSelectedMonth === null){
+    var months = [];
+    withDates.forEach(function(r){
+      var d = _recordsValidDate(r.ts);
+      if (d.getFullYear() === recordsSelectedYear && months.indexOf(d.getMonth()) === -1) months.push(d.getMonth());
+    });
+    months.sort(function(a,b){ return a-b; });
+    nav.innerHTML = '<button type="button" class="records-back-btn" onclick="backToRecordsYears()">← ' + (isEs?'Años':'Years') + '</button>' +
+      '<div class="records-nav-label">' + recordsSelectedYear + ' — ' + (isEs?'Seleccione un mes:':'Select a month:') + '</div>' +
+      '<div class="records-nav-grid">' + months.map(function(m){ return '<button type="button" class="records-nav-btn" onclick="selectRecordsMonth(' + m + ')">' + monthNames[m] + '</button>'; }).join('') + '</div>';
+    return;
+  }
+
+  nav.innerHTML = '<button type="button" class="records-back-btn" onclick="backToRecordsMonths()">← ' + (isEs?'Meses':'Months') + '</button>' +
+    '<div class="records-nav-label">' + monthNames[recordsSelectedMonth] + ' ' + recordsSelectedYear + '</div>';
+}
+
 function renderRecords(){
   var el = document.getElementById('records-list');
   if (!el) return;
@@ -14547,20 +14615,37 @@ function renderRecords(){
     });
   }
 
+  renderRecordsYearMonthNav(all, !!q);
+
+  var _recEs = isEsLang();
+
   if (q){
     all = all.filter(function(r){
       return (r.jobNumber||'').toLowerCase().indexOf(q) >= 0 ||
              (r.product||'').toLowerCase().indexOf(q) >= 0 ||
              (r.customer||'').toLowerCase().indexOf(q) >= 0;
     });
+  } else if (recordsSelectedYear && recordsSelectedMonth !== null){
+    all = all.filter(function(r){
+      var d = _recordsValidDate(r.ts);
+      return d && d.getFullYear() === recordsSelectedYear && d.getMonth() === recordsSelectedMonth;
+    });
+  } else {
+    // Nothing selected yet and not searching — prompt instead of dumping
+    // every record ever created in one long, unsorted list.
+    el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' +
+      (all.length
+        ? (_recEs ? 'Seleccione un año y mes arriba, o use la búsqueda.' : 'Select a year and month above, or use search.') + ' (' + all.length + (_recEs?' en total)':' total)')
+        : (_recEs ? 'Nada registrado aún.' : 'Nothing recorded yet.')) +
+      '</div>';
+    return;
   }
 
   all.sort(function(a,b){ return String(b.ts).localeCompare(String(a.ts)); });
 
-  var _recEs = isEsLang();
   if (!all.length){
     el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' +
-      (q || recordsFilter !== 'all' ? (_recEs ? 'No hay registros coincidentes.' : 'No matching records.') : (_recEs ? 'Nada registrado aún.' : 'Nothing recorded yet.')) + '</div>';
+      (_recEs ? 'No hay registros coincidentes.' : 'No matching records.') + '</div>';
     return;
   }
 
