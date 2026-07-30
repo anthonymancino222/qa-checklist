@@ -5170,7 +5170,13 @@ function openContinueModal(id) {
     var opPhoto = document.getElementById('cm-op-photo');
     if (job.mrPhoto) { opPhoto.src = job.mrPhoto; opPhoto.style.display = 'block'; }
     else { opPhoto.style.display = 'none'; }
-    setPhotoText('cm-op-photo-text', 'replace');
+    // cm-op-photo-new is shared across every job opened in this session —
+    // without clearing it here, a photo captured while looking at one job
+    // stayed visible (and would even get saved) when a DIFFERENT job with
+    // no photo of its own was opened next.
+    var opPhotoNew = document.getElementById('cm-op-photo-new');
+    if (opPhotoNew) { opPhotoNew.src = ''; opPhotoNew.style.display = 'none'; }
+    setPhotoText('cm-op-photo-text', job.mrPhoto ? 'replace' : 'attach');
 
     // Build checklist
     var wrap = document.getElementById('cm-op-checklist');
@@ -8910,6 +8916,7 @@ function beginInspection() {
       var _kUnanswered = _requireAllAnswered('setup', CHECKLIST);
       if (_kUnanswered) return;
       var _kProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
+      if (!_kProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-preview')); return; }
       var _kChecklist = getChecklistValues('setup');
       var _kOperator = getKamaOperatorName();
       var _kRecord = {
@@ -8985,6 +8992,7 @@ function beginInspection() {
       if (!sigHasMark) { showAlert('QA signature is required.'); _scrollToField(document.getElementById('sig-canvas')); return; }
       if (_requireAllAnswered('setup', CHECKLIST)) return;
       var _dcProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
+      if (!_dcProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-preview')); return; }
       var _dcChecklist = getChecklistValues('setup');
       var _dcOperator = getDCOperatorName();
       var _dcRecord = {
@@ -9065,8 +9073,13 @@ function beginInspection() {
         var _gPNum = _gPInput ? _gPInput.value.trim() : '';
         if (!_gPNum) { showAlert('Enter Product ID for product ' + (_gi + 1) + '.'); _scrollToField(_gPInput); return; }
         var _gPhotoEl = document.getElementById('gluer-prod-photo-prev-' + _gi);
-        if (!_gPhotoEl || _gPhotoEl.style.display === 'none') { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(_gPhotoEl); return; }
-        var _gPhotoSrc = (_gPhotoEl && _gPhotoEl.style.display !== 'none') ? _gPhotoEl.src : null;
+        // Checked by .src, not display state — unlike the other stations'
+        // single make-ready photo, this field is never reset by
+        // startNewJob() (it's rebuilt per product count instead), so a
+        // display:none set once by CSS and never toggled inline made the
+        // old style.display check always read as "has a photo."
+        if (!_gPhotoEl || !_gPhotoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(_gPhotoEl); return; }
+        var _gPhotoSrc = _gPhotoEl.src;
         ipAdd({
           id: 'gluer-' + (_gNow + _gi),
           jobNumber: job, station: station, productNumber: _gPNum,
@@ -9108,7 +9121,10 @@ function beginInspection() {
       var pNum = pInput ? pInput.value.trim() : '';
       if (!pNum) { showAlert('Enter Product ID for product ' + (gi + 1) + '.'); _scrollToField(pInput); return; }
       var photoEl = document.getElementById('gluer-prod-photo-prev-' + gi);
-      var photoSrc = photoEl && photoEl.style.display !== 'none' ? photoEl.src : null;
+      // Checked by .src — see the matching comment in the production branch
+      // above for why style.display isn't a reliable signal for this field.
+      if (!photoEl || !photoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (gi + 1) + '.'); _scrollToField(photoEl); return; }
+      var photoSrc = photoEl.src;
       ipAdd({
         id: 'gluer-' + (now + gi),
         jobNumber: job, station: station, productNumber: pNum,
@@ -10366,6 +10382,12 @@ function submitJob() {
   if (SHIPS_DIRECT_STATIONS.indexOf(jobState.station) !== -1) {
     var setupPhotoEl = document.getElementById('setup-photo-preview');
     var setupPhotoSrc = (setupPhotoEl && setupPhotoEl.style.display !== 'none' && setupPhotoEl.src) ? setupPhotoEl.src : null;
+    // Multi-product entries (count > 1) route through the qc-inspect tabs
+    // and never pass back through beginInspection()'s own photo check, so
+    // this is the one place that actually catches every submission for
+    // these stations — single-count included.
+    var _anyMissingPhoto = jobState.entries.some(function(entry){ return !(entry.photo || setupPhotoSrc); });
+    if (_anyMissingPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
     jobState.entries.forEach(function(entry, idx){
       var entryFailed = entry.checks && entry.checks.some(function(c){ return c.val === 'fail'; });
       if (entryFailed) return;
