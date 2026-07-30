@@ -5991,6 +5991,39 @@ function submitForQAApproval() {
 }
 
 // QA signs → status becomes production, card moves to In Production column
+// Opens a pre-filled email draft (the user's own mail app) to whoever was
+// checked in "Who should be Notified?" — this is a draft only, someone
+// still has to tap Send. No backend/email-service wiring, so it needs no
+// domain verification or account sign-up, just whatever mail app is set as
+// default on the device. Silently returns if there's nothing to notify
+// (Not Short/Partial Run cleared the notify list, or the release didn't
+// hit a short/no-overs state at all).
+function _sendGlrNotifyEmail(job, glrReleaseNotes) {
+  if (!glrReleaseNotes || !glrReleaseNotes.notify || !glrReleaseNotes.notify.length) return;
+  var isEs = isEsLang();
+  var missing = [];
+  var emails = glrReleaseNotes.notify.map(function(name){
+    var opt = GLR_NOTIFY_OPTIONS.filter(function(o){ return o.name === name; })[0];
+    if (!opt || !opt.email) { missing.push(name); return null; }
+    return opt.email;
+  }).filter(Boolean);
+  if (missing.length) {
+    showToast((isEs ? 'Sin correo registrado para: ' : 'No email on file for: ') + missing.join(', '), 'fail');
+  }
+  if (!emails.length) return;
+  var stateLabel = glrReleaseNotes.state === 'short'
+    ? (isEs ? 'Trabajo Corto' : 'Job Short')
+    : (isEs ? 'No Alcanzó Sobrantes' : 'Did Not Make Overs');
+  var subj = 'QA Alert — ' + stateLabel + ' — Job ' + job.jobNumber;
+  var body =
+    'Job: '      + job.jobNumber + '\n' +
+    'Station: '  + (job.station || '') + '\n' +
+    'Product: '  + (job.productNumber || '') + '\n' +
+    'Issue: '    + stateLabel + '\n' +
+    'Reason(s): '+ (glrReleaseNotes.reasons || []).join(', ') + '\n' +
+    'Released: ' + formatTS();
+  window.open('mailto:' + emails.join(',') + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body));
+}
 function approveStartProduction() {
   if (!continueJobId) return;
   if (!cmQaMarkState.val) { showAlert('QA signature is required to approve.'); _scrollToField(document.getElementById('cm-qa-sig-canvas')); return; }
@@ -6307,6 +6340,7 @@ function approveStartProduction() {
   closeContinueModal();
   renderInProgress();
   renderQARelease();
+  _sendGlrNotifyEmail(appJob, glrReleaseNotes);
   var toastMsg = _isFirstPassRelease ? '1st pass released — 2nd pass ready to run'
                : isGluerRelease ? 'Job released — removed from board'
                : isVeritiv      ? 'QA release complete — job closed'
