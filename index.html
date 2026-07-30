@@ -2857,6 +2857,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         <div class="continue-modal-body">
 
           <div class="card">
+            <div class="card-label"><span data-en>Job Summary</span><span data-es>Resumen del Trabajo</span></div>
+            <div id="ship-job-summary"></div>
+          </div>
+
+          <div class="card">
             <div class="card-label"><span data-en>Pass / Fail</span><span data-es>Aprobado / Rechazado</span> <span class="req">*</span></div>
             <div class="toggle-group" id="ship-passfail-group" style="gap:8px;">
               <button class="tgl" data-val="pass" style="flex:1;" onclick="setShipToggle('passFail','pass',this,'ship-passfail-group')">✓ <span data-en>Pass</span><span data-es>Aprobado</span></button>
@@ -3916,6 +3921,32 @@ function _saveEditJobCadStyle(jobId, prefix){
   var entry = found.job.checklist.filter(function(x){ return x.id === 'gl-cad-style'; })[0];
   if (entry) entry.val = sel.value;
   else found.job.checklist.push({ id: 'gl-cad-style', val: sel.value });
+  ipSave(found.jobs);
+  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+}
+function _saveEditJobQtyExecQa(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var input = document.getElementById(prefix + '-qtyexec-input');
+  var newQty = _qtyClean(input.value);
+  if (newQty <= 0) { showAlert(isEsLang() ? 'Ingrese una cantidad válida.' : 'Enter a valid quantity.'); return; }
+  _setStationQtyToExecute(found.job, newQty);
+  ipSave(found.jobs);
+  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+}
+// Writes the edited Final Qty Produced back to whichever field
+// _jobQtySummaryLines() actually reads for this job (gluerFinalQty takes
+// priority over finalQty there, so an existing gluerFinalQty gets updated
+// in place; otherwise it falls back to finalQty).
+function _setStationFinalQty(job, newQty){
+  if (job.gluerFinalQty != null && job.gluerFinalQty !== '') { job.gluerFinalQty = newQty; return; }
+  job.finalQty = newQty;
+}
+function _saveEditJobFinalQty(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var input = document.getElementById(prefix + '-finalqty-input');
+  var newQty = _qtyClean(input.value);
+  if (newQty <= 0) { showAlert(isEsLang() ? 'Ingrese una cantidad válida.' : 'Enter a valid quantity.'); return; }
+  _setStationFinalQty(found.job, newQty);
   ipSave(found.jobs);
   if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
 }
@@ -6186,8 +6217,13 @@ function approveStartProduction() {
     var glrNoOversSection = document.getElementById('cmqa-glr-no-overs-section');
     if (glrShortSection && glrShortSection.style.display !== 'none') {
       var glrShort = _glrReasonPickerValues('cmqa-glr-why-short', 'cmqa-glr-notify-short');
-      if (!glrShort.reasons.length || !glrShort.notify.length) { showAlert(_glrRelEs ? 'El trabajo está corto — elija un motivo y a quién notificar antes de liberar.' : 'Job is short — pick a reason and who to notify before releasing.'); return; }
-      glrReleaseNotes = { state: 'short', reasons: glrShort.reasons, notify: glrShort.notify };
+      // "Not Short, Partial Run" isn't an actual shortage — nobody needs
+      // notifying, so the notify list isn't required (and its list is
+      // cleared below, since the section is hidden and can't have been
+      // filled in anyway).
+      var glrIsPartialRun = glrShort.reasons.indexOf('Not Short, Partial Run') !== -1;
+      if (!glrShort.reasons.length || (!glrIsPartialRun && !glrShort.notify.length)) { showAlert(_glrRelEs ? 'El trabajo está corto — elija un motivo y a quién notificar antes de liberar.' : 'Job is short — pick a reason and who to notify before releasing.'); return; }
+      glrReleaseNotes = { state: 'short', reasons: glrShort.reasons, notify: glrIsPartialRun ? [] : glrShort.notify };
     } else if (glrNoOversSection && glrNoOversSection.style.display !== 'none') {
       var glrNoOvers = _glrReasonPickerValues('cmqa-glr-why-no-overs', 'cmqa-glr-notify-no-overs');
       if (!glrNoOvers.reasons.length || !glrNoOvers.notify.length) { showAlert(_glrRelEs ? 'El trabajo no alcanzó la meta de sobrantes — elija un motivo y a quién notificar antes de liberar.' : 'Job did not make the overs target — pick a reason and who to notify before releasing.'); return; }
@@ -8502,6 +8538,8 @@ function _renderQaJobSummary(job) {
   if (job.checklist) {
     _qaSummaryQty = _glOrderedQty(job.checklist);
   }
+  var _qaIsGluer = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
+  var _qaQtyEditable = _dataEditMode && _qaIsGluer && !_jobIsGluerFirstPass(job);
   var _qaSummaryCad = _gluerCadSummaryLine(job);
   var _qaQtyLines = _jobQtySummaryLines(job);
   var _qaEs = isEsLang();
@@ -8544,8 +8582,30 @@ function _renderQaJobSummary(job) {
         '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-cad-row\',\'cm-qa-cad-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
       '</div>' +
     '</div>' : '') +
-    '<div><strong>' + (_qaEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> ' + escHtml(_qaQtyLines.qtyExec) + '</div>' +
-    '<div><strong>' + (_qaEs ? 'Cantidad Final Producida:' : 'Final Qty Produced:') + '</strong> ' + escHtml(_qaQtyLines.finalQty) + '</div>' +
+    '<div id="cm-qa-qtyexec-row"><strong>' + (_qaEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> ' + escHtml(_qaQtyLines.qtyExec) +
+      (_qaQtyEditable ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-qtyexec-row\',\'cm-qa-qtyexec-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
+    '</div>' +
+    (_qaQtyEditable ? '<div id="cm-qa-qtyexec-edit" style="display:none;margin:8px 0;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<button type="button" class="qty-btn" onclick="stepQty(\'cm-qa-qtyexec-input\',-1)">−</button>' +
+        '<input class="input qty-input" id="cm-qa-qtyexec-input" type="text" inputmode="numeric" value="' + (_stationQtyToExecute(job)||0) + '" oninput="_qtyFormatLive(this)" style="width:110px;text-align:center;font-family:var(--mono);font-size:16px;font-weight:700;">' +
+        '<button type="button" class="qty-btn" onclick="stepQty(\'cm-qa-qtyexec-input\',1)">+</button>' +
+        '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobQtyExecQa(\''+job.id+'\',\'cm-qa\')">✓ ' + (_qaEs?'Guardar':'Save') + '</button>' +
+        '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-qtyexec-row\',\'cm-qa-qtyexec-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
+      '</div>' +
+    '</div>' : '') +
+    '<div id="cm-qa-finalqty-row"><strong>' + (_qaEs ? 'Cantidad Final Producida:' : 'Final Qty Produced:') + '</strong> ' + escHtml(_qaQtyLines.finalQty) +
+      (_qaQtyEditable ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-finalqty-row\',\'cm-qa-finalqty-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
+    '</div>' +
+    (_qaQtyEditable ? '<div id="cm-qa-finalqty-edit" style="display:none;margin:8px 0;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<button type="button" class="qty-btn" onclick="stepQty(\'cm-qa-finalqty-input\',-1)">−</button>' +
+        '<input class="input qty-input" id="cm-qa-finalqty-input" type="text" inputmode="numeric" value="' + (parseInt(job.gluerFinalQty || job.finalQty || 0) || 0) + '" oninput="_qtyFormatLive(this)" style="width:110px;text-align:center;font-family:var(--mono);font-size:16px;font-weight:700;">' +
+        '<button type="button" class="qty-btn" onclick="stepQty(\'cm-qa-finalqty-input\',1)">+</button>' +
+        '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobFinalQty(\''+job.id+'\',\'cm-qa\')">✓ ' + (_qaEs?'Guardar':'Save') + '</button>' +
+        '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-finalqty-row\',\'cm-qa-finalqty-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
+      '</div>' +
+    '</div>' : '') +
     (job.shipmentType === 'split' ? '<div><strong>' + (_qaEs ? 'Envío:' : 'Shipment:') + '</strong> ' + (_qaEs ? ('Dividido — ' + (job.splitCount||2) + ' envíos') : ('Split — ' + (job.splitCount||2) + ' shipments')) + (job.splitQtys ? ' (' + job.splitQtys.join(' / ') + ')' : '') + '</div>' : '') +
     '<div><strong>' + (_qaEs ? 'Iniciado:' : 'Started:') + '</strong> '  + escHtml(job.timestamp||'—')   + '</div>' +
     '</div>' +
@@ -9663,6 +9723,22 @@ function _glrReasonPickerValues(groupPrefix, notifyPrefix) {
 
 function toggleGluerMulti(groupId, val, btn) {
   btn.classList.toggle('sel');
+  // "Not Short, Partial Run" means there's no actual shortage to explain —
+  // it's an intentional partial shipment, not a problem. Picking it hides
+  // the notify list (and the release-time validation stops requiring
+  // someone be picked from it) since there's nobody who needs alerting.
+  if (groupId.indexOf('-glr-why-') !== -1) {
+    var notifyWrap = document.getElementById(groupId.replace('-glr-why-', '-glr-notify-'));
+    if (notifyWrap) {
+      var anyPartialRun = Array.prototype.some.call(
+        document.querySelectorAll('#' + groupId + '-group .tgl.sel'),
+        function(b){ return b.textContent.trim() === 'Not Short, Partial Run'; }
+      );
+      notifyWrap.style.display = anyPartialRun ? 'none' : '';
+      var notifyLabel = notifyWrap.previousElementSibling;
+      if (notifyLabel && notifyLabel.classList.contains('card-label')) notifyLabel.style.display = anyPartialRun ? 'none' : '';
+    }
+  }
 }
 
 function checkGluerReleaseQty() {
@@ -14311,6 +14387,23 @@ function openShippingModal(jobId){
   document.getElementById('ship-title').textContent = 'Job ' + (job.jobNumber||'—');
   var pf = job.formNumber || job.productNumber || job.product || '—';
   document.getElementById('ship-sub').textContent = stationLabel(job.station) + ' · ' + (job.customer?job.customer+' · ':'') + pf;
+
+  // Job Summary — shipping needs to see what's actually being shipped and
+  // how much, without having to back out to the kanban card for it.
+  var _shipSumEs = isEsLang();
+  var _shipQtyLines = _jobQtySummaryLines(job);
+  var _shipCad = _gluerCadSummaryLine(job);
+  document.getElementById('ship-job-summary').innerHTML =
+    '<div style="font-size:14px;line-height:1.8;">' +
+    '<div><strong>' + (_shipSumEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber||'—') + '</div>' +
+    '<div><strong>' + (_shipSumEs?'Estación:':'Station:') + '</strong> ' + escHtml(job.station ? stationLabel(job.station) : '—') + '</div>' +
+    '<div><strong>' + (_shipSumEs?'Producto:':'Product:') + '</strong> ' + escHtml(pf) + '</div>' +
+    (job.customer ? '<div><strong>' + (_shipSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer) + '</div>' : '') +
+    (job.operatorName ? '<div><strong>' + (_shipSumEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName) + '</div>' : '') +
+    (_shipCad ? '<div><strong>' + (_shipSumEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(_shipCad) + '</div>' : '') +
+    '<div><strong>' + (_shipSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + escHtml(_shipQtyLines.qtyExec) + '</div>' +
+    '<div><strong>' + (_shipSumEs?'Cantidad Final Producida:':'Final Qty Produced:') + '</strong> ' + escHtml(_shipQtyLines.finalQty) + '</div>' +
+    '</div>';
 
   document.querySelectorAll('#shipModal .toggle-group .tgl').forEach(function(b){ b.classList.remove('sel'); b.style.background=''; b.style.color=''; b.style.borderColor=''; });
 
