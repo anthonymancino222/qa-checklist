@@ -389,6 +389,13 @@ select.input { cursor: pointer; -webkit-appearance: menulist; appearance: auto; 
   padding: 16px 0; border-bottom: 1px solid var(--border);
 }
 .checklist-item:last-child { border-bottom: none; }
+/* Quantity to Execute is easy to skip past in a hurry — a plain checklist
+   row didn't stand out from the pass/fail items around it, so it gets its
+   own bordered, tinted box instead. */
+.checklist-item.checklist-item-qty-highlight {
+  border: 2px solid var(--pink); border-bottom: 2px solid var(--pink);
+  border-radius: 10px; background: rgba(255,31,143,.05); padding: 14px; margin: 8px 0;
+}
 .ci-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ci-name { font-size: 16px; font-weight: 600; color: var(--text-primary); padding-top: 2px; }
 .ci-desc { font-size: 15px; color: var(--text-tertiary); margin-top: 2px; }
@@ -4310,11 +4317,11 @@ var CHECKLIST_SAMPLES = [
 ];
 
 var CHECKLIST_GLUER = [
+  { id:'gl-qty',          name:['Quantity to execute the Material is correct?','¿La cantidad a ejecutar del material es correcta?'],                                 type:'qty',       req:true,  onchange:'checkGluerQty' },
   { id:'gl-cad-style',    name:['CAD Style','Estilo CAD'],                                                                    type:'choice',    req:true,  options:['STE','STE with Partition','Sleeve','Auto Bottom','Pocket folder','N/A'] },
   { id:'gl-test-job',     name:['Test Job?','¿Trabajo de Prueba?'],                                                                    type:'yesno',     req:true,  invertYesNo:true, noNote:true },
   { id:'gl-more-options', name:['More Options','Más Opciones'],                                                                 type:'select',    onchange:'onGluerMoreOptionsChange', options:['1st Pass','1st pass w/ kleenstick','1st pass w/ kleenstick and tear strip','2nd Pass','For Count Only'] },
   { id:'gl-clean-area',   name:['Clean Area from the previous inventory item/job','Área limpia del artículo/trabajo anterior'],                              type:'toggle',    req:true  },
-  { id:'gl-qty',          name:['Quantity to execute the Material is correct?','¿La cantidad a ejecutar del material es correcta?'],                                 type:'qty',       req:true,  onchange:'checkGluerQty' },
   { id:'gl-aql',          name:['AQL Sampling Requirements','Requisitos de Muestreo AQL'],                                                    type:'aql',       req:true  },
   { id:'gl-cad-sample',   name:['Cad Sample / Previous Sample approved by customer or CSR? (Critical Fail)','¿Muestra CAD / Muestra Anterior aprobada por el cliente o CSR? (Falla Crítica)'],   type:'toggle',    req:true  },
   { id:'gl-cad-design',   name:['Cad Design Document approved by customer or CSR? (Critical Fail)','¿Documento de diseño CAD aprobado por el cliente o CSR? (Falla Crítica)'],            type:'toggle',    req:true  },
@@ -4419,6 +4426,20 @@ function _syncRetryPending() {
 window.addEventListener('resize', function(){
   if (typeof _syncKanbanScrollWidth === 'function') _syncKanbanScrollWidth();
 });
+// Every full-screen popup in the app (job details, confirm/alert, passcode,
+// quick note, photo markup, records viewer, ...) shares the same "add
+// .open to reveal" pattern and the same scrollable .continue-overlay
+// container — catching it once here means a popup taller than the screen,
+// or one left scrolled from its last time open, always starts at its own
+// top instead of wherever that old scroll position happened to be.
+new MutationObserver(function(mutations){
+  mutations.forEach(function(m){
+    var el = m.target;
+    if (el.classList && el.classList.contains('open') && el.classList.contains('continue-overlay')) {
+      el.scrollTop = 0;
+    }
+  });
+}).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
 window.addEventListener('online', _syncRetryPending);
 setInterval(_syncRetryPending, 30000);
 // Soft-deletes one record on the server. Nothing calls the Worker's DELETE
@@ -5808,7 +5829,13 @@ function openContinueModal(id) {
     }
   }
 
-  document.getElementById('continueOverlay').classList.add('open');
+  var _cmOverlay = document.getElementById('continueOverlay');
+  _cmOverlay.classList.add('open');
+  // Always open scrolled to the top — without this, reopening a job whose
+  // popup was scrolled down last time (or was left scrolled by a previous
+  // job) lands wherever that old scroll position was, not on the header/
+  // photo/first checklist item someone actually needs to see first.
+  _cmOverlay.scrollTop = 0;
 }
 
 function closeContinueModal() {
@@ -9168,10 +9195,9 @@ var SHORTAGE_REASON_LABELS = {
 };
 function buildChecklistItem(item, prefix) {
   var div = document.createElement('div');
-  div.className = 'checklist-item';
-  div.id = prefix+'-ci-'+item.id;
-
   var type = item.type || 'default';
+  div.className = 'checklist-item' + (type === 'qty' ? ' checklist-item-qty-highlight' : '');
+  div.id = prefix+'-ci-'+item.id;
   var isEs = isEsLang();
 
   if (type === 'aql') {
@@ -9264,7 +9290,7 @@ function buildChecklistItem(item, prefix) {
     inner += '</div>';
     inner += '<div class="toggle-group" style="flex-wrap:wrap;gap:6px;margin-top:8px;">';
     (item.options || []).forEach(function(opt) {
-      inner += '<button class="tgl" style="flex:1;min-width:80px;" onclick="setCIToggle(\''+prefix+'\',\''+item.id+'\',\''+escHtml(opt)+'\',this)">'+escHtml(opt)+'</button>';
+      inner += '<button class="tgl" style="flex:1;min-width:80px;white-space:normal;line-height:1.2;font-size:14px;padding:9px 10px;" onclick="setCIToggle(\''+prefix+'\',\''+item.id+'\',\''+escHtml(opt)+'\',this)">'+escHtml(opt)+'</button>';
     });
     inner += '</div>';
     div.innerHTML = inner;
