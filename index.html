@@ -5919,7 +5919,7 @@ function cancelContinueModal() {
 // Operator submits checklist + sig → status becomes qa_pending
 function submitForQAApproval() {
   if (!continueJobId) return;
-  if (!cmOpMarkState.val) { showAlert('Operator signature is required.'); return; }
+  if (!cmOpMarkState.val) { showAlert('Operator signature is required.'); _scrollToField(document.getElementById('cm-op-sig-canvas')); return; }
 
   // Collect checklist results — toggle items use active button text; qty uses input value
   var checklist = [];
@@ -6047,7 +6047,7 @@ function approveStartProduction() {
       // Releasing a held split ship portion
       var splitShipQtyEl = document.getElementById('cmqa-split-ship-qty');
       var splitShipQty = splitShipQtyEl ? _qtyClean(splitShipQtyEl.value) : 0;
-      if (splitShipQty <= 0) { showAlert('Enter the qty for this split shipment.'); return; }
+      if (splitShipQty <= 0) { showAlert('Enter the qty for this split shipment.'); _scrollToField(splitShipQtyEl); return; }
       var _splitRelSig = cmQaSigCanvas.toDataURL('image/png');
       ipUpdate(continueJobId, {
         process: 'finished', qaSignature: _splitRelSig,
@@ -6081,7 +6081,8 @@ function approveStartProduction() {
         var sq = sqEl ? _qtyClean(sqEl.value) : 0;
         splitQtys.push(sq);
       }
-      if (splitQtys.some(function(q){ return q <= 0; })) { showAlert(_splitRelEs ? 'Ingrese la cantidad para cada envío.' : 'Enter qty for each shipment.'); return; }
+      var _splitBadIdx = splitQtys.findIndex(function(q){ return q <= 0; });
+      if (_splitBadIdx !== -1) { showAlert(_splitRelEs ? 'Ingrese la cantidad para cada envío.' : 'Enter qty for each shipment.'); _scrollToField(document.getElementById('cmqa-split-qty-' + _splitBadIdx)); return; }
 
       // Any shipment currently showing SHORT or No-Overs needs a reason + notify
       // list picked before release — mirrors the single-shipment requirement.
@@ -6241,11 +6242,11 @@ function approveStartProduction() {
       // cleared below, since the section is hidden and can't have been
       // filled in anyway).
       var glrIsPartialRun = glrShort.reasons.indexOf('Not Short, Partial Run') !== -1;
-      if (!glrShort.reasons.length || (!glrIsPartialRun && !glrShort.notify.length)) { showAlert(_glrRelEs ? 'El trabajo está corto — elija un motivo y a quién notificar antes de liberar.' : 'Job is short — pick a reason and who to notify before releasing.'); return; }
+      if (!glrShort.reasons.length || (!glrIsPartialRun && !glrShort.notify.length)) { showAlert(_glrRelEs ? 'El trabajo está corto — elija un motivo y a quién notificar antes de liberar.' : 'Job is short — pick a reason and who to notify before releasing.'); _scrollToField(glrShortSection); return; }
       glrReleaseNotes = { state: 'short', reasons: glrShort.reasons, notify: glrIsPartialRun ? [] : glrShort.notify };
     } else if (glrNoOversSection && glrNoOversSection.style.display !== 'none') {
       var glrNoOvers = _glrReasonPickerValues('cmqa-glr-why-no-overs', 'cmqa-glr-notify-no-overs');
-      if (!glrNoOvers.reasons.length || !glrNoOvers.notify.length) { showAlert(_glrRelEs ? 'El trabajo no alcanzó la meta de sobrantes — elija un motivo y a quién notificar antes de liberar.' : 'Job did not make the overs target — pick a reason and who to notify before releasing.'); return; }
+      if (!glrNoOvers.reasons.length || !glrNoOvers.notify.length) { showAlert(_glrRelEs ? 'El trabajo no alcanzó la meta de sobrantes — elija un motivo y a quién notificar antes de liberar.' : 'Job did not make the overs target — pick a reason and who to notify before releasing.'); _scrollToField(glrNoOversSection); return; }
       glrReleaseNotes = { state: 'no_overs', reasons: glrNoOvers.reasons, notify: glrNoOvers.notify };
     }
   }
@@ -6720,7 +6721,7 @@ function addGeneralQANote() {
   var input = document.getElementById('cm-prod-general-note-input');
   if (!input) return;
   var text = input.value.trim();
-  if (!text) { showAlert('Please enter a note before submitting.'); return; }
+  if (!text) { showAlert('Please enter a note before submitting.'); _scrollToField(input); return; }
   showConfirm('"' + text + '"\n\nThis cannot be edited or deleted once confirmed.', function(ok){
     if (!ok) return;
     var jobs = ipLoad();
@@ -6750,7 +6751,7 @@ function logVeritivSpotCheck() {
   if (!continueJobId) return;
   var qtyInput = document.getElementById('cm-prod-spotcheck-qty');
   var qty = qtyInput ? parseInt(qtyInput.value) : NaN;
-  if (!qty || qty < 0) { showAlert('Enter the approximate quantity packed so far.'); return; }
+  if (!qty || qty < 0) { showAlert('Enter the approximate quantity packed so far.'); _scrollToField(qtyInput); return; }
   var jobs = ipLoad();
   var job = null;
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === continueJobId) { job = jobs[i]; break; } }
@@ -6846,7 +6847,7 @@ function saveJobEdit() {
   if (!continueJobId) return;
   var newJob = document.getElementById('cm-edit-job').value.trim();
   var newProd = document.getElementById('cm-edit-product').value.trim();
-  if (!newJob) { showAlert('Job number cannot be empty.'); return; }
+  if (!newJob) { showAlert('Job number cannot be empty.'); _scrollToField(document.getElementById('cm-edit-job')); return; }
   var jobs = ipLoad();
   var job = null;
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === continueJobId) { job = jobs[i]; break; } }
@@ -6891,7 +6892,7 @@ function closeQuickNoteModal() {
 function submitQuickNote() {
   if (!quickNoteJobId) return;
   var text = document.getElementById('qn-input').value.trim();
-  if (!text) { showAlert('Please enter a note before submitting.'); return; }
+  if (!text) { showAlert('Please enter a note before submitting.'); _scrollToField(document.getElementById('qn-input')); return; }
   showConfirm('"' + text + '"\n\nThis cannot be edited or deleted once confirmed.', function(ok){
     if (!ok) return;
     var jobs = ipLoad();
@@ -6912,7 +6913,7 @@ function addQANoteHold() {
   var input = document.getElementById('cm-hold-qa-note-input');
   if (!input) return;
   var text = input.value.trim();
-  if (!text) { showAlert('Please enter a note before submitting.'); return; }
+  if (!text) { showAlert('Please enter a note before submitting.'); _scrollToField(input); return; }
   showConfirm('"' + text + '"\n\nThis cannot be edited or deleted once confirmed.', function(ok){
     if (!ok) return;
     var jobs = ipLoad();
@@ -7088,14 +7089,15 @@ function finishJob() {
     var finalQty = 0, pkSplitCount = 0, pkSplitQtys = [];
     if (pkShipType === 'split') {
       var pkSplitCountBtn = document.querySelector('#cm-prod-pk-split-count-wrap .tgl.pass');
-      if (!pkSplitCountBtn) { showAlert(isEs?'Seleccione cuántos envíos para la división.':'Please select how many shipments for the split.'); return; }
+      if (!pkSplitCountBtn) { showAlert(isEs?'Seleccione cuántos envíos para la división.':'Please select how many shipments for the split.'); _scrollToField(document.getElementById('cm-prod-pk-split-count-wrap')); return; }
       pkSplitCount = parseInt(pkSplitCountBtn.getAttribute('data-count') || pkSplitCountBtn.textContent.trim()) || 0;
       for (var pki = 0; pki < pkSplitCount; pki++) {
         var pkSqEl = document.getElementById('cm-prod-pk-sq-' + pki);
         var pkSq = pkSqEl ? _qtyClean(pkSqEl.value) : 0;
         pkSplitQtys.push(pkSq);
       }
-      if (pkSplitQtys.some(function(q){ return q <= 0; })) { showAlert(isEs?'Ingrese una cantidad final mayor que 0 para cada envío.':'Please enter a final qty greater than 0 for each shipment.'); return; }
+      var _pkBadIdx = pkSplitQtys.findIndex(function(q){ return q <= 0; });
+      if (_pkBadIdx !== -1) { showAlert(isEs?'Ingrese una cantidad final mayor que 0 para cada envío.':'Please enter a final qty greater than 0 for each shipment.'); _scrollToField(document.getElementById('cm-prod-pk-sq-' + _pkBadIdx)); return; }
       finalQty = pkSplitQtys.reduce(function(a, b){ return a + b; }, 0);
     } else {
       finalQty = _qtyClean(document.getElementById('cm-prod-final-qty').value);
@@ -7103,8 +7105,8 @@ function finishJob() {
     }
     // Validate QC samples question — Yes is required
     var aqlSamplesBtn = document.querySelector('#cm-prod-aql-samples-group .tgl.pass, #cm-prod-aql-samples-group .tgl.fail');
-    if (!aqlSamplesBtn) { showAlert(isEs?'Confirme que las Muestras de QC están tomadas y listas para Calidad.':'Please confirm QC Samples are pulled and ready for QA.'); return; }
-    if (aqlSamplesBtn.classList.contains('fail')) { showAlert(isEs?'Las muestras de QC son obligatorias. Las muestras deben tomarse antes de terminar el trabajo.':'QC samples are mandatory. Samples must be pulled before finishing the job.'); return; }
+    if (!aqlSamplesBtn) { showAlert(isEs?'Confirme que las Muestras de QC están tomadas y listas para Calidad.':'Please confirm QC Samples are pulled and ready for QA.'); _scrollToField(document.getElementById('cm-prod-aql-samples-group')); return; }
+    if (aqlSamplesBtn.classList.contains('fail')) { showAlert(isEs?'Las muestras de QC son obligatorias. Las muestras deben tomarse antes de terminar el trabajo.':'QC samples are mandatory. Samples must be pulled before finishing the job.'); _scrollToField(document.getElementById('cm-prod-aql-samples-group')); return; }
     var aqlNoReason = '';
     // Stored/compared as canonical English 'Yes'/'No' codes — decoupled from
     // the button's translated display text (which may contain both EN/ES
@@ -7112,15 +7114,15 @@ function finishJob() {
     var aqlSamplesVal = aqlSamplesBtn.classList.contains('pass') ? 'Yes' : 'No';
     // Validate labels question
     var labelsBtn = document.querySelector('#cm-prod-labels-group .tgl.pass, #cm-prod-labels-group .tgl.fail');
-    if (!labelsBtn) { showAlert(isEs?'Responda: ¿Las cajas aún necesitan etiquetas?':'Please answer: Do boxes still need labels?'); return; }
+    if (!labelsBtn) { showAlert(isEs?'Responda: ¿Las cajas aún necesitan etiquetas?':'Please answer: Do boxes still need labels?'); _scrollToField(document.getElementById('cm-prod-labels-group')); return; }
     var labelsYesReason = '';
     if (labelsBtn.classList.contains('fail')) {
       labelsYesReason = document.getElementById('cm-prod-labels-yes-reason').value.trim();
-      if (!labelsYesReason) { showAlert(isEs?'Describa qué etiquetas faltan y por qué no están en las cajas todavía.':'Please describe what labels are still needed and why they are not on the boxes yet.'); return; }
+      if (!labelsYesReason) { showAlert(isEs?'Describa qué etiquetas faltan y por qué no están en las cajas todavía.':'Please describe what labels are still needed and why they are not on the boxes yet.'); _scrollToField(document.getElementById('cm-prod-labels-yes-reason')); return; }
     }
     // Validate last-25 question
     var last25Btn = document.querySelector('#cm-prod-last25-group .tgl.pass, #cm-prod-last25-group .tgl.fail');
-    if (!last25Btn) { showAlert(isEs?'Responda: ¿Se verificaron las últimas 25 piezas?':'Please answer: Were the last 25 pieces spot checked?'); return; }
+    if (!last25Btn) { showAlert(isEs?'Responda: ¿Se verificaron las últimas 25 piezas?':'Please answer: Were the last 25 pieces spot checked?'); _scrollToField(document.getElementById('cm-prod-last25-group')); return; }
     var pkOversBtn = document.querySelector('#cm-prod-pk-overs-group .tgl.pass');
     var pkOversTarget = pkOversBtn ? pkOversBtn.getAttribute('data-overs') : '10';
 
@@ -7211,15 +7213,15 @@ function finishJob() {
         }
         if (shipmentType === 'split') {
           var splitCountBtn = document.querySelector('#cm-prod-split-count-wrap .tgl.pass');
-          if (!splitCountBtn) { showAlert(isEs?'Seleccione cuántos envíos para la división.':'Please select how many shipments for the split.'); return; }
+          if (!splitCountBtn) { showAlert(isEs?'Seleccione cuántos envíos para la división.':'Please select how many shipments for the split.'); _scrollToField(document.getElementById('cm-prod-split-count-wrap')); return; }
           if ((splitCountBtn.getAttribute('data-count') || '') === 'other') {
             splitCount = parseInt(document.getElementById('cm-prod-split-other-num').value) || 0;
-            if (splitCount < 2) { showAlert(isEs?'Ingrese el número de envíos (mínimo 2).':'Please enter the number of shipments (minimum 2).'); return; }
+            if (splitCount < 2) { showAlert(isEs?'Ingrese el número de envíos (mínimo 2).':'Please enter the number of shipments (minimum 2).'); _scrollToField(document.getElementById('cm-prod-split-other-num')); return; }
           } else {
             splitCount = parseInt(splitCountBtn.getAttribute('data-count') || splitCountBtn.textContent.trim()) || 2;
           }
           var sqWrap = document.getElementById('cm-prod-split-qtys');
-          if (!sqWrap || sqWrap.style.display === 'none' || !sqWrap.children.length) { showAlert(isEs?'Ingrese la cantidad para cada envío.':'Please enter the quantity for each shipment.'); return; }
+          if (!sqWrap || sqWrap.style.display === 'none' || !sqWrap.children.length) { showAlert(isEs?'Ingrese la cantidad para cada envío.':'Please enter the quantity for each shipment.'); _scrollToField(sqWrap); return; }
           for (var sqi = 0; sqi < splitCount; sqi++) {
             var sqEl = document.getElementById('cm-prod-sq-' + sqi);
             var sq = sqEl ? _qtyClean(sqEl.value) : 0;
@@ -7228,11 +7230,12 @@ function finishJob() {
             var oBtn = oGrp ? oGrp.querySelector('.tgl.pass') : null;
             splitOvers.push(oBtn ? (oBtn.getAttribute('data-overs') || '10') : '10');
           }
-          if (splitQtys.some(function(q){ return q <= 0; })) { showAlert(isEs?'Ingrese una cantidad mayor que 0 para cada envío.':'Please enter a quantity greater than 0 for each shipment.'); return; }
+          var _sqBadIdx = splitQtys.findIndex(function(q){ return q <= 0; });
+          if (_sqBadIdx !== -1) { showAlert(isEs?'Ingrese una cantidad mayor que 0 para cada envío.':'Please enter a quantity greater than 0 for each shipment.'); _scrollToField(document.getElementById('cm-prod-sq-' + _sqBadIdx)); return; }
         }
       }
       var gluerLabelsBtn = document.querySelector('#cm-prod-gluer-labels-group .tgl.pass, #cm-prod-gluer-labels-group .tgl.fail');
-      if (!isFirstPassJob && !gluerLabelsBtn) { showAlert(isEs?'Responda: ¿Etiquetas de Caja Listas?':'Please answer: Box Labels Ready?'); return; }
+      if (!isFirstPassJob && !gluerLabelsBtn) { showAlert(isEs?'Responda: ¿Etiquetas de Caja Listas?':'Please answer: Box Labels Ready?'); _scrollToField(document.getElementById('cm-prod-gluer-labels-group')); return; }
       var gluerLabelsVal = gluerLabelsBtn ? (gluerLabelsBtn.classList.contains('pass') ? 'Yes' : 'No') : null;
       var gluerNotes = '';
       // Collect packer checklist answers — same canonical-code approach as
@@ -8838,17 +8841,17 @@ function toggleVeritivFirst25(val, btn) {
 
 function beginVeritivPacking() {
   var job = document.getElementById('setup-job').value.trim();
-  if (!job) { showAlert('Enter a job number.'); return; }
+  if (!job) { showAlert('Enter a job number.'); _scrollToField(document.getElementById('setup-job')); return; }
   var product = document.getElementById('veritiv-product').value.trim();
-  if (!product) { showAlert('Enter a Product ID.'); return; }
+  if (!product) { showAlert('Enter a Product ID.'); _scrollToField(document.getElementById('veritiv-product')); return; }
   var qty = _qtyClean(document.getElementById('veritiv-qty').value);
-  if (qty < 1) { showAlert('Enter the quantity to execute.'); return; }
+  if (qty < 1) { showAlert('Enter the quantity to execute.'); _scrollToField(document.getElementById('veritiv-qty')); return; }
   var aqlAck = document.querySelector('#veritiv-aql-group .tgl.pass');
-  if (!aqlAck) { showAlert('Please confirm you understand the AQL sampling requirements.'); return; }
+  if (!aqlAck) { showAlert('Please confirm you understand the AQL sampling requirements.'); _scrollToField(document.getElementById('veritiv-aql-group')); return; }
   var first25Yes = document.querySelector('#veritiv-first25-group .tgl.fail');
   var first25No  = document.querySelector('#veritiv-first25-group .tgl.pass');
   var first25Val = first25Yes ? 'Yes' : (first25No ? 'No' : null);
-  if (!first25Val) { showAlert('Answer the "1st 25 pieces have issue?" question.'); return; }
+  if (!first25Val) { showAlert('Answer the "1st 25 pieces have issue?" question.'); _scrollToField(document.getElementById('veritiv-first25-group')); return; }
   var prevImg = document.getElementById('veritiv-photo-preview');
   var photoSrc = (prevImg && prevImg.src && prevImg.style.display !== 'none') ? prevImg.src : null;
   if (!photoSrc) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('veritiv-photo-area')); return; }
@@ -8878,18 +8881,18 @@ function beginInspection() {
   var job     = document.getElementById('setup-job').value.trim();
   var station = document.getElementById('setup-station').value;
 
-  if (!job)     { showAlert('Enter a job number.'); return; }
-  if (!station) { showAlert('Select a station.'); return; }
+  if (!job)     { showAlert('Enter a job number.'); _scrollToField(document.getElementById('setup-job')); return; }
+  if (!station) { showAlert('Select a station.'); _scrollToField(document.getElementById('setup-station-btns')); return; }
   if (station === 'Packing') {
     if (!document.querySelector('#veritiv-job-group .tgl.pass, #veritiv-job-group .tgl.fail')) {
-      showAlert('Please answer: Is this a Veritiv job?'); return;
+      showAlert('Please answer: Is this a Veritiv job?'); _scrollToField(document.getElementById('veritiv-job-field')); return;
     }
   }
 
   // ── Kama path ──
   if (station === 'Kama Foil Press') {
     var formNum = document.getElementById('kama-form-number').value.trim();
-    if (!formNum) { showAlert('Enter a Form ID.'); return; }
+    if (!formNum) { showAlert('Enter a Form ID.'); _scrollToField(document.getElementById('kama-form-number')); return; }
 
     if (kamaCurrentProcess === 'production') {
       if (!opSigHasMark) { showAlert('Operator sign-off is required.'); _scrollToField(document.getElementById('op-sig-canvas')); return; }
@@ -8965,7 +8968,7 @@ function beginInspection() {
   // ── Die Cutter path ──
   if (station === 'New Die Cutter' || station === 'Old Die Cutter') {
     var formId = document.getElementById('dc-form-number').value.trim();
-    if (!formId) { showAlert('Enter a Form ID.'); return; }
+    if (!formId) { showAlert('Enter a Form ID.'); _scrollToField(document.getElementById('dc-form-number')); return; }
 
     if (dcCurrentProcess === 'production') {
       if (!opSigHasMark) { showAlert('Operator sign-off is required.'); _scrollToField(document.getElementById('op-sig-canvas')); return; }
@@ -9031,7 +9034,7 @@ function beginInspection() {
     if (gluerCurrentProcess === 'production') {
       if (!opSigHasMark) { showAlert('Operator sign-off is required.'); _scrollToField(document.getElementById('op-sig-canvas')); return; }
       if (!sigHasMark) { showAlert('QA signature is required.'); _scrollToField(document.getElementById('sig-canvas')); return; }
-      if (gluerProductCount < 1) { showAlert('Select number of products.'); return; }
+      if (gluerProductCount < 1) { showAlert('Select number of products.'); _scrollToField(document.getElementById('gluer-count-group')); return; }
       var _gMoreOptEl = document.getElementById('setup-val-gl-more-options');
       var _gIsFirstPass = !!(_gMoreOptEl && _isGluerFirstPassValue(_gMoreOptEl.value));
       if (!_gIsFirstPass) {
@@ -9073,7 +9076,7 @@ function beginInspection() {
       return;
     }
 
-    if (gluerProductCount < 1) { showAlert('Select number of products.'); return; }
+    if (gluerProductCount < 1) { showAlert('Select number of products.'); _scrollToField(document.getElementById('gluer-count-group')); return; }
     // CAD Style, AQL Sampling, and Quantity to Execute all describe the
     // actual production run, not the machine setup — so none of them are
     // asked at Make Ready. They become required once this job moves to
@@ -9119,7 +9122,7 @@ function beginInspection() {
   var count = setupState.count;
   var other = parseInt(document.getElementById('other-count').value)||0;
   if (count === 0) count = other;
-  if (count < 1) { showAlert('Select the number of products.'); return; }
+  if (count < 1) { showAlert('Select the number of products.'); _scrollToField(document.getElementById('count-grid')); return; }
 
   if (count === 1) {
     // Single product: validate sigs, collect from setup page, submit directly
@@ -10277,7 +10280,7 @@ function prevProduct() {
   saveCurrentEntry(); loadProduct(jobState.current - 1); _scrollMainToTop();
 }
 function nextProduct() {
-  if (jobState.multiSig && !iSigHasMark) { showAlert('Please sign before continuing.'); return; }
+  if (jobState.multiSig && !iSigHasMark) { showAlert('Please sign before continuing.'); _scrollToField(document.getElementById('sig-canvas')); return; }
   if (_requireAllAnswered('inspect', CHECKLIST)) return;
   saveCurrentEntry();
   var next = jobState.current + 1;
@@ -14006,7 +14009,7 @@ function rcaHandoffDeptChange(){
 function rcaHandoffToDept(){
   var dept = rcaGetVal('handoff-dept');
   var isEs = isEsLang();
-  if (!dept){ showAlert(isEs ? 'Seleccione un departamento primero.' : 'Select a department first.'); return; }
+  if (!dept){ showAlert(isEs ? 'Seleccione un departamento primero.' : 'Select a department first.'); _scrollToField(document.getElementById('rca-handoff-dept')); return; }
   var mgr = STATION_MANAGER[dept] || (isEs ? 'el gerente del departamento' : 'the department manager');
   rcaShowToast((isEs ? '📤 Transferencia simulada — ' : '📤 Hand-off simulated — ') + mgr + ' (' + dept + ') ' + (isEs ? 'notificado localmente' : 'notified locally'));
   rcaSetStatus('pending', (isEs ? 'Reasignado a ' : 'Reassigned to ') + dept + (isEs ? ' — esperando a ' : ' — awaiting ') + mgr);
@@ -14211,7 +14214,7 @@ function rcaValidate(ids){
 function rcaSendToManager(){
   if(!rcaValidate(["job-num","prod-num","station","issuecat-value"])) return;
   var isEs = isEsLang();
-  if(!rcaGetQAName()){showAlert(isEs?"Seleccione o ingrese un nombre de técnico de calidad.":"Please select or enter a QA tech name.");return;}
+  if(!rcaGetQAName()){showAlert(isEs?"Seleccione o ingrese un nombre de técnico de calidad.":"Please select or enter a QA tech name.");_scrollToField(document.getElementById('rca-qa-name'));return;}
   const btn=document.querySelector("#section-sendmgr .btn-warn");
   if(btn){btn.disabled=true;btn.textContent = isEs ? "Enviando..." : "Sending...";}
   rcaSetStatus("saving", RCA_LIVE ? (isEs?"Notificando al gerente...":"Notifying manager...") : (isEs?"Simulando transferencia al gerente...":"Simulating manager hand-off..."));
@@ -14243,7 +14246,7 @@ function rcaCloseOut(){
   // step, but nothing disables those fields until the form actually locks —
   // re-check here too so this final save can't go out with them blanked out.
   if(!rcaValidate(['job-num','prod-num','station'])) return;
-  if(!rcaGetVal('close-date')||!rcaGetCloseQAName()){showAlert(isEs?'Complete la fecha de cierre y el nombre del técnico de calidad.':'Please fill in close-out date and QA tech name.');return;}
+  if(!rcaGetVal('close-date')||!rcaGetCloseQAName()){showAlert(isEs?'Complete la fecha de cierre y el nombre del técnico de calidad.':'Please fill in close-out date and QA tech name.');_scrollToField(document.getElementById('rca-close-date'));return;}
   const btn=document.getElementById('rca-btn-close');
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
   rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...'));
@@ -14263,7 +14266,7 @@ function rcaSubmitPath1(){
     if (_dispGrid1) _dispGrid1.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
-  if(!rcaGetQAName()||!rcaGetCloseQAName()){showAlert(isEs?'Seleccione o ingrese los nombres de los técnicos de calidad.':'Please select or enter QA tech names.');return;}
+  if(!rcaGetQAName()||!rcaGetCloseQAName()){showAlert(isEs?'Seleccione o ingrese los nombres de los técnicos de calidad.':'Please select or enter QA tech names.');_scrollToField(document.getElementById('rca-qa-name'));return;}
   const btn=document.getElementById('rca-btn-submit1');
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
   rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...'));
