@@ -182,17 +182,15 @@ body.sidebar-expanded .nav-item { justify-content: flex-start; padding: 10px 12p
 .nav-label { display: none; white-space: nowrap; }
 body.sidebar-expanded .nav-label { display: inline; }
 .nav-status {
-  position: absolute; top: 4px; right: 4px;
+  position: absolute; top: 2px; right: 2px;
   font-family: var(--mono); font-size: 11px; font-weight: 700;
   padding: 1px 5px; border-radius: 10px; min-width: 16px; text-align: center;
-  background: rgba(255,255,255,.12); color: rgba(255,255,255,.6);
+  background: var(--red); color: #fff; border: 1.5px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
 }
 body.sidebar-expanded .nav-status {
   position: static; margin-left: auto;
-  font-size: 15px; font-weight: 600; padding: 2px 7px;
-}
-.nav-item:not(.active) .nav-status {
-  background: var(--border); color: var(--text-tertiary);
+  font-size: 13px; font-weight: 700; padding: 2px 7px; border: none; box-shadow: none;
 }
 
 /* ── Main content ── */
@@ -4644,13 +4642,19 @@ function _buildJPListRow(job, opts) {
 }
 
 function updateQAReleaseBadge() {
-  var dot = document.getElementById('qa-release-dot');
-  if (!dot) return;
   var count = ipLoad().filter(function(j) {
     var isVeritivPack = (j.station === 'Packing' && j.customer === 'Veritiv');
     var isGluer = (j.station === 'Long Gluer' || j.station === 'Short Gluer');
     return (j.process === 'qa_pending' && isVeritivPack) || (j.process === 'qa_release' && isGluer);
   }).length;
+  // The sidebar badge exists at page load; the mobile bottom-nav dot is
+  // markup further down the page that isn't parsed yet on the very first
+  // call — bailing out early on a missing dot used to skip the sidebar
+  // update too, which is why the count never showed up until you'd already
+  // visited Job in Progress or QA Release once.
+  _setNavBadge('nav-qarelease', count);
+  var dot = document.getElementById('qa-release-dot');
+  if (!dot) return;
   if (count > 0) {
     dot.textContent = '!';
     dot.style.display = 'flex';
@@ -10321,6 +10325,7 @@ function checkQcLanding() {
 }
 function checkDraftBanner() {
   var drafts = loadDrafts();
+  if (typeof updateQCBadge === 'function') updateQCBadge();
   var banner = document.getElementById('qc-draft-banner');
   var info   = document.getElementById('qc-draft-info');
   if (!banner || !info) return;
@@ -11503,6 +11508,10 @@ function closeGluerBatchSheet(e) {
 
 // Check for saved draft on page load
 checkDraftBanner();
+// Sidebar count badges need their own initial paint — otherwise QA Release's
+// only shows up once you've already visited Job in Progress or QA Release,
+// since it's normally refreshed by those views' own render functions.
+updateQAReleaseBadge();
 
 // Pull in anything created on another device since this one last loaded
 _syncInitialPull();
@@ -13397,22 +13406,32 @@ function renderNCRPie(){
   });
 }
 
-/* Open-NCR badge on sidebar nav */
-function updateNCRBadges(){
-  var open = ncrLoad().filter(function(n){ return n.status!=='Closed'; }).length;
-  var nav = document.getElementById('nav-ncrprog');
+// Shared by every sidebar count badge (NCR in Progress, QC Approval, QA
+// Release) — creates the .nav-status span on first use, otherwise just
+// updates it, so each caller only has to compute its own count.
+function _setNavBadge(navId, count){
+  var nav = document.getElementById(navId);
   if (!nav) return;
   var b = nav.querySelector('.nav-status');
   if (!b){
     b = document.createElement('span');
     b.className = 'nav-status';
-    b.style.cssText = 'background:var(--red-soft);color:var(--red);';
     nav.appendChild(b);
   }
-  b.textContent = open || '';
-  b.style.display = open ? '' : 'none';
+  b.textContent = count || '';
+  b.style.display = count ? '' : 'none';
+}
+/* Open-NCR badge on sidebar nav */
+function updateNCRBadges(){
+  var open = ncrLoad().filter(function(n){ return n.status!=='Closed'; }).length;
+  _setNavBadge('nav-ncrprog', open);
 }
 updateNCRBadges();
+// Saved-but-unfinished QC entries — same "needs attention" meaning as the
+// NCR in Progress count, so it gets the same badge treatment.
+function updateQCBadge(){
+  _setNavBadge('nav-qc', loadDrafts().length);
+}
 
 
 /* ── RCA module ── */
