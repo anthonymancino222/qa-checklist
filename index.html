@@ -2410,6 +2410,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <div class="card-label"><span data-en>Notes</span><span data-es>Notas</span> <span style="color:var(--text-tertiary);font-weight:400;">(<span data-en>optional</span><span data-es>opcional</span>)</span></div>
               <textarea id="cm-qa-approval-note" class="input" placeholder="Add any notes about this approval…" data-ph-en="Add any notes about this approval…" data-ph-es="Agregue cualquier nota sobre esta aprobación…" style="width:100%;box-sizing:border-box;min-height:72px;resize:vertical;font-size:14px;line-height:1.5;margin-top:6px;"></textarea>
             </div>
+            <div class="card" style="margin:0;display:none;" id="cm-qa-review-summary-card">
+              <div class="card-label"><span data-en>Job Summary</span><span data-es>Resumen del Trabajo</span></div>
+              <div id="cm-qa-review-summary" style="font-size:14px;line-height:1.8;"></div>
+            </div>
             <button id="cm-qa-approve-btn" class="btn-primary" onclick="approveStartProduction()">Approve — Start Production →</button>
             <button class="btn" style="width:100%;margin-top:8px;" onclick="cancelContinueModal()"><span data-en>Cancel — discard changes</span><span data-es>Cancelar — descartar cambios</span></button>
           </div>
@@ -4356,8 +4360,8 @@ var CHECKLIST_SAMPLES = [
 var CHECKLIST_GLUER = [
   { id:'gl-qty',          name:['Quantity to execute the Material is correct?','¿La cantidad a ejecutar del material es correcta?'],                                 type:'qty',       req:true,  onchange:'checkGluerQty' },
   { id:'gl-cad-style',    name:['CAD Style','Estilo CAD'],                                                                    type:'choice',    req:true,  options:['STE','STE with Partition','Sleeve','Auto Bottom','Pocket folder','N/A'] },
-  { id:'gl-test-job',     name:['Test Job?','¿Trabajo de Prueba?'],                                                                    type:'yesno',     req:true,  invertYesNo:true, noNote:true },
   { id:'gl-more-options', name:['More Options','Más Opciones'],                                                                 type:'select',    onchange:'onGluerMoreOptionsChange', options:['1st Pass','1st pass w/ kleenstick','1st pass w/ kleenstick and tear strip','2nd Pass','For Count Only'] },
+  { id:'gl-test-job',     name:['Test Job?','¿Trabajo de Prueba?'],                                                                    type:'yesno',     req:true,  invertYesNo:true, noNote:true },
   { id:'gl-clean-area',   name:['Clean Area from the previous inventory item/job','Área limpia del artículo/trabajo anterior'],                              type:'toggle',    req:true  },
   { id:'gl-aql',          name:['AQL Sampling Requirements','Requisitos de Muestreo AQL'],                                                    type:'aql',       req:true  },
   { id:'gl-cad-sample',   name:['Cad Sample / Previous Sample approved by customer or CSR? (Critical Fail)','¿Muestra CAD / Muestra Anterior aprobada por el cliente o CSR? (Falla Crítica)'],   type:'toggle',    req:true  },
@@ -5273,6 +5277,10 @@ function openContinueModal(id) {
     else { qaPhoto.style.display = 'none'; }
 
     document.getElementById('cm-qa-job-summary-card').style.display = 'none';
+    // Default hidden — only the gluer/kama/dc sign-off review branch below
+    // shows it; qa_release and the split/partial-ship paths that reuse this
+    // same panel already have their own full job summary at the top.
+    document.getElementById('cm-qa-review-summary-card').style.display = 'none';
 
     var reviewWrap = document.getElementById('cm-qa-checklist-review');
     reviewWrap.innerHTML = '';
@@ -5557,6 +5565,24 @@ function openContinueModal(id) {
       var opResults = {}, opItemNotes = {};
       if (job.checklist) { job.checklist.forEach(function(e) { opResults[e.id] = e.val; if (e.note) opItemNotes[e.id] = e.note; }); }
       var opComment = opResults['gl-notes'] || opResults['kama-notes'] || opResults['packing-notes'] || '';
+
+      // Quick recap right above the Approve button — repeating the same
+      // few fields that matter most (what job, how much) so QA doesn't
+      // have to scroll back up through the whole checklist to double-check
+      // before approving.
+      var _qaRevEs = isEsLang();
+      var _qaRevPF = job.formNumber || job.productNumber || job.product || '—';
+      var _qaRevQtyLines = _jobQtySummaryLines(job);
+      var _qaRevSummaryCard = document.getElementById('cm-qa-review-summary-card');
+      if (_qaRevSummaryCard) {
+        _qaRevSummaryCard.style.display = 'block';
+        document.getElementById('cm-qa-review-summary').innerHTML =
+          '<div><strong>' + (_qaRevEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber||'—') + '</div>' +
+          '<div><strong>' + (_qaRevEs?'Producto:':'Product:') + '</strong> ' + escHtml(_qaRevPF) + '</div>' +
+          (opResults['gl-cad-style'] ? '<div><strong>' + (_qaRevEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(opResults['gl-cad-style']) + '</div>' : '') +
+          '<div><strong>' + (_qaRevEs?'Estación:':'Station:') + '</strong> ' + escHtml(job.station ? stationLabel(job.station) : '—') + '</div>' +
+          '<div><strong>' + (_qaRevEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + escHtml(_qaRevQtyLines.qtyExec) + '</div>';
+      }
 
       // Customer — search-as-you-type against the canonical list, plus a
       // manual entry always visible below. Any manually typed name that
@@ -5911,7 +5937,7 @@ function submitForQAApproval() {
   var submitExcludes  = curJob && curJob.station === 'Kama Foil Press' ? ['kama-process','kama-operator','kama-prev-sample'] : [];
   if (_requireAllAnswered('cm', submitChecklist, submitExcludes)) return;
   var _submitCadMore = _gluerCadStyleNeedsMoreOptions('cm');
-  if (_submitCadMore) { showAlert(_submitCadMore); _scrollToField(document.getElementById('cm-val-gl-more-options')); return; }
+  if (_submitCadMore) { showAlert(_submitCadMore); _scrollToField(document.getElementById('cm-ci-gl-cad-style')); return; }
   submitChecklist.forEach(function(item) {
     if (submitExcludes.indexOf(item.id) !== -1) return;
     var result = null, itemNote = '';
@@ -5974,7 +6000,7 @@ function approveStartProduction() {
   if (isGluerRelease && _jobIsGluerTestJob(appJob)) appExcludes = appExcludes.concat(['glr-sample-sz', 'glr-location']);
   if (_requireAllAnswered('cmqa', appChecklist, appExcludes)) return;
   var _appCadMore = _gluerCadStyleNeedsMoreOptions('cmqa');
-  if (_appCadMore) { showAlert(_appCadMore); _scrollToField(document.getElementById('cmqa-val-gl-more-options')); return; }
+  if (_appCadMore) { showAlert(_appCadMore); _scrollToField(document.getElementById('cmqa-ci-gl-cad-style')); return; }
 
   var qaChecklist = [];
   appChecklist.forEach(function(item) {
@@ -8832,6 +8858,7 @@ function beginVeritivPacking() {
   if (!first25Val) { showAlert('Answer the "1st 25 pieces have issue?" question.'); return; }
   var prevImg = document.getElementById('veritiv-photo-preview');
   var photoSrc = (prevImg && prevImg.src && prevImg.style.display !== 'none') ? prevImg.src : null;
+  if (!photoSrc) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('veritiv-photo-area')); return; }
   var record = {
     id:           'vpk-' + Date.now(),
     jobNumber:    job,
@@ -8911,6 +8938,8 @@ function beginInspection() {
     // it at Make Ready trapped the operator with a field they couldn't see.
     if (_requireAllAnswered('setup', CHECKLIST, ['kama-qty'])) return;
     if (!getKamaOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('kama-operator-group')); return; }
+    var _kMrPhotoEl = document.getElementById('kama-mr-photo-preview');
+    if (!_kMrPhotoEl || _kMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('kama-mr-photo-area')); return; }
     var record = {
       id: 'kama-' + Date.now(),
       jobNumber: job, station: station, formNumber: formNum,
@@ -8980,6 +9009,8 @@ function beginInspection() {
     // it at Make Ready trapped the operator with a field they couldn't see.
     if (_requireAllAnswered('setup', CHECKLIST, ['dc-qty'])) return;
     if (!getDCOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('dc-operator-group')); return; }
+    var _dcMrPhotoEl = document.getElementById('dc-mr-photo-preview');
+    if (!_dcMrPhotoEl || _dcMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('dc-mr-photo-area')); return; }
     var record = {
       id: 'dc-' + Date.now(),
       jobNumber: job, station: station, formNumber: formId,
@@ -9016,7 +9047,7 @@ function beginInspection() {
       }
       if (_requireAllAnswered('setup', CHECKLIST)) return;
       var _gCadMore = _gluerCadStyleNeedsMoreOptions('setup');
-      if (_gCadMore) { showAlert(_gCadMore); _scrollToField(document.getElementById('setup-val-gl-more-options')); return; }
+      if (_gCadMore) { showAlert(_gCadMore); _scrollToField(document.getElementById('setup-ci-gl-cad-style')); return; }
       var _gOpName = getGluerOperatorName();
       var _gTs = formatTS();
       var _gNow = Date.now();
