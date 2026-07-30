@@ -8916,7 +8916,7 @@ function beginInspection() {
       var _kUnanswered = _requireAllAnswered('setup', CHECKLIST);
       if (_kUnanswered) return;
       var _kProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
-      if (!_kProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-preview')); return; }
+      if (!_kProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
       var _kChecklist = getChecklistValues('setup');
       var _kOperator = getKamaOperatorName();
       var _kRecord = {
@@ -8992,7 +8992,7 @@ function beginInspection() {
       if (!sigHasMark) { showAlert('QA signature is required.'); _scrollToField(document.getElementById('sig-canvas')); return; }
       if (_requireAllAnswered('setup', CHECKLIST)) return;
       var _dcProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
-      if (!_dcProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-preview')); return; }
+      if (!_dcProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
       var _dcChecklist = getChecklistValues('setup');
       var _dcOperator = getDCOperatorName();
       var _dcRecord = {
@@ -9078,7 +9078,7 @@ function beginInspection() {
         // startNewJob() (it's rebuilt per product count instead), so a
         // display:none set once by CSS and never toggled inline made the
         // old style.display check always read as "has a photo."
-        if (!_gPhotoEl || !_gPhotoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(_gPhotoEl); return; }
+        if (!_gPhotoEl || !_gPhotoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + _gi)); return; }
         var _gPhotoSrc = _gPhotoEl.src;
         ipAdd({
           id: 'gluer-' + (_gNow + _gi),
@@ -9123,7 +9123,7 @@ function beginInspection() {
       var photoEl = document.getElementById('gluer-prod-photo-prev-' + gi);
       // Checked by .src — see the matching comment in the production branch
       // above for why style.display isn't a reliable signal for this field.
-      if (!photoEl || !photoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (gi + 1) + '.'); _scrollToField(photoEl); return; }
+      if (!photoEl || !photoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + gi)); return; }
       var photoSrc = photoEl.src;
       ipAdd({
         id: 'gluer-' + (now + gi),
@@ -9156,7 +9156,7 @@ function beginInspection() {
     if (!sigHasMark) { showAlert('Please sign before submitting.'); _scrollToField(document.getElementById('sig-canvas')); return; }
     if (station === 'Bindery Cutter' || station === 'Pressroom Cutter') {
       var _cutterPhotoEl = document.getElementById('setup-photo-preview');
-      if (!_cutterPhotoEl || _cutterPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(_cutterPhotoEl); return; }
+      if (!_cutterPhotoEl || !_cutterPhotoEl.src) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
     }
     if (_requireAllAnswered('setup', CHECKLIST)) return;
     var checks = getChecklistValues('setup');
