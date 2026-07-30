@@ -1489,7 +1489,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
     </div>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
-    <button onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
+    <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
     <button onclick="clearAllJobs()" style="font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;border:1px solid var(--border-mid);color:var(--text-tertiary);background:transparent;cursor:pointer;" title="Testing only — wipes every job">Clear All (Testing)</button>
     <div class="user-chip" id="headerUser">—</div>
   </div>
@@ -3812,20 +3812,37 @@ var _dataEditMode = false;
 // button placed inside an already-open job summary card can re-render
 // itself immediately — without it, the pencils only show up the next time
 // that card is opened, which isn't obvious from inside the popup itself.
+//
+// Turning OFF never asks for the passcode. The passcode exists to stop
+// unauthorized entry into edit mode — it has no reason to also guard the
+// exit. Requiring it both ways meant a mis-tap on the passcode modal's
+// backdrop (easy on a tablet) silently cancelled and left edit mode, and
+// every delete button with it, stuck on with no visible feedback — that
+// was reported as "can't get out of Data Edit mode."
 function toggleDataEditMode(onToggled){
   var isEs = isEsLang();
-  showPasscodePrompt(isEs ? 'Se requiere un código para editar campos del trabajo.' : 'A passcode is required to edit job fields.', function(ok){
-    if (!ok) return;
-    _dataEditMode = !_dataEditMode;
+  function apply(){
     if (typeof onToggled === 'function') {
       onToggled();
     } else {
-      if (typeof renderInProgress === 'function' && document.getElementById('col-production')) renderInProgress();
+      if (typeof renderInProgress === 'function') renderInProgress();
       showToast(_dataEditMode
         ? (isEs ? '✏️ Modo de edición activado' : '✏️ Edit mode ON')
         : (isEs ? 'Modo de edición desactivado.' : 'Edit mode OFF.'), 'pass');
     }
+    _updateHeaderDataEditBtn();
+  }
+  if (_dataEditMode) { _dataEditMode = false; apply(); return; }
+  showPasscodePrompt(isEs ? 'Se requiere un código para editar campos del trabajo.' : 'A passcode is required to edit job fields.', function(ok){
+    if (!ok) return;
+    _dataEditMode = true;
+    apply();
   });
+}
+function _updateHeaderDataEditBtn(){
+  var btn = document.getElementById('header-data-edit-btn');
+  if (!btn) return;
+  btn.textContent = _dataEditMode ? (isEsLang() ? '🔒 Salir de Edición' : '🔒 Exit Edit Mode') : 'DATA EDIT';
 }
 function _startEditField(rowId, editId){
   var row = document.getElementById(rowId); if (row) row.style.display = 'none';
