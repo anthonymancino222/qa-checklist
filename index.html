@@ -389,13 +389,19 @@ select.input { cursor: pointer; -webkit-appearance: menulist; appearance: auto; 
   padding: 16px 0; border-bottom: 1px solid var(--border);
 }
 .checklist-item:last-child { border-bottom: none; }
-/* Quantity to Execute is easy to skip past in a hurry — a plain checklist
-   row didn't stand out from the pass/fail items around it, so it gets its
-   own bordered, tinted box instead. */
-.checklist-item.checklist-item-qty-highlight {
-  border: 2px solid var(--pink); border-bottom: 2px solid var(--pink);
-  border-radius: 10px; background: rgba(255,31,143,.05); padding: 14px; margin: 8px 0;
+/* Quantity fields (Qty to Execute, Final Quantity Produced) are easy to
+   skip past in a hurry — a plain checklist row/card didn't stand out from
+   everything else on the screen, so these get a visibly bolder box. A
+   first pass at this used a light pink tint that still wasn't obvious
+   enough, so this is intentionally stronger: thick border, brighter fill,
+   a glow, and a pink card-label to match. */
+.checklist-item.checklist-item-qty-highlight, .card.qty-pop-highlight {
+  border: 3px solid var(--pink) !important; border-radius: 12px;
+  background: rgba(255,31,143,.12); padding: 14px; margin: 8px 0;
+  box-shadow: 0 0 0 4px rgba(255,31,143,.12);
 }
+.checklist-item.checklist-item-qty-highlight .ci-name,
+.card.qty-pop-highlight .card-label { color: var(--pink); }
 .ci-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ci-name { font-size: 16px; font-weight: 600; color: var(--text-primary); padding-top: 2px; }
 .ci-desc { font-size: 15px; color: var(--text-tertiary); margin-top: 2px; }
@@ -2460,7 +2466,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
                 <div id="cm-prod-spotcheck-kpi" style="font-size:14px;font-weight:700;margin-bottom:8px;"></div>
                 <div id="cm-prod-spotcheck-list" style="display:flex;flex-direction:column;gap:6px;"></div>
               </div>
-              <div class="card" style="margin:0;" id="cm-prod-pk-finalqty-card">
+              <div class="card qty-pop-highlight" style="margin:0;" id="cm-prod-pk-finalqty-card">
                 <div class="card-label"><span data-en>Final Quantity Produced</span><span data-es>Cantidad Final Producida</span> <span style="color:var(--red)">*</span></div>
                 <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
                   <button class="qty-btn" onclick="stepQty('cm-prod-final-qty',-1)">−</button>
@@ -2608,7 +2614,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
                 <div class="card-label"><span data-en>Job Summary</span><span data-es>Resumen del Trabajo</span></div>
                 <div id="cm-prod-summary"></div>
               </div>
-              <div class="card" style="margin:0;" id="cm-prod-finalqty-card">
+              <div class="card qty-pop-highlight" style="margin:0;" id="cm-prod-finalqty-card">
                 <div class="card-label"><span data-en>Final Quantity Produced</span><span data-es>Cantidad Final Producida</span> <span style="color:var(--red)">*</span></div>
                 <div class="qty-stepper" style="margin-top:8px;display:flex;align-items:center;gap:10px;">
                   <button class="qty-btn" onclick="stepQty('cm-prod-gluer-final-qty',-1)">−</button>
