@@ -5526,13 +5526,21 @@ function openContinueModal(id) {
       // isn't already known gets folded into the list at approval time, so
       // it's searchable next time instead of retyped. Lets NCR/RCA later
       // auto-fill customer when pulling this job, for Kama and Die Cutter too.
-      var custCard = document.createElement('div');
-      custCard.className = 'card';
-      custCard.style.margin = '0';
-      custCard.innerHTML =
-        '<div class="card-label">Customer</div>' +
-        _custComboHTML(job);
-      reviewWrap.appendChild(custCard);
+      // Skipped for gluer sign-off specifically — this review happens right
+      // as the operator hands off to QA, a moment people tend to rush
+      // through, and a mistyped customer name here was creating messy data.
+      // Gluer still captures customer later at actual QA Release, where
+      // there's more time and QA tends to be more careful with input.
+      var _custIsGluer = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
+      if (!_custIsGluer) {
+        var custCard = document.createElement('div');
+        custCard.className = 'card';
+        custCard.style.margin = '0';
+        custCard.innerHTML =
+          '<div class="card-label">Customer</div>' +
+          _custComboHTML(job);
+        reviewWrap.appendChild(custCard);
+      }
 
       var qaChecklist  = getChecklist(job.station);
       var qaExcludeIds = job.station === 'Kama Foil Press' ? ['kama-process','kama-operator','kama-prev-sample'] : [];
