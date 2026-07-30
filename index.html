@@ -176,7 +176,9 @@ body.sidebar-expanded .nav-group-label { display: block; }
 body.sidebar-expanded .nav-item { justify-content: flex-start; padding: 10px 12px; }
 .nav-item:hover { background: #f2f1ee; }
 .nav-item.active { background: var(--black); color: #fff; }
-.nav-icon { font-size: 19px; line-height: 1; flex-shrink: 0; }
+.nav-icon { width: 19px; height: 19px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.nav-icon svg { width: 100%; height: 100%; stroke: var(--pink); transition: stroke .12s; }
+.nav-item.active .nav-icon svg { stroke: #fff; }
 .nav-label { display: none; white-space: nowrap; }
 body.sidebar-expanded .nav-label { display: inline; }
 .nav-status {
@@ -1504,46 +1506,46 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <div class="nav-group">
       <div class="nav-group-label"><span data-en>Approvals</span><span data-es>Aprobaciones</span></div>
       <div class="nav-item active" id="nav-qc" onclick="switchView('qc')" title="QC Approval">
-        <span class="nav-icon">😟</span><span class="nav-label"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></span><span class="nav-label"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></span>
       </div>
       <div class="nav-item" id="nav-inprogress" onclick="switchView('inprogress')" title="Job in Progress">
-        <span class="nav-icon">⚙️</span><span class="nav-label"><span data-en>Job in Progress</span><span data-es>Trabajo en Progreso</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span><span class="nav-label"><span data-en>Job in Progress</span><span data-es>Trabajo en Progreso</span></span>
       </div>
       <div class="nav-item" id="nav-qarelease" onclick="switchView('qarelease')" title="QA Release">
-        <span class="nav-icon">🙂</span><span class="nav-label"><span data-en>QA Release</span><span data-es>Liberación de Calidad</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span><span class="nav-label"><span data-en>QA Release</span><span data-es>Liberación de Calidad</span></span>
       </div>
       <div class="nav-item" id="nav-shipping" onclick="switchView('shipping')" title="Shipping Approval">
-        <span class="nav-icon">🚚</span><span class="nav-label"><span data-en>Shipping Approval</span><span data-es>Aprobación de Envío</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span><span class="nav-label"><span data-en>Shipping Approval</span><span data-es>Aprobación de Envío</span></span>
       </div>
     </div>
     <div class="nav-group">
       <div class="nav-group-label"><span data-en>NCR</span><span data-es>RNC</span></div>
       <div class="nav-item" id="nav-ncr" onclick="switchView('ncr')" title="NCR">
-        <span class="nav-icon">💀</span><span class="nav-label"><span data-en>NCR</span><span data-es>RNC</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><span class="nav-label"><span data-en>NCR</span><span data-es>RNC</span></span>
       </div>
       <div class="nav-item" id="nav-ncrprog" onclick="switchView('ncrprog')" title="NCR in Progress">
-        <span class="nav-icon">⏳</span><span class="nav-label"><span data-en>NCR in Progress</span><span data-es>RNC en Progreso</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span><span class="nav-label"><span data-en>NCR in Progress</span><span data-es>RNC en Progreso</span></span>
       </div>
       <div class="nav-item" id="nav-ncrpie" onclick="switchView('ncrpie')" title="NCR – Pie Chart">
-        <span class="nav-icon">📊</span><span class="nav-label"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span><span class="nav-label"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></span>
       </div>
     </div>
     <div class="nav-group">
       <div class="nav-group-label"><span data-en>RCA</span><span data-es>ACR</span></div>
       <div class="nav-item" id="nav-rca" onclick="switchView('rca')" title="RCA">
-        <span class="nav-icon">🔍</span><span class="nav-label"><span data-en>RCA</span><span data-es>ACR</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span><span class="nav-label"><span data-en>RCA</span><span data-es>ACR</span></span>
       </div>
     </div>
     <div class="nav-group">
       <div class="nav-group-label"><span data-en>Records</span><span data-es>Registros</span></div>
       <div class="nav-item" id="nav-records" onclick="switchView('records')" title="Records">
-        <span class="nav-icon">🗄️</span><span class="nav-label"><span data-en>Records</span><span data-es>Registros</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span><span class="nav-label"><span data-en>Records</span><span data-es>Registros</span></span>
       </div>
     </div>
     <div class="nav-group">
       <div class="nav-group-label"><span data-en>Help</span><span data-es>Ayuda</span></div>
       <div class="nav-item" id="nav-faq" onclick="switchView('faq')" title="Help / FAQ">
-        <span class="nav-icon">❓</span><span class="nav-label"><span data-en>Help / FAQ</span><span data-es>Ayuda / Preguntas</span></span>
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><span class="nav-label"><span data-en>Help / FAQ</span><span data-es>Ayuda / Preguntas</span></span>
       </div>
     </div>
   </nav>
