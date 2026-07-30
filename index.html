@@ -8966,7 +8966,7 @@ function beginInspection() {
       for (var _gi = 0; _gi < gluerProductCount; _gi++) {
         var _gPInput = document.getElementById('gluer-product-' + _gi);
         var _gPNum = _gPInput ? _gPInput.value.trim() : '';
-        if (!_gPNum) { showAlert('Enter Product ID for product ' + (_gi + 1) + '.'); return; }
+        if (!_gPNum) { showAlert('Enter Product ID for product ' + (_gi + 1) + '.'); _scrollToField(_gPInput); return; }
         var _gPhotoEl = document.getElementById('gluer-prod-photo-prev-' + _gi);
         var _gPhotoSrc = (_gPhotoEl && _gPhotoEl.style.display !== 'none') ? _gPhotoEl.src : null;
         ipAdd({
@@ -9008,7 +9008,7 @@ function beginInspection() {
     for (var gi = 0; gi < gluerProductCount; gi++) {
       var pInput = document.getElementById('gluer-product-' + gi);
       var pNum = pInput ? pInput.value.trim() : '';
-      if (!pNum) { showAlert('Enter Product ID for product ' + (gi + 1) + '.'); return; }
+      if (!pNum) { showAlert('Enter Product ID for product ' + (gi + 1) + '.'); _scrollToField(pInput); return; }
       var photoEl = document.getElementById('gluer-prod-photo-prev-' + gi);
       var photoSrc = photoEl && photoEl.style.display !== 'none' ? photoEl.src : null;
       ipAdd({
