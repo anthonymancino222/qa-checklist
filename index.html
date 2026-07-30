@@ -5919,6 +5919,16 @@ function cancelContinueModal() {
 // Operator submits checklist + sig → status becomes qa_pending
 function submitForQAApproval() {
   if (!continueJobId) return;
+  // Same hard requirement as fresh QC Approval intake — but this is the
+  // OTHER place a make-ready job actually gets submitted (reopened from the
+  // Job in Progress kanban rather than entered fresh), and it had no photo
+  // check at all: an existing mrPhoto only gets overwritten if a NEW photo
+  // is captured here, so a job that started with none could sail through
+  // this screen with the photo card just sitting there unanswered.
+  var _cmHasExistingPhoto = document.getElementById('cm-op-photo').style.display !== 'none';
+  var _cmNewPhotoEl = document.getElementById('cm-op-photo-new');
+  var _cmHasNewPhoto = _cmNewPhotoEl && _cmNewPhotoEl.style.display !== 'none' && !!_cmNewPhotoEl.src;
+  if (!_cmHasExistingPhoto && !_cmHasNewPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('cm-op-photo-text')); return; }
   if (!cmOpMarkState.val) { showAlert('Operator signature is required.'); _scrollToField(document.getElementById('cm-op-sig-canvas')); return; }
 
   // Collect checklist results — toggle items use active button text; qty uses input value
