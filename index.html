@@ -92,11 +92,6 @@ body {
 .brand-co { font-size: 15px; letter-spacing: .2em; text-transform: uppercase; color: var(--lime); font-weight: 700; white-space: nowrap; }
 .brand-name { font-size: 18px; font-weight: 800; color: #fff; line-height: 1.1; white-space: nowrap; }
 .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px; justify-content: flex-end; }
-.user-chip {
-  font-family: var(--mono); font-size: 14px; font-weight: 600;
-  background: rgba(255,255,255,.08); color: rgba(255,255,255,.7);
-  padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,.12);
-}
 .text-size-ctrl {
   display: flex; align-items: center; gap: 6px;
 }
@@ -977,7 +972,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   .app-header { padding: 0 12px; }
   .brand-co { font-size: 14px; letter-spacing: .14em; }
   .brand-name { font-size: 15px; }
-  .user-chip { display: none; }
   .menu-btn { display: none !important; }
 
   /* Sidebar hidden entirely — replaced by bottom nav */
@@ -1513,7 +1507,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
     <button onclick="clearAllJobs()" style="font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;border:1px solid var(--border-mid);color:var(--text-tertiary);background:transparent;cursor:pointer;" title="Testing only — wipes every job">Clear All (Testing)</button>
-    <div class="user-chip" id="headerUser">—</div>
   </div>
 </header>
 
@@ -9059,6 +9052,7 @@ function beginInspection() {
         var _gPNum = _gPInput ? _gPInput.value.trim() : '';
         if (!_gPNum) { showAlert('Enter Product ID for product ' + (_gi + 1) + '.'); _scrollToField(_gPInput); return; }
         var _gPhotoEl = document.getElementById('gluer-prod-photo-prev-' + _gi);
+        if (!_gPhotoEl || _gPhotoEl.style.display === 'none') { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(_gPhotoEl); return; }
         var _gPhotoSrc = (_gPhotoEl && _gPhotoEl.style.display !== 'none') ? _gPhotoEl.src : null;
         ipAdd({
           id: 'gluer-' + (_gNow + _gi),
@@ -9131,6 +9125,10 @@ function beginInspection() {
     // Single product: validate sigs, collect from setup page, submit directly
     if (station === 'Kama Foil Press' && !opSigHasMark) { showAlert('Operator sign-off is required before submitting.'); _scrollToField(document.getElementById('op-sig-canvas')); return; }
     if (!sigHasMark) { showAlert('Please sign before submitting.'); _scrollToField(document.getElementById('sig-canvas')); return; }
+    if (station === 'Bindery Cutter' || station === 'Pressroom Cutter') {
+      var _cutterPhotoEl = document.getElementById('setup-photo-preview');
+      if (!_cutterPhotoEl || _cutterPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(_cutterPhotoEl); return; }
+    }
     if (_requireAllAnswered('setup', CHECKLIST)) return;
     var checks = getChecklistValues('setup');
     var now = new Date();
