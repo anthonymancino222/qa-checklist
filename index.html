@@ -6552,7 +6552,7 @@ function initPhraseAutocomplete(textareaId, suggestId) {
   ta.addEventListener('input', function() {
     var frag = _qaSuggestFragment(ta.value);
     var fragLower = frag.toLowerCase();
-    if (frag.length < 2 || QA_PHRASE_STOPWORDS.indexOf(fragLower) !== -1) { hide(); return; }
+    if (frag.length < 1 || QA_PHRASE_STOPWORDS.indexOf(fragLower) !== -1) { hide(); return; }
     // Match against the phrase both as-typed and with spaces stripped, so
     // "overglue" still finds "Over glue". Phrases that START with what was
     // typed are ranked first — otherwise typing "ov" surfaced "Jayro
@@ -12890,7 +12890,7 @@ function ncrFormHTML() {
       'oninput="ncrFilterPrefill()" onfocus="ncrFilterPrefill()" onblur="setTimeout(ncrClosePrefillDrop,200)">' +
       '<div class="customer-drop" id="ncr-prefill-drop" style="display:none;"></div>' +
       '</div>' +
-      '<small class="hint" style="display:block;margin-top:6px;">' + (isEs?'Empiece a escribir al menos 2 caracteres para ver trabajos coincidentes.':'Start typing at least 2 characters to see matching jobs.') + '</small>';
+      '<small class="hint" style="display:block;margin-top:6px;">' + (isEs?'Empiece a escribir al menos 1 carácter para ver trabajos coincidentes.':'Start typing at least 1 character to see matching jobs.') + '</small>';
   } else {
     prefillHTML += '<input type="text" class="input" disabled placeholder="' + (isEs?'Aún no hay entradas de QC en este navegador':'No QC entries in this browser yet') + '">';
   }
@@ -13090,7 +13090,7 @@ function ncrPrefillFromQC(jobId){
   renderNCRView();
 }
 
-/* Typeahead for "Pull from QC job" — shows matches once 2+ characters are typed */
+/* Typeahead for "Pull from QC job" — shows matches once 1+ character is typed */
 function _ncrPrefillLabel(j){
   var pf = j.formNumber || j.productNumber || j.product || '';
   return (j.jobNumber||'?') + ' · ' + (j.station||'') + (j.customer?' · '+j.customer:'') + (pf?' · '+pf:'');
@@ -13100,7 +13100,7 @@ function ncrFilterPrefill(){
   var drop = document.getElementById('ncr-prefill-drop');
   if (!input || !drop) return;
   var q = input.value.trim().toLowerCase();
-  if (q.length < 2){ drop.style.display = 'none'; drop.innerHTML = ''; return; }
+  if (q.length < 1){ drop.style.display = 'none'; drop.innerHTML = ''; return; }
   var jobs = ipLoad().filter(function(j){
     return _ncrPrefillLabel(j).toLowerCase().indexOf(q) >= 0;
   }).slice(0, 8);
