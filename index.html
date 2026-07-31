@@ -15009,9 +15009,20 @@ function openRecordJob(jobId){
 
   var shortInfo = null;
   if (job.glrReleaseNotes && job.glrReleaseNotes.state === 'short') {
-    shortInfo = (_rvjEs?'Sí — ':'Yes — ') + (job.glrReleaseNotes.reasons||[]).join(', ');
+    var _rvQtyShort = job.glrReleaseNotes.qtyShort;
+    var _rvShortPct = job.glrReleaseNotes.shortPct;
+    if (_rvQtyShort == null && qtyExec && finalQty) {
+      _rvQtyShort = qtyExec - finalQty;
+      _rvShortPct = qtyExec > 0 ? Math.round((_rvQtyShort / qtyExec) * 100) : null;
+    }
+    var _rvQtyBit = (typeof _rvQtyShort === 'number')
+      ? (_rvQtyShort.toLocaleString() + (_rvjEs?' piezas':' pcs') + (typeof _rvShortPct === 'number' ? ' (' + _rvShortPct + '%)' : ''))
+      : '';
+    shortInfo = (_rvjEs?'Sí':'Yes') + (_rvQtyBit ? ' — ' + _rvQtyBit : '') + ' — ' + (job.glrReleaseNotes.reasons||[]).join(', ');
   } else if (qtyExec && finalQty && finalQty < qtyExec) {
-    shortInfo = (_rvjEs?'Sí — faltan ':'Yes — short ') + (qtyExec - finalQty).toLocaleString() + (_rvjEs?' piezas':' pcs');
+    var _rvQtyShort2 = qtyExec - finalQty;
+    var _rvShortPct2 = qtyExec > 0 ? Math.round((_rvQtyShort2 / qtyExec) * 100) : null;
+    shortInfo = (_rvjEs?'Sí — faltan ':'Yes — short ') + _rvQtyShort2.toLocaleString() + (_rvjEs?' piezas':' pcs') + (typeof _rvShortPct2 === 'number' ? ' (' + _rvShortPct2 + '%)' : '');
   } else if (qtyExec && finalQty) {
     shortInfo = 'No';
   }
