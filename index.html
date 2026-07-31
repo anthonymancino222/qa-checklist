@@ -6011,17 +6011,30 @@ function _sendGlrNotifyEmail(job, glrReleaseNotes) {
     showToast((isEs ? 'Sin correo registrado para: ' : 'No email on file for: ') + missing.join(', '), 'fail');
   }
   if (!emails.length) return;
-  var stateLabel = glrReleaseNotes.state === 'short'
+  var isShort = glrReleaseNotes.state === 'short';
+  var stateLabel = isShort
     ? (isEs ? 'Trabajo Corto' : 'Job Short')
     : (isEs ? 'No Alcanzó Sobrantes' : 'Did Not Make Overs');
-  var subj = 'QA Alert — ' + stateLabel + ' — Job ' + job.jobNumber;
-  var body =
-    'Job: '      + job.jobNumber + '\n' +
-    'Station: '  + (job.station || '') + '\n' +
-    'Product: '  + (job.productNumber || '') + '\n' +
-    'Issue: '    + stateLabel + '\n' +
-    'Reason(s): '+ (glrReleaseNotes.reasons || []).join(', ') + '\n' +
-    'Released: ' + formatTS();
+  var subj = 'QA Alert — ' + stateLabel + ' — Job ' + job.jobNumber + (job.productNumber ? (' — Product ' + job.productNumber) : '');
+  var lines = [
+    (isEs ? 'TRABAJO #: '   : 'JOB #: ')     + job.jobNumber,
+    (isEs ? 'PRODUCTO #: '  : 'PRODUCT #: ') + (job.productNumber || '—'),
+    (isEs ? 'ESTACIÓN: '    : 'STATION: ')   + (job.station || '—'),
+    '',
+    (isEs ? 'PROBLEMA: ' : 'ISSUE: ') + stateLabel
+  ];
+  if (isShort && typeof glrReleaseNotes.qtyShort === 'number') {
+    lines.push((isEs ? 'CANTIDAD FALTANTE: ' : 'QTY SHORT: ')  + glrReleaseNotes.qtyShort.toLocaleString() + ' pcs');
+    lines.push((isEs ? '% FALTANTE: '        : 'SHORTAGE %: ') + glrReleaseNotes.shortPct + '%');
+  }
+  lines.push((isEs ? 'MOTIVO(S): ' : 'REASON(S): ') + (glrReleaseNotes.reasons || []).join(', '));
+  if (isShort) {
+    lines.push('');
+    lines.push(isEs ? '¿NECESITAMOS CREAR UN DESPERDICIO?' : 'DO WE NEED TO CREATE A SPOILAGE?');
+  }
+  lines.push('');
+  lines.push((isEs ? 'LIBERADO: ' : 'RELEASED: ') + formatTS());
+  var body = lines.join('\n');
   window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(emails.join(',')) + '&su=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body), '_blank');
 }
 function approveStartProduction() {
@@ -6292,7 +6305,12 @@ function approveStartProduction() {
       // filled in anyway).
       var glrIsPartialRun = glrShort.reasons.indexOf('Not Short, Partial Run') !== -1;
       if (!glrShort.reasons.length || (!glrIsPartialRun && !glrShort.notify.length)) { showAlert(_glrRelEs ? 'El trabajo está corto — elija un motivo y a quién notificar antes de liberar.' : 'Job is short — pick a reason and who to notify before releasing.'); _scrollToField(glrShortSection); return; }
-      glrReleaseNotes = { state: 'short', reasons: glrShort.reasons, notify: glrIsPartialRun ? [] : glrShort.notify };
+      var _glrFinalQtyEl = document.getElementById('cmqa-val-glr-final-qty');
+      var _glrFinalQty   = _glrFinalQtyEl ? (parseInt(_glrFinalQtyEl.value) || 0) : 0;
+      var _glrOrderedQty = _glrFinalQtyEl ? (parseInt(_glrFinalQtyEl.getAttribute('data-ordered-qty')) || 0) : 0;
+      var _glrQtyShort   = _glrOrderedQty - _glrFinalQty;
+      var _glrShortPct   = _glrOrderedQty > 0 ? Math.round((_glrQtyShort / _glrOrderedQty) * 100) : 0;
+      glrReleaseNotes = { state: 'short', reasons: glrShort.reasons, notify: glrIsPartialRun ? [] : glrShort.notify, qtyShort: _glrQtyShort, shortPct: _glrShortPct };
     } else if (glrNoOversSection && glrNoOversSection.style.display !== 'none') {
       var glrNoOvers = _glrReasonPickerValues('cmqa-glr-why-no-overs', 'cmqa-glr-notify-no-overs');
       if (!glrNoOvers.reasons.length || !glrNoOvers.notify.length) { showAlert(_glrRelEs ? 'El trabajo no alcanzó la meta de sobrantes — elija un motivo y a quién notificar antes de liberar.' : 'Job did not make the overs target — pick a reason and who to notify before releasing.'); _scrollToField(glrNoOversSection); return; }
