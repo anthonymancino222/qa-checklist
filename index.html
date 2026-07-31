@@ -4415,6 +4415,32 @@ var QA_BACKEND_URL = 'https://qa-checklist-backend.anthony-mancino2.workers.dev'
 var QA_BACKEND_API_KEY = 'MoquinQA2026SecureKeyAlpha7';
 var SYNC_PENDING_KEY = 'moquin-qa-sync-pending';
 
+// Uploads a captured photo (data URL) to the Drive-backed /photo endpoint so
+// it's stored once in Google Drive instead of embedded as base64 inside every
+// synced job/NCR/RCA record (which was filling up localStorage — see the
+// photo-storage discussion). On ANY failure (offline, slow shop-floor wifi,
+// backend hiccup) this resolves to the ORIGINAL data URL unchanged — a photo
+// must never be lost just because the upload didn't go through; worst case
+// it just stays stored the old (bulkier) way for that one photo.
+function _uploadPhotoToDrive(dataUrl) {
+  if (!QA_BACKEND_URL || !dataUrl || dataUrl.indexOf('data:') !== 0) return Promise.resolve(dataUrl);
+  var commaIdx = dataUrl.indexOf(',');
+  var meta = dataUrl.substring(5, commaIdx); // e.g. "image/jpeg;base64"
+  var mimeType = meta.split(';')[0] || 'image/jpeg';
+  var base64 = dataUrl.substring(commaIdx + 1);
+  var ext = mimeType.indexOf('png') !== -1 ? 'png' : 'jpg';
+  var filename = 'qa-photo-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+
+  return fetch(QA_BACKEND_URL + '/photo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': QA_BACKEND_API_KEY },
+    body: JSON.stringify({ filename: filename, mimeType: mimeType, dataBase64: base64 })
+  })
+    .then(function(resp) { return resp.ok ? resp.json() : null; })
+    .then(function(result) { return (result && result.url) ? (QA_BACKEND_URL + result.url) : dataUrl; })
+    .catch(function() { return dataUrl; });
+}
+
 function _syncIdField(type) {
   return type === 'job' ? 'id' : type === 'ncr' ? 'ncrId' : '__draftId';
 }
@@ -5923,7 +5949,7 @@ function cancelContinueModal() {
 }
 
 // Operator submits checklist + sig → status becomes qa_pending
-function submitForQAApproval() {
+async function submitForQAApproval() {
   if (!continueJobId) return;
   // Same hard requirement as fresh QC Approval intake — but this is the
   // OTHER place a make-ready job actually gets submitted (reopened from the
@@ -5982,7 +6008,7 @@ function submitForQAApproval() {
     opNotes:     document.getElementById('cm-op-notes').value.trim(),
     lastUpdated: formatTS()
   };
-  if (photoSrc) updates.mrPhoto = photoSrc;
+  if (photoSrc) updates.mrPhoto = await _uploadPhotoToDrive(photoSrc);
 
   ipUpdate(continueJobId, updates);
   closeContinueModal();
@@ -8907,7 +8933,7 @@ function toggleVeritivFirst25(val, btn) {
   document.getElementById('veritiv-first25-note').style.display = val === 'yes' ? 'block' : 'none';
 }
 
-function beginVeritivPacking() {
+async function beginVeritivPacking() {
   var job = document.getElementById('setup-job').value.trim();
   if (!job) { showAlert('Enter a job number.'); _scrollToField(document.getElementById('setup-job')); return; }
   var product = document.getElementById('veritiv-product').value.trim();
@@ -8923,6 +8949,7 @@ function beginVeritivPacking() {
   var prevImg = document.getElementById('veritiv-photo-preview');
   var photoSrc = (prevImg && prevImg.src && prevImg.style.display !== 'none') ? prevImg.src : null;
   if (!photoSrc) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('veritiv-photo-area')); return; }
+  photoSrc = await _uploadPhotoToDrive(photoSrc);
   var record = {
     id:           'vpk-' + Date.now(),
     jobNumber:    job,
@@ -8945,7 +8972,7 @@ function beginVeritivPacking() {
   renderInProgress();
 }
 
-function beginInspection() {
+async function beginInspection() {
   var job     = document.getElementById('setup-job').value.trim();
   var station = document.getElementById('setup-station').value;
 
@@ -8969,6 +8996,7 @@ function beginInspection() {
       if (_kUnanswered) return;
       var _kProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
       if (!_kProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
+      _kProdPhoto = await _uploadPhotoToDrive(_kProdPhoto);
       var _kChecklist = getChecklistValues('setup');
       var _kOperator = getKamaOperatorName();
       var _kRecord = {
@@ -9005,13 +9033,14 @@ function beginInspection() {
     if (!getKamaOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('kama-operator-group')); return; }
     var _kMrPhotoEl = document.getElementById('kama-mr-photo-preview');
     if (!_kMrPhotoEl || _kMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('kama-mr-photo-area')); return; }
+    var _kMrPhoto = await _uploadPhotoToDrive(_kMrPhotoEl.src);
     var record = {
       id: 'kama-' + Date.now(),
       jobNumber: job, station: station, formNumber: formNum,
       customer: document.getElementById('setup-customer').value.trim(),
       operatorName: getKamaOperatorName(),
       process: kamaCurrentProcess,
-      mrPhoto: (function(){ var p = document.getElementById('kama-mr-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })(),
+      mrPhoto: _kMrPhoto,
       mrComments: document.getElementById('kama-mr-comments').value.trim(),
       checklist: getChecklistValues('setup'),
       kamaTimers: {
@@ -9045,6 +9074,7 @@ function beginInspection() {
       if (_requireAllAnswered('setup', CHECKLIST)) return;
       var _dcProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
       if (!_dcProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
+      _dcProdPhoto = await _uploadPhotoToDrive(_dcProdPhoto);
       var _dcChecklist = getChecklistValues('setup');
       var _dcOperator = getDCOperatorName();
       var _dcRecord = {
@@ -9077,13 +9107,14 @@ function beginInspection() {
     if (!getDCOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('dc-operator-group')); return; }
     var _dcMrPhotoEl = document.getElementById('dc-mr-photo-preview');
     if (!_dcMrPhotoEl || _dcMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('dc-mr-photo-area')); return; }
+    var _dcMrPhoto = await _uploadPhotoToDrive(_dcMrPhotoEl.src);
     var record = {
       id: 'dc-' + Date.now(),
       jobNumber: job, station: station, formNumber: formId,
       customer: document.getElementById('setup-customer').value.trim(),
       operatorName: getDCOperatorName(),
       process: dcCurrentProcess,
-      mrPhoto: (function(){ var p = document.getElementById('dc-mr-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })(),
+      mrPhoto: _dcMrPhoto,
       mrComments: document.getElementById('dc-mr-comments').value.trim(),
       checklist: getChecklistValues('setup'),
       timestamp: formatTS()
@@ -9131,7 +9162,7 @@ function beginInspection() {
         // display:none set once by CSS and never toggled inline made the
         // old style.display check always read as "has a photo."
         if (!_gPhotoEl || !_gPhotoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + _gi)); return; }
-        var _gPhotoSrc = _gPhotoEl.src;
+        var _gPhotoSrc = await _uploadPhotoToDrive(_gPhotoEl.src);
         ipAdd({
           id: 'gluer-' + (_gNow + _gi),
           jobNumber: job, station: station, productNumber: _gPNum,
@@ -9176,7 +9207,7 @@ function beginInspection() {
       // Checked by .src — see the matching comment in the production branch
       // above for why style.display isn't a reliable signal for this field.
       if (!photoEl || !photoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + gi)); return; }
-      var photoSrc = photoEl.src;
+      var photoSrc = await _uploadPhotoToDrive(photoEl.src);
       ipAdd({
         id: 'gluer-' + (now + gi),
         jobNumber: job, station: station, productNumber: pNum,
@@ -10417,7 +10448,7 @@ function showToast(msg, type) {
 /* ══════════════════════════════════
    SUBMIT
 ══════════════════════════════════ */
-function submitJob() {
+async function submitJob() {
   var hasFail = jobState.entries.some(function(e){ return e.checks && e.checks.some(function(c){ return c.val==='fail'; }); });
 
   // Save to session log
@@ -10440,11 +10471,16 @@ function submitJob() {
     // these stations — single-count included.
     var _anyMissingPhoto = jobState.entries.some(function(entry){ return !(entry.photo || setupPhotoSrc); });
     if (_anyMissingPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
-    jobState.entries.forEach(function(entry, idx){
+    // Multiple entries commonly share the same setupPhotoSrc fallback — upload
+    // it once and reuse the resulting link rather than re-uploading per entry.
+    var _uploadedSetupPhotoSrc = setupPhotoSrc ? await _uploadPhotoToDrive(setupPhotoSrc) : null;
+    for (var _qcIdx = 0; _qcIdx < jobState.entries.length; _qcIdx++) {
+      var entry = jobState.entries[_qcIdx];
       var entryFailed = entry.checks && entry.checks.some(function(c){ return c.val === 'fail'; });
-      if (entryFailed) return;
+      if (entryFailed) continue;
+      var _entryPhoto = entry.photo ? await _uploadPhotoToDrive(entry.photo) : _uploadedSetupPhotoSrc;
       ipAdd({
-        id: 'qc-' + Date.now() + '-' + idx,
+        id: 'qc-' + Date.now() + '-' + _qcIdx,
         jobNumber: jobState.jobNumber,
         station: jobState.station,
         customer: jobState.customer || '',
@@ -10452,16 +10488,16 @@ function submitJob() {
         process: 'finished',
         finishedAt: formatTS(),
         qaSignature: entry.signature || jobState.signature || null,
-        mrPhoto: entry.photo || setupPhotoSrc,
+        mrPhoto: _entryPhoto,
         qcChecklist: entry.checks,
         qcNotes: entry.comments || '',
         timestamp: entry.timestamp || formatTS(),
         stageHistory: _stageSnapshot(null, 'qc_approval', 'QC Approval — Inspected & Passed', {
-          photo: entry.photo || setupPhotoSrc, qaSignature: entry.signature || jobState.signature || null,
+          photo: _entryPhoto, qaSignature: entry.signature || jobState.signature || null,
           checklist: entry.checks, comments: entry.comments || ''
         })
       });
-    });
+    }
     renderShipping();
   }
 
@@ -13421,9 +13457,11 @@ function ncrWireForm(){
     if (!remaining) return;
     files.forEach(function(file){
       ncrCompress(file, function(dataUrl){
-        ncrState.d.photos.push({ id:_ncrPhotoSeq++, src:dataUrl });
-        remaining--;
-        if (!remaining) renderNCRView();
+        _uploadPhotoToDrive(dataUrl).then(function(url){
+          ncrState.d.photos.push({ id:_ncrPhotoSeq++, src:url });
+          remaining--;
+          if (!remaining) renderNCRView();
+        });
       });
     });
   });
@@ -14053,9 +14091,11 @@ function rcaWirePhotoInput(){
     if (!remaining) return;
     files.forEach(function(file){
       ncrCompress(file, function(dataUrl){
-        rcaPhotos.push({ id:_ncrPhotoSeq++, src:dataUrl });
-        remaining--;
-        if (!remaining) rcaRenderPhotoGrid();
+        _uploadPhotoToDrive(dataUrl).then(function(url){
+          rcaPhotos.push({ id:_ncrPhotoSeq++, src:url });
+          remaining--;
+          if (!remaining) rcaRenderPhotoGrid();
+        });
       });
     });
   });
