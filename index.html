@@ -6022,7 +6022,7 @@ function _sendGlrNotifyEmail(job, glrReleaseNotes) {
     'Issue: '    + stateLabel + '\n' +
     'Reason(s): '+ (glrReleaseNotes.reasons || []).join(', ') + '\n' +
     'Released: ' + formatTS();
-  window.open('mailto:' + emails.join(',') + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body));
+  window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(emails.join(',')) + '&su=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body), '_blank');
 }
 function approveStartProduction() {
   if (!continueJobId) return;
@@ -9415,7 +9415,7 @@ function buildChecklistItem(item, prefix) {
     div.style.cssText = 'border:none;padding:0;background:none;margin:0;';
     var _ms = function(groupId, opts) {
       return opts.map(function(o) {
-        return '<button class="tgl" style="flex:1;min-width:130px;" onclick="toggleGluerMulti(\''+prefix+'-'+groupId+'\',\''+escHtml(o)+'\',this)">'+escHtml(o)+'</button>';
+        return '<button class="tgl" style="flex:1;min-width:130px;white-space:normal;line-height:1.2;font-size:14px;padding:9px 10px;" onclick="toggleGluerMulti(\''+prefix+'-'+groupId+'\',\''+escHtml(o)+'\',this)">'+escHtml(o)+'</button>';
       }).join('');
     };
     var _notify = function(selectId) {
