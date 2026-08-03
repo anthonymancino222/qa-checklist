@@ -40,6 +40,15 @@ Global passcode-gated toggle (`toggleDataEditMode()` — passcode required only 
   - Per-job kanban/list delete (`deleteIPJob`, `_jpDeleteBtnHTML`) — Job in Progress tile/list cards directly.
 - `_updateHeaderDataEditBtn()` is the central sync point — flipping DATA EDIT from the header button updates every open modal's delete-button visibility in one place, so a new per-modal delete button just needs to read `_dataEditMode` there rather than wiring its own toggle listener.
 
+## Workflow — who pushes what
+
+The user has granted standing permission for Claude to directly execute deploys in this project, and that has been the actual working pattern throughout: Claude controlled essentially every push to GitHub and every Cloudflare deploy across this whole session — not just writing the code, but running `git add`/`commit`/`push` directly via PowerShell, and deploying the Worker/editing its secrets directly through the connected Cloudflare dashboard browser tab. The user only stepped in for the handful of things that are structurally outside Claude's reach:
+- Google Cloud Console setup (creating the project, service account, and Shared Drive) — Cloudflare Console and Google Cloud Console are blocked domains for the browser-automation tool, so the user drove those steps directly (with Claude giving step-by-step instructions).
+- Approving the Cloudflare tab connection itself, and one large code paste after the in-browser editor got corrupted by automated typing (see "Backend deployment" gotchas above) — the user pasted that one manually.
+- Anything requiring their own Google/Cloudflare account login.
+
+**Instruction for future sessions**: keep this same division of labor by default. Once the user has connected a Cloudflare (or similar) browser tab and confirmed permission, don't ask them to run `git push` or click through a deploy yourself-narrating-it-to-them — just do it directly (PowerShell for git, the connected browser tab for Cloudflare), the same way this session did, end to end, for every change. Only hand a step back to the user when it's something Claude is actually blocked from doing (a blocked domain, a corrupted editor state, an account-login wall) — and say so explicitly when that happens, rather than silently trying to work around it.
+
 ## Standing rules (also saved in Claude's cross-session memory)
 
 - **Test cleanup**: after any testing pass in the sandbox, delete test/loose job/NCR/RCA records from **both** local storage and the live Cloudflare backend (sandbox and production share the same backend — nothing is isolated). Verify deletes held by re-querying after ~30–40s. Stop this once the user says the app has gone live; from then on only clean up Claude's own test data.
