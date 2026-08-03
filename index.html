@@ -15154,11 +15154,17 @@ function renderRecordsYearMonthNav(all, searching){
   var monthNames = isEs ? RECORDS_MONTH_NAMES_ES : RECORDS_MONTH_NAMES_EN;
   var withDates = all.filter(function(r){ return _recordsValidDate(r.ts); });
 
+  // Always include the current year/month even with zero records yet, so
+  // the moment the calendar turns over there's already a (empty) bucket to
+  // browse into instead of it only appearing once the first record of that
+  // month gets saved.
+  var _recNow = new Date();
+
   if (!recordsSelectedYear){
     var years = [];
     withDates.forEach(function(r){ var y = _recordsValidDate(r.ts).getFullYear(); if (years.indexOf(y) === -1) years.push(y); });
+    if (years.indexOf(_recNow.getFullYear()) === -1) years.push(_recNow.getFullYear());
     years.sort(function(a,b){ return b-a; });
-    if (!years.length){ nav.innerHTML = ''; return; }
     nav.innerHTML = '<div class="records-nav-label">' + (isEs?'Seleccione un año:':'Select a year:') + '</div>' +
       '<div class="records-nav-grid">' + years.map(function(y){ return '<button type="button" class="records-nav-btn" onclick="selectRecordsYear(' + y + ')">' + y + '</button>'; }).join('') + '</div>';
     return;
@@ -15170,6 +15176,7 @@ function renderRecordsYearMonthNav(all, searching){
       var d = _recordsValidDate(r.ts);
       if (d.getFullYear() === recordsSelectedYear && months.indexOf(d.getMonth()) === -1) months.push(d.getMonth());
     });
+    if (recordsSelectedYear === _recNow.getFullYear() && months.indexOf(_recNow.getMonth()) === -1) months.push(_recNow.getMonth());
     months.sort(function(a,b){ return a-b; });
     nav.innerHTML = '<button type="button" class="records-back-btn" onclick="backToRecordsYears()">← ' + (isEs?'Años':'Years') + '</button>' +
       '<div class="records-nav-label">' + recordsSelectedYear + ' — ' + (isEs?'Seleccione un mes:':'Select a month:') + '</div>' +
