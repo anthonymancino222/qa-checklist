@@ -1637,6 +1637,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="field">
             <div class="field-label"><span data-en>Station</span><span data-es>Estación</span> <span class="req">*</span></div>
             <div class="toggle-group" id="setup-station-btns" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+              <button type="button" class="tgl" data-station="Bindery Cutter" style="flex:1;min-width:130px;" onclick="selectStationBtn('Bindery Cutter',this)"><span data-en>Bindery Cutter</span><span data-es>Estación de Corte de Encuadernación</span></button>
+              <button type="button" class="tgl" data-station="Pressroom Cutter" style="flex:1;min-width:130px;" onclick="selectStationBtn('Pressroom Cutter',this)"><span data-en>Pressroom Cutter</span><span data-es>Cortadora de Prensa</span></button>
               <button type="button" class="tgl" data-station="New Die Cutter" style="flex:1;min-width:130px;" onclick="selectStationBtn('New Die Cutter',this)"><span data-en>New Die Cutter</span><span data-es>Troqueladora Nueva</span></button>
               <button type="button" class="tgl" data-station="Old Die Cutter" style="flex:1;min-width:130px;" onclick="selectStationBtn('Old Die Cutter',this)"><span data-en>Old Die Cutter</span><span data-es>Troqueladora Vieja</span></button>
               <button type="button" class="tgl" data-station="Long Gluer" style="flex:1;min-width:130px;" onclick="selectStationBtn('Long Gluer',this)"><span data-en>Long Gluer</span><span data-es>Pegadora Larga</span></button>
@@ -1644,8 +1646,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             </div>
             <select id="setup-station" class="input" onchange="onStationDropdownChange(this.value)">
               <option value="">Other station…</option>
-              <option value="Bindery Cutter">Bindery Cutter</option>
-              <option value="Pressroom Cutter">Pressroom Cutter</option>
+              <option value="Bindery Cutter" style="display:none;">Bindery Cutter</option>
+              <option value="Pressroom Cutter" style="display:none;">Pressroom Cutter</option>
               <option value="Kama Foil Press">Kama Foil Press</option>
               <option value="New Die Cutter" style="display:none;">New Die Cutter</option>
               <option value="Old Die Cutter" style="display:none;">Old Die Cutter</option>
