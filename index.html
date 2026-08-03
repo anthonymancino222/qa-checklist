@@ -2188,7 +2188,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="summary-card" id="success-summary"></div>
           <div class="btn-row">
             <button class="btn-secondary" onclick="exportCSV()"><span data-en>Export CSV</span><span data-es>Exportar CSV</span></button>
-            <button class="btn-primary" onclick="beginFreshJobEntry()"><span data-en>New job →</span><span data-es>Nuevo trabajo →</span></button>
+            <button class="btn-primary" onclick="beginFreshJobEntry();openQcSyncGate();"><span data-en>New job →</span><span data-es>Nuevo trabajo →</span></button>
           </div>
           <div id="ncr-followup" style="display:none;margin-top:10px;">
             <button class="btn-primary" style="background:var(--red)" onclick="switchView('ncr')"><span data-en>Open NCR form →</span><span data-es>Abrir formulario NCR →</span></button>
@@ -2847,9 +2847,44 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <div class="continue-overlay" id="shipOverlay">
       <div class="continue-modal" id="shipModal">
         <div class="continue-modal-head">
-          <div>
-            <div class="continue-modal-title" id="ship-title">Job —</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="continue-modal-title" id="ship-title">Job —</div>
+              <button id="ship-edit-btn" onclick="openShipJobEditPanel()" style="display:none;background:rgba(255,255,255,.15);border:none;border-radius:5px;color:#fff;font-size:15px;padding:2px 8px;cursor:pointer;white-space:nowrap;">✎ Edit</button>
+            </div>
             <div class="continue-modal-sub" id="ship-sub"></div>
+            <div id="ship-edit-panel" style="display:none;margin-top:10px;flex-direction:column;gap:8px;">
+              <div>
+                <div style="font-size:15px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;"><span data-en>Job Number</span><span data-es>Número de Trabajo</span></div>
+                <div class="input-row">
+                <input id="ship-edit-job" class="input" type="text" inputmode="numeric" placeholder="Job Number" data-ph-en="Job Number" data-ph-es="Número de trabajo" style="font-size:14px;font-weight:700;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
+                <button class="scan-btn" onclick="openScanner('ship-edit-job','digits','Job number')" title="Scan printed number or barcode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                <line x1="7" y1="12" x2="17" y2="12"/>
+              </svg>
+            </button>
+                </div>
+              </div>
+              <div>
+                <div id="ship-edit-product-label" style="font-size:15px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Product ID</div>
+                <div class="input-row">
+                <input id="ship-edit-product" class="input" type="text" inputmode="numeric" placeholder="Product ID / Form ID" data-ph-en="Product ID / Form ID" data-ph-es="ID de Producto / ID de Forma" style="font-size:14px;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
+                <button class="scan-btn" onclick="openScanner('ship-edit-product','alnum',document.getElementById('ship-edit-product-label').textContent)" title="Scan printed number or barcode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                <line x1="7" y1="12" x2="17" y2="12"/>
+              </svg>
+            </button>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button onclick="saveShipJobEdit()" style="flex:1;padding:8px;background:#22c55e;border:none;border-radius:7px;color:#fff;font-weight:700;font-size:15px;cursor:pointer;"><span data-en>Save</span><span data-es>Guardar</span></button>
+                <button onclick="cancelShipJobEdit()" style="flex:1;padding:8px;background:rgba(255,255,255,.15);border:none;border-radius:7px;color:#fff;font-size:15px;cursor:pointer;"><span data-en>Cancel</span><span data-es>Cancelar</span></button>
+              </div>
+            </div>
           </div>
           <button id="ship-delete-job-btn" onclick="_shipDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
           <button class="continue-close" onclick="closeShippingModal()" style="align-self:flex-start;">✕</button>
@@ -4399,6 +4434,11 @@ var PHRASES_KAMA = ['Registration off','Foil lifting','Incomplete stamp','Foil c
 var setupState = { count: 1, initials: '' };
 var jobState   = {};
 var sessionLog = [];
+// submitJob() awaits Drive photo uploads before writing records, leaving a
+// window where a double-tap on Next/Submit re-enters it and writes every
+// entry twice. This guard makes a re-entrant call while one is already
+// running a no-op instead of a second set of ipAdd()s.
+var _qcSubmitLock = false;
 var scanStream = null, scanInterval = null;
 var kamaTimers = {};
 // PASTE THE DEPLOYED GLUER SHIFT HANDOFF APP URL BELOW — used by
@@ -10345,7 +10385,6 @@ function loadProduct(idx) {
   // Show/hide per-product sig card
   var inspectSigCard = document.getElementById('inspect-sig-card');
   inspectSigCard.style.display = jobState.multiSig ? 'block' : 'none';
-  if (jobState.multiSig) { resetInspectSig(); }
 
   // Update product number label on inspect screen
   var inspectProductLabel = document.getElementById('inspect-product-label');
@@ -10381,6 +10420,12 @@ function loadProduct(idx) {
   var saved = jobState.entries[idx];
   document.getElementById('product-id').value = saved ? (saved.productId||'') : '';
   document.getElementById('comments').value   = saved ? (saved.comments||'') : '';
+
+  // Restore this product's own signature when tabbing back to it — previously
+  // resetInspectSig() unconditionally wiped the pad on every product switch,
+  // so a signature already captured for this product looked lost (blank +
+  // re-locked) even though it was still sitting in jobState.entries[idx].
+  if (jobState.multiSig) { resetInspectSig(saved ? saved.signature : null); }
 
   if (saved && saved.checks) {
     saved.checks.forEach(function(c) {
@@ -10501,6 +10546,15 @@ function showToast(msg, type) {
    SUBMIT
 ══════════════════════════════════ */
 async function submitJob() {
+  if (_qcSubmitLock) return;
+  _qcSubmitLock = true;
+  try {
+    await _submitJobInner();
+  } finally {
+    _qcSubmitLock = false;
+  }
+}
+async function _submitJobInner() {
   var hasFail = jobState.entries.some(function(e){ return e.checks && e.checks.some(function(c){ return c.val==='fail'; }); });
 
   // Save to session log
@@ -10698,10 +10752,14 @@ function _qcRevealForm() {
   if (landing) landing.style.display = 'none';
   if (form) form.style.display = 'block';
 }
-// Used by the QA-success screen's "New job →" button — that button already
-// expresses "start a new job" intent, so it goes straight to the sync gate
-// rather than making the operator land on the landing screen and tap Start
-// New Job again.
+// Lands on the QC landing screen (draft banner + Start New Job button) —
+// used both after a job is submitted and by the QA-success screen's "New
+// job →" button. Deliberately does NOT open the sync gate itself: after a
+// submit, the operator should just see the landing screen, not be forced
+// straight into "Sync Before Starting a New Job" before they've even asked
+// to start one. The gate still runs wherever it always did — the landing's
+// own Start New Job button, and "New job →" (which calls it explicitly
+// right after this, since that tap already expresses "start a new job").
 function beginFreshJobEntry() {
   showQCScreen('qc-setup');
   var landing = document.getElementById('qc-landing');
@@ -10709,7 +10767,6 @@ function beginFreshJobEntry() {
   if (form) form.style.display = 'none';
   if (landing) landing.style.display = 'block';
   checkDraftBanner();
-  openQcSyncGate();
 }
 // Header DATA EDIT toggle inside an already-open job summary popup — re-runs
 // whichever panel (production or QA release) is currently visible so the
@@ -11401,14 +11458,32 @@ function clearInspectSignature() {
   _relockSig('inspect-sig-lock');
 }
 
-function resetInspectSig() {
+function resetInspectSig(signature) {
   iSigHasMark = false;
   iSigDrawing = false;
   if (iSigCtx) iSigCtx.clearRect(0, 0, iSigCanvas.width, iSigCanvas.height);
   var ph = document.getElementById('inspect-sig-placeholder');
   if (ph) ph.classList.remove('hidden');
   // Re-init in case canvas was hidden and has no size yet
-  setTimeout(initInspectSigPad, 50);
+  setTimeout(function(){
+    initInspectSigPad();
+    // If this product already has a signature on file, redraw it — the
+    // canvas resize above just cleared it, and locked (via initInspectSigPad's
+    // own _relockSig) requires an explicit tap-to-sign before it can be
+    // overwritten, same as a brand-new signature would.
+    if (signature) {
+      var img = new Image();
+      img.onload = function(){
+        if (!iSigCanvas || !iSigCtx) return;
+        iSigCtx.clearRect(0, 0, iSigCanvas.width, iSigCanvas.height);
+        iSigCtx.drawImage(img, 0, 0, iSigCanvas.width, iSigCanvas.height);
+        iSigHasMark = true;
+        var ph2 = document.getElementById('inspect-sig-placeholder');
+        if (ph2) ph2.classList.add('hidden');
+      };
+      img.src = signature;
+    }
+  }, 50);
 }
 
 
@@ -13388,12 +13463,59 @@ function ncrFormHTML() {
 
 function ncrProdRowsHTML(d) {
   return d.products.map(function(v,i){
-    return '<div class="ncr-prod-row"><input class="input" type="text" inputmode="numeric" placeholder="' + (isEsLang()?'Producto / forma #':'Product / form #') + '" value="'+_ncrEsc(v)+'" oninput="ncrState.d.products['+i+']=this.value">' +
+    return '<div class="ncr-prod-row"><div style="position:relative;flex:1;">' +
+      '<input class="input" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" ' +
+      'placeholder="' + (isEsLang()?'Producto / forma #':'Product / form #') + '" value="'+_ncrEsc(v)+'" ' +
+      'oninput="ncrState.d.products['+i+']=this.value;ncrFilterProdDrop('+i+')" onfocus="ncrFilterProdDrop('+i+')" onblur="setTimeout(function(){ncrCloseProdDrop('+i+')},200)">' +
+      '<div class="customer-drop" id="ncr-prod-drop-'+i+'" style="display:none;"></div>' +
+      '</div>' +
       (d.products.length>1 ? '<button type="button" class="ncr-row-x" onclick="ncrRemoveProdRow('+i+')">✕</button>' : '') + '</div>';
   }).join('');
 }
 function ncrAddProdRow(){ ncrState.d.products.push(''); document.getElementById('ncr-prod-rows').innerHTML = ncrProdRowsHTML(ncrState.d); }
 function ncrRemoveProdRow(i){ ncrState.d.products.splice(i,1); document.getElementById('ncr-prod-rows').innerHTML = ncrProdRowsHTML(ncrState.d); }
+
+// Distinct Product/Form IDs ever seen — from QC jobs and past NCRs — so
+// typing into a Product ID row can suggest one instead of the operator
+// having to remember or re-read it off the job.
+function _ncrProductIdPool(){
+  var seen = {}, out = [];
+  function add(v){
+    v = (v||'').trim();
+    if (v && !seen[v]) { seen[v] = true; out.push(v); }
+  }
+  ipLoad().forEach(function(j){ add(j.formNumber || j.productNumber || j.product); });
+  ncrLoad().forEach(function(n){ (n.products||[]).forEach(add); });
+  return out;
+}
+function ncrFilterProdDrop(i){
+  var input = document.querySelector('#ncr-prod-rows .ncr-prod-row:nth-child('+(i+1)+') .input');
+  var drop = document.getElementById('ncr-prod-drop-'+i);
+  if (!input || !drop) return;
+  var q = input.value.trim().toLowerCase();
+  if (q.length < 1){ drop.style.display = 'none'; drop.innerHTML = ''; return; }
+  var matches = _ncrProductIdPool().filter(function(v){
+    return v.toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 8);
+  if (!matches.length){
+    drop.innerHTML = '<div class="cust-no-results">' + (isEsLang() ? 'Sin coincidencias' : 'No matches') + '</div>';
+  } else {
+    drop.innerHTML = matches.map(function(v){
+      return '<div class="cust-opt" onmousedown="ncrSelectProdSuggestion('+i+',\''+v.replace(/'/g,"\\'")+'\')">'+_ncrEsc(v)+'</div>';
+    }).join('');
+  }
+  drop.style.display = 'block';
+}
+function ncrCloseProdDrop(i){
+  var drop = document.getElementById('ncr-prod-drop-'+i);
+  if (drop) drop.style.display = 'none';
+}
+function ncrSelectProdSuggestion(i, val){
+  ncrState.d.products[i] = val;
+  var input = document.querySelector('#ncr-prod-rows .ncr-prod-row:nth-child('+(i+1)+') .input');
+  if (input) input.value = val;
+  ncrCloseProdDrop(i);
+}
 function ncrCustomerChange(v){
   var d = ncrState.d;
   var other = document.getElementById('ncr-customer-other');
@@ -14648,17 +14770,17 @@ function _shipSelectByValue(groupId, key, val){
   return false;
 }
 
-function openShippingModal(jobId){
-  var job = null;
-  ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
-  if (!job) return;
-  shipState.jobId = jobId;
-  shipState.data = {};
+// Shared by openShippingModal (first open) and saveShipJobEdit (after
+// correcting job #/product ID) so fixing a typo doesn't need to re-run the
+// whole modal-open flow and blow away toggles/photo/signature already filled in.
+function _shipRenderJobHeader(job){
   document.getElementById('ship-title').textContent = 'Job ' + (job.jobNumber||'—');
   var pf = job.formNumber || job.productNumber || job.product || '—';
   document.getElementById('ship-sub').textContent = stationLabel(job.station) + ' · ' + (job.customer?job.customer+' · ':'') + pf;
   var shipDelBtn = document.getElementById('ship-delete-job-btn');
   if (shipDelBtn) shipDelBtn.style.display = _dataEditMode ? 'inline-block' : 'none';
+  var shipEditBtn = document.getElementById('ship-edit-btn');
+  if (shipEditBtn) shipEditBtn.style.display = 'inline-block';
 
   // Job Summary — shipping needs to see what's actually being shipped and
   // how much, without having to back out to the kanban card for it.
@@ -14676,6 +14798,15 @@ function openShippingModal(jobId){
     '<div><strong>' + (_shipSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + escHtml(_shipQtyLines.qtyExec) + '</div>' +
     '<div><strong>' + (_shipSumEs?'Cantidad Final Producida:':'Final Qty Produced:') + '</strong> ' + escHtml(_shipQtyLines.finalQty) + '</div>' +
     '</div>';
+}
+function openShippingModal(jobId){
+  var job = null;
+  ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
+  if (!job) return;
+  shipState.jobId = jobId;
+  shipState.data = {};
+  cancelShipJobEdit();
+  _shipRenderJobHeader(job);
 
   document.querySelectorAll('#shipModal .toggle-group .tgl').forEach(function(b){ b.classList.remove('sel'); b.style.background=''; b.style.color=''; b.style.borderColor=''; });
 
@@ -14736,6 +14867,46 @@ function openShippingModal(jobId){
 
 function closeShippingModal(){
   document.getElementById('shipOverlay').classList.remove('open');
+}
+
+function openShipJobEditPanel(){
+  if (!shipState.jobId) return;
+  var job = null;
+  ipLoad().forEach(function(j){ if (j.id === shipState.jobId) job = j; });
+  if (!job) return;
+  var pfKey = job.formNumber ? 'formNumber' : (job.productNumber ? 'productNumber' : 'product');
+  shipState._editField = pfKey;
+  document.getElementById('ship-edit-job').value = job.jobNumber || '';
+  document.getElementById('ship-edit-product').value = job[pfKey] || '';
+  document.getElementById('ship-edit-product-label').textContent = pfKey === 'formNumber' ? (isEsLang()?'ID de Forma':'Form ID') : (isEsLang()?'ID de Producto':'Product ID');
+  document.getElementById('ship-edit-panel').style.display = 'flex';
+  document.getElementById('ship-edit-btn').style.display = 'none';
+  document.getElementById('ship-edit-job').focus();
+}
+function cancelShipJobEdit(){
+  var panel = document.getElementById('ship-edit-panel');
+  if (panel) panel.style.display = 'none';
+  var btn = document.getElementById('ship-edit-btn');
+  if (btn && shipState.jobId) btn.style.display = 'inline-block';
+}
+function saveShipJobEdit(){
+  if (!shipState.jobId) return;
+  var newJob = document.getElementById('ship-edit-job').value.trim();
+  var newProd = document.getElementById('ship-edit-product').value.trim();
+  if (!newJob) { showAlert('Job number cannot be empty.'); _scrollToField(document.getElementById('ship-edit-job')); return; }
+  var jobs = ipLoad();
+  var job = null;
+  for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === shipState.jobId) { job = jobs[i]; break; } }
+  if (!job) return;
+  var pfKey = shipState._editField || (job.formNumber ? 'formNumber' : (job.productNumber ? 'productNumber' : 'product'));
+  var updates = { jobNumber: newJob };
+  updates[pfKey] = newProd;
+  ipUpdate(shipState.jobId, updates);
+  job = Object.assign({}, job, updates);
+  cancelShipJobEdit();
+  _shipRenderJobHeader(job);
+  renderShipping();
+  showToast(isEsLang() ? 'Detalles del trabajo actualizados' : 'Job details updated', 'pass');
 }
 
 function cancelShippingModal(){
