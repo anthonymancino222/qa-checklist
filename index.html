@@ -15143,7 +15143,15 @@ function backToRecordsMonths(){ recordsSelectedMonth = null; renderRecords(); }
 // they're still reachable via search.
 function _recordsValidDate(ts){
   if (!ts) return null;
-  var d = new Date(ts);
+  // formatTS() timestamps come from toLocaleString('en-US', {...}) — on
+  // current Chrome that renders as "Aug 3, 2026 at 05:08:44 AM" (with the
+  // word "at"), and new Date() can't parse its own locale output back —
+  // it silently returns Invalid Date. That was making every record vanish
+  // from the year/month browse (not just miscategorized — filtered out
+  // entirely), since this same check also gates which records show once a
+  // month is selected. Stripping " at " back to a plain separator restores
+  // a form Date() parses fine.
+  var d = new Date(String(ts).replace(' at ', ' '));
   return isNaN(d.getTime()) ? null : d;
 }
 function renderRecordsYearMonthNav(all, searching){
