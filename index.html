@@ -1505,6 +1505,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
     </div>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
+    <button id="header-sync-btn" onclick="headerSyncNowClick()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
     <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
     <button onclick="clearAllJobs()" style="font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;border:1px solid var(--border-mid);color:var(--text-tertiary);background:transparent;cursor:pointer;" title="Testing only — wipes every job">Clear All (Testing)</button>
   </div>
@@ -2306,6 +2307,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             </div>
           </div>
           <button id="cm-data-edit-btn" onclick="_cmToggleDataEdit()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--pink);color:var(--pink);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">✏️ DATA EDIT</button>
+          <button id="cm-delete-job-btn" onclick="_cmDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
           <button class="continue-close" onclick="closeContinueModal()" style="align-self:flex-start;">✕</button>
         </div>
         <div class="continue-modal-body">
@@ -4569,6 +4571,41 @@ function _syncNowAll() {
   var timeout = new Promise(function(resolve){ setTimeout(resolve, 8000); });
   return Promise.race([allDone, timeout]);
 }
+// Re-renders whichever screen is currently on-screen — used after a manual
+// sync so newly-pulled records (created on another device) show up right
+// away instead of waiting for the next natural navigation/re-render.
+function _refreshCurrentView() {
+  var activeScreen = document.querySelector('#mainContent > .screen.active');
+  if (!activeScreen) return;
+  var id = activeScreen.id.replace('view-', '');
+  if (id === 'inprogress') renderInProgress();
+  if (id === 'qarelease')  renderQARelease();
+  if (id === 'ncr')        renderNCRView();
+  if (id === 'ncrprog')    renderNCRProgress();
+  if (id === 'ncrpie')     renderNCRPie();
+  if (id === 'shipping')   renderShipping();
+  if (id === 'records')    renderRecords();
+  updateQCBadge();
+  updateQAReleaseBadge();
+}
+function headerSyncNowClick() {
+  var btn = document.getElementById('header-sync-btn');
+  var isEs = isEsLang();
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '.6';
+    btn.innerHTML = '⏳ ' + (isEs ? 'Sincronizando…' : 'Syncing…');
+  }
+  _syncNowAll().then(function(){
+    _refreshCurrentView();
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.innerHTML = '🔄 ' + (isEs ? 'Sincronizar' : 'Sync');
+    }
+    showToast(isEs ? '✓ Sincronizado' : '✓ Synced', 'pass');
+  });
+}
 
 /* ══════════════════════════════════
    IN-PROGRESS STORAGE
@@ -5187,6 +5224,12 @@ function openContinueModal(id) {
     dataEditBtn.style.display = dataEditShown ? 'inline-block' : 'none';
     dataEditBtn.textContent = _dataEditMode ? (isEsLang()?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (isEsLang()?'✏️ EDITAR DATOS':'✏️ DATA EDIT');
   }
+  // Delete is independent of dataEditShown above — that flag only gates
+  // which SUMMARY FIELDS are editable (production/qa_pending/qa_release
+  // panels), but deleting a job outright should work no matter what stage
+  // it's in, as long as DATA EDIT mode itself is on.
+  var deleteJobBtn = document.getElementById('cm-delete-job-btn');
+  if (deleteJobBtn) deleteJobBtn.style.display = _dataEditMode ? 'inline-block' : 'none';
 
   if (job.process === 'makeready' || job.process === 'inspection') {
     // Operator panel: checklist + op sig
@@ -10671,7 +10714,41 @@ function _cmToggleDataEdit() {
     }
     var btn = document.getElementById('cm-data-edit-btn');
     if (btn) btn.textContent = _dataEditMode ? (isEsLang()?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (isEsLang()?'✏️ EDITAR DATOS':'✏️ DATA EDIT');
+    var deleteJobBtn = document.getElementById('cm-delete-job-btn');
+    if (deleteJobBtn) deleteJobBtn.style.display = _dataEditMode ? 'inline-block' : 'none';
   });
+}
+// Deletion is allowed from any process stage — the job popup is the one
+// shared surface every stage opens through, so gating this on DATA EDIT
+// mode alone (rather than per-stage, like the summary-field edit pencils)
+// covers make-ready, production, QA release, on-hold, everything. Two
+// separate confirmations, worded differently, so a double-tap or a single
+// reflexive "yes" can't accidentally push a real job through — the operator
+// has to deliberately affirm twice.
+function _cmDeleteJob() {
+  if (!continueJobId) return;
+  var isEs = isEsLang();
+  var jobId = continueJobId;
+  showConfirm(
+    isEs ? '¿Está seguro de que desea eliminar este trabajo? Esta acción no se puede deshacer.' : 'Are you sure you want to delete this job? This cannot be undone.',
+    function(ok1) {
+      if (!ok1) return;
+      showConfirm(
+        isEs ? 'Confirme una vez más — esto eliminará el trabajo de forma PERMANENTE.' : 'Please confirm one more time — this will PERMANENTLY delete the job.',
+        function(ok2) {
+          if (!ok2) return;
+          _deleteRecordById('job', jobId);
+          closeContinueModal();
+          renderInProgress();
+          renderQARelease();
+          renderShipping();
+          showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+        },
+        { okLabel: isEs ? 'Sí, Eliminar' : 'Yes, Delete' }
+      );
+    },
+    { okLabel: isEs ? 'Continuar' : 'Continue' }
+  );
 }
 function openQcSyncGate() {
   var btn = document.getElementById('qc-sync-now-btn');
