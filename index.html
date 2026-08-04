@@ -3035,7 +3035,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
   <div class="test-banner" id="rca-test-banner">
     <span>🔌 <strong><span data-en>Local mode</span><span data-es>Modo local</span></strong> <span data-en>— Apps Script sync is off. Records save in this browser only (same payload the backend/CRM will receive). Manager email steps are simulated.</span><span data-es>— La sincronización con Apps Script está desactivada. Los registros se guardan solo en este navegador (mismo formato que recibirá el backend/CRM). Los pasos de correo al gerente son simulados.</span></span>
-    <input type="checkbox" id="rca-test-mode-toggle" checked style="display:none">
+    <input type="checkbox" id="rca-test-mode-toggle" style="display:none">
   </div>
   <div class="status-bar" id="rca-status-bar">
     <div class="status-dot dot-draft"></div>
@@ -3390,6 +3390,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       </div>
     </div>
 
+    <!-- Read-only manager summary — filled in only when this page was opened
+         via a ?mode=closeout&token=... link, so QA sees what the manager
+         decided without the interactive (and now irrelevant) mgrfill section. -->
+    <div id="rca-closeout-summary" class="section hidden"></div>
+
     <!-- Close out -->
     <div id="rca-section-close" class="section close-section hidden">
       <div class="section-header">
@@ -3453,7 +3458,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     </div>
 
     <div id="rca-success-banner" class="success-banner hidden">
-      ✅ <span data-en>Record saved! (local — Apps Script sync off)</span><span data-es>¡Registro guardado! (local — sincronización con Apps Script desactivada)</span>
+      ✅ <span id="rca-success-banner-text">Record saved!</span>
+    </div>
+
+    <div id="rca-manager-submitted-banner" class="success-banner hidden">
+      📧 <span data-en>Submitted — thank you. QA will review and close this out.</span><span data-es>Enviado — gracias. Calidad revisará y cerrará este registro.</span>
     </div>
 
   </div>
@@ -13996,9 +14005,10 @@ function updateQCBadge(){
 
 const RCA_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfUSjaD8o-UmUx1Hhu-sLX2EFADt2usdnPQ-lb8AVUja5fjRgeA6jYuW4amTzRoFA/exec";
 /* RCA_LIVE: false = local simulation (records stored in this browser under
-   'moquin-qa-rcas', no network calls). Set true to re-enable the Apps Script
-   POST once the backend / CRM feed is ready — payload shape is identical. */
-const RCA_LIVE = false;
+   'moquin-qa-rcas', no network calls). true = real Apps Script backend —
+   Sheet storage, manager/QA emails, and token-based deep links (see
+   _rcaLoadFromToken below). Payload shape is identical either way. */
+const RCA_LIVE = true;
 const RCA_STORE_KEY = 'moquin-qa-rcas';
 
 /* Customer dropdown — same canonical CUSTOMERS list as QC and NCR */
@@ -14167,6 +14177,15 @@ const RCA_TEST_EMAIL = "anthony.mancino@moquinpress.com";
 /* rcaToggleTestMode removed — test-email toggle not used in local mode */
 
 let rcaCurrentPath=0, rcaDispSelected=null, rcaDisp2Selected=null;
+// Set once a record round-trips through Apps Script (send_to_manager's
+// response) or is loaded via a ?mode=manager|closeout&token=... deep link —
+// every later POST for that same record (return_to_qa/close_out/handoff)
+// must carry it so the backend updates the existing Sheet row instead of
+// creating a new one. Empty is fine too: doPost() gracefully creates a
+// fresh full row when no token matches (see close_out's fallback).
+var _rcaToken = '';
+var _rcaManagerMode = false;
+var _rcaCloseoutMode = false;
 
 (function init(){
   const d=new Date();
@@ -14382,8 +14401,19 @@ function rcaHandoffToDept(){
   var isEs = isEsLang();
   if (!dept){ showAlert(isEs ? 'Seleccione un departamento primero.' : 'Select a department first.'); _scrollToField(document.getElementById('rca-handoff-dept')); return; }
   var mgr = STATION_MANAGER[dept] || (isEs ? 'el gerente del departamento' : 'the department manager');
-  rcaShowToast((isEs ? '📤 Transferencia simulada — ' : '📤 Hand-off simulated — ') + mgr + ' (' + dept + ') ' + (isEs ? 'notificado localmente' : 'notified locally'));
-  rcaSetStatus('pending', (isEs ? 'Reasignado a ' : 'Reassigned to ') + dept + (isEs ? ' — esperando a ' : ' — awaiting ') + mgr);
+  if (!RCA_LIVE){
+    rcaShowToast((isEs ? '📤 Transferencia simulada — ' : '📤 Hand-off simulated — ') + mgr + ' (' + dept + ') ' + (isEs ? 'notificado localmente' : 'notified locally'));
+    rcaSetStatus('pending', (isEs ? 'Reasignado a ' : 'Reassigned to ') + dept + (isEs ? ' — esperando a ' : ' — awaiting ') + mgr);
+    return;
+  }
+  var btn = document.querySelector('#rca-handoff-actionrow .btn-warn');
+  if (btn){ btn.disabled = true; btn.textContent = isEs?'Transfiriendo...':'Handing off...'; }
+  rcaSetStatus('saving', isEs?'Transfiriendo al departamento...':'Handing off to department...');
+  rcaSendToSheets(rcaCollectData('Handed Off','handoff_to_dept'), function(ok){
+    rcaShowToast(ok ? ('📤 ' + mgr + ' (' + dept + ') ' + (isEs?'notificado por correo':'notified by email')) : (isEs?'Transferencia enviada — verifique la conexión':'Hand-off sent — check connection'), !ok);
+    rcaSetStatus('pending', (isEs ? 'Reasignado a ' : 'Reassigned to ') + dept + (isEs ? ' — esperando a ' : ' — awaiting ') + mgr);
+    if (btn){ btn.disabled = true; btn.textContent = isEs?'Transferido ✓':'Handed off ✓'; }
+  });
 }
 
 /* ── 2-version PDF export — internal (full detail: 5-whys, root-cause/
@@ -14506,29 +14536,41 @@ function rcaCollectData(status, action){
     approvedBy:rcaGetVal('approved-by'), approvalDate:rcaGetVal('approval-date'),
     disposition:disp, dispNotes:dispNotes,
     managerName:rcaGetVal('mgr-name'),
-    handoffDept:rcaGetVal('handoff-dept'), handoffNotes:rcaGetVal('handoff-notes'),
+    rootCauseDept:rcaGetVal('handoff-dept'), handoffNotes:rcaGetVal('handoff-notes'),
+    // doPost()/email attachments only understand a single photoData/photoFileName
+    // pair (see cellSafePhoto in RCA_AppScript_v3.gs) — only the Sheet/email side
+    // is capped at one photo; the full set still rides along in `photos` for the
+    // local record mirror (rcaSendToSheets) and this browser's own PDF export.
     photos:rcaPhotos.map(function(p){ return p.src; }),
+    photoData:rcaPhotos.length?rcaPhotos[0].src:'', photoFileName:rcaPhotos.length?(rcaPhotos[0].name||'photo.jpg'):'',
     closeDate:rcaGetVal('close-date'), closeNotes:rcaGetVal('close-notes'),
     closeQATech:rcaGetCloseQAName(), verifyMethod:rcaGetVal('verify-method'),
     status:status,
+    token:_rcaToken,
     testMode:document.getElementById("rca-test-mode-toggle").checked,
     testEmail:RCA_TEST_EMAIL
   };
 }
 
+// Mirrors every RCA action into this browser's own localStorage (Records
+// tab reads from here) regardless of RCA_LIVE — the Sheet is the system of
+// record once live, but the sender's own device shouldn't have to wait on
+// a Sheet round trip (there isn't one to wait on anyway — the POST below is
+// fire-and-forget) just to see what it itself just submitted.
+function _rcaMirrorLocal(data){
+  try {
+    var list = [];
+    try { list = JSON.parse(localStorage.getItem(RCA_STORE_KEY)) || []; } catch(e) {}
+    var mirrored = Object.assign({}, data, { savedAt: formatTS(), simulated: !RCA_LIVE });
+    list.unshift(mirrored);
+    localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+    if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
+  } catch(e) { /* storage full — not fatal, the live send (if any) still went out */ }
+}
 function rcaSendToSheets(data, onDone){
+  _rcaMirrorLocal(data);
   if (!RCA_LIVE){
-    /* Local simulation — no network. Record stored in this browser with the
-       exact payload shape the Apps Script backend / CRM feed will receive. */
-    try {
-      var list = [];
-      try { list = JSON.parse(localStorage.getItem(RCA_STORE_KEY)) || []; } catch(e) {}
-      data.savedAt = formatTS();
-      data.simulated = true;
-      list.unshift(data);
-      localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
-      if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
-    } catch(e) { /* storage full — still simulate success for workflow testing */ }
+    // Local simulation — no network, the mirror above is the whole story.
     setTimeout(function(){ onDone(true); }, 400);
     return;
   }
@@ -14565,6 +14607,10 @@ function rcaLockForm(){
   // needs to be printed/shared, and locking the form is only meant to stop
   // further edits to the underlying data.
   document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"])').forEach(e=>e.disabled=true);
+  var isEs = isEsLang();
+  document.getElementById('rca-success-banner-text').textContent = RCA_LIVE
+    ? (isEs ? '¡Registro guardado en Google Sheets!' : 'Record saved to Google Sheets!')
+    : (isEs ? '¡Registro guardado! (local — sincronización con Apps Script desactivada)' : 'Record saved! (local — Apps Script sync off)');
   rcaShow('success-banner');
   document.getElementById('rca-status-bar').style.background='#dcfce7';
   document.getElementById('rca-status-bar').style.borderColor='#86efac';
@@ -14605,10 +14651,31 @@ function rcaReturnToQA(){
     if (_dispGrid2) _dispGrid2.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
-  rcaHide('section-mgrfill');rcaShow('section-close');
-  document.getElementById('rca-close-num').textContent='3';
-  rcaSetStatus('pending', isEs?'Regresado a Calidad — listo para cierre':'Returned to QA — ready for close-out');
-  document.getElementById('rca-section-close').scrollIntoView({behavior:'smooth',block:'start'});
+  var btn = document.querySelector('#rca-section-mgrfill .btn-warn');
+  if (btn){ btn.disabled = true; btn.textContent = isEs?'Enviando...':'Submitting...'; }
+  rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando sección del gerente...':'Saving manager section...') : (isEs?'Guardando localmente...':'Saving locally...'));
+  // Actually persists the manager's root cause/corrective action/disposition —
+  // this used to be a pure UI transition with no backend call at all, which
+  // worked only for the single-device "QA and manager share one screen"
+  // simulation. A manager opened via the emailed link is a separate device/
+  // session that needs its own submission recorded (and QA notified) right here.
+  rcaSendToSheets(rcaCollectData('Manager Complete','return_to_qa'), function(ok){
+    rcaSetStatus('pending', isEs?'Sección del gerente enviada — equipo de calidad notificado':'Manager section submitted — QA team notified');
+    rcaShowToast(ok?(RCA_LIVE?(isEs?'📧 ¡Equipo de calidad notificado!':'📧 QA team notified!'):(isEs?'Sección guardada localmente':'Section saved locally')):(isEs?'Enviado':'Submitted'),!ok);
+    rcaHide('section-mgrfill');
+    if (_rcaManagerMode){
+      // Opened via the emailed manager link — this device's job is done;
+      // QA closes it out separately from the link in the next email.
+      if (btn) btn.style.display = 'none';
+      document.getElementById('rca-manager-submitted-banner').classList.remove('hidden');
+      document.getElementById('rca-manager-submitted-banner').scrollIntoView({behavior:'smooth',block:'center'});
+    } else {
+      // Same-device flow (QA and manager sharing one screen) — carry straight on to close-out.
+      rcaShow('section-close');
+      document.getElementById('rca-close-num').textContent='3';
+      document.getElementById('rca-section-close').scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  });
 }
 
 function rcaCloseOut(){
@@ -14621,7 +14688,7 @@ function rcaCloseOut(){
   const btn=document.getElementById('rca-btn-close');
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
   rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...'));
-  rcaSendToSheets(rcaCollectData('Closed'), ok=>{
+  rcaSendToSheets(rcaCollectData('Closed','close_out'), ok=>{
     rcaSetStatus('closed', RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally'));
     rcaShowToast(ok?(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
     rcaLockForm();
@@ -14656,6 +14723,139 @@ function rcaSaveDraft(){
     rcaShowToast(ok?(RCA_LIVE?(isEs?'💾 ¡Borrador guardado en Google Sheets!':'💾 Draft saved to Google Sheets!'):(isEs?'💾 ¡Borrador guardado localmente!':'💾 Draft saved locally!')):(isEs?'Borrador guardado localmente':'Draft saved locally'),!ok);
   });
 }
+
+/* ── Manager / close-out deep links ───────────────────────────────────────
+   A manager (or QA closing out) opens this app directly at
+   ?mode=manager&token=RCA-XXXX or ?mode=closeout&token=RCA-XXXX from an
+   emailed link — no login, no local job/NCR data required. Loads the full
+   record from the Apps Script backend by token (JSONP — Apps Script GET
+   responses carry no CORS headers, so a plain fetch() can't read them
+   cross-origin from this domain; a <script> tag sidesteps that) and drops
+   straight into the manager-fill or close-out section, read-only above it. */
+function _rcaJsonpGet(token, onOk, onErr){
+  var cbName = 'rcaTokenCb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+  var script = document.createElement('script');
+  var finished = false;
+  function cleanup(){
+    clearTimeout(timer);
+    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }
+  var timer = setTimeout(function(){ if (finished) return; finished = true; cleanup(); if (onErr) onErr(); }, 20000);
+  window[cbName] = function(res){ if (finished) return; finished = true; cleanup(); if (onOk) onOk(res); };
+  script.onerror = function(){ if (finished) return; finished = true; cleanup(); if (onErr) onErr(); };
+  script.src = RCA_SCRIPT_URL + '?token=' + encodeURIComponent(token) + '&callback=' + cbName;
+  document.body.appendChild(script);
+}
+
+// Section 1 was filled by QA at send-to-manager time — a manager/closeout
+// viewer sees it for context but doesn't own it, so it's re-populated here
+// (from the fetched record, not local job/NCR data — a manager's device
+// won't have any) and then locked read-only.
+function _rcaFillIncidentInfo(rec){
+  document.getElementById('rca-job-num').value = rec.jobNumber || '';
+  document.getElementById('rca-prod-num').value = rec.productNumber || '';
+  document.getElementById('rca-date-found').value = rec.dateFound || '';
+  if (rec.customer) _rcaSetCustomer(rec.customer);
+  var stationSel = document.getElementById('rca-station');
+  var hasStation = Array.prototype.some.call(stationSel.options, function(o){ return o.value === rec.station; });
+  stationSel.value = hasStation ? rec.station : '';
+  var qaSel = document.getElementById('rca-qa-name');
+  var hasQA = Array.prototype.some.call(qaSel.options, function(o){ return o.value === rec.qaTech; });
+  if (hasQA) {
+    qaSel.value = rec.qaTech;
+  } else if (rec.qaTech) {
+    qaSel.value = 'Other';
+    document.getElementById('rca-qa-name-other').value = rec.qaTech;
+    document.getElementById('rca-qa-name-other').classList.remove('hidden');
+  }
+  // issueDesc was composed as "Category — Detail" by _rcaCompose; split back apart for display.
+  var parts = String(rec.issueDesc || '').split(' — ');
+  document.getElementById('rca-issuecat-value').value = parts[0] || rec.issueCategory || '';
+  document.getElementById('rca-issue-desc').value = parts.length > 1 ? parts.slice(1).join(' — ') : '';
+}
+function _rcaLockIncidentInfo(){
+  var pathSel = document.querySelector('.path-selector');
+  if (pathSel) pathSel.style.display = 'none';
+  ['rca-prefill-select','rca-job-num','rca-prod-num','rca-customer-select','rca-customer-other',
+   'rca-date-found','rca-station','rca-qa-name','rca-qa-name-other','rca-issue-desc','rca-photo-input'
+  ].forEach(function(id){ var e = document.getElementById(id); if (e) e.disabled = true; });
+  document.querySelectorAll('#rca-issuecat-grid .disp-option').forEach(function(el){ el.style.pointerEvents = 'none'; el.style.opacity = '.7'; });
+}
+
+function _rcaLoadFromToken(mode, token){
+  var isEs = isEsLang();
+  switchView('rca');
+  rcaSetStatus('saving', isEs ? 'Cargando registro…' : 'Loading record…');
+  _rcaJsonpGet(token, function(res){
+    if (!res || res.result !== 'success'){
+      rcaSetStatus('draft', isEs ? 'Error al cargar — el enlace puede ser inválido.' : 'Error loading record — link may be invalid.');
+      showAlert(isEs ? 'No se pudo cargar este registro. El enlace puede haber expirado o ser inválido.' : 'Could not load this record. The link may be expired or invalid.');
+      return;
+    }
+    var rec = res.record;
+    rec.token = token;
+    if (mode === 'manager') _rcaApplyManagerMode(rec);
+    else _rcaApplyCloseoutMode(rec);
+  }, function(){
+    rcaSetStatus('draft', isEs ? 'Error de red — intente de nuevo.' : 'Network error — please try again.');
+  });
+}
+
+function _rcaApplyManagerMode(rec){
+  _rcaManagerMode = true;
+  _rcaToken = rec.token;
+  var isEs = isEsLang();
+  rcaSetPath(2);
+  _rcaFillIncidentInfo(rec);
+  _rcaLockIncidentInfo();
+  _rcaPopulateMgrSelects();
+  _rcaPopulateHandoffDept();
+  document.getElementById('rca-mgr-date').value = new Date().toISOString().slice(0,10);
+  rcaOnStationChange(); // rebuilds the root-cause/corrective-action grids for this station + issue category
+  rcaHide('section-sendmgr'); rcaShow('section-mgrfill');
+  rcaSetStatus('pending', isEs ? 'Complete la causa raíz, la acción correctiva y la disposición.' : 'Complete the root cause, corrective action, and disposition below.');
+  document.getElementById('rca-section-mgrfill').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function _rcaApplyCloseoutMode(rec){
+  _rcaCloseoutMode = true;
+  _rcaToken = rec.token;
+  var isEs = isEsLang();
+  rcaSetPath(2);
+  _rcaFillIncidentInfo(rec);
+  _rcaLockIncidentInfo();
+  rcaHide('section-sendmgr'); rcaHide('section-mgrfill');
+  var summary = document.getElementById('rca-closeout-summary');
+  if (summary){
+    summary.innerHTML =
+      '<div class="section-header"><div class="section-num" style="background:#b45309">M</div>' +
+      '<div class="section-title">' + (isEs?'Resumen del gerente':'Manager summary') + '</div>' +
+      '<span class="section-badge badge-mgr">' + (isEs?'Completado':'Completed') + '</span></div>' +
+      '<div style="font-size:14px;line-height:1.8;">' +
+      '<div><strong>' + (isEs?'Gerente:':'Manager:') + '</strong> ' + escHtml(rec.managerName||'—') + '</div>' +
+      '<div><strong>' + (isEs?'Fecha:':'Date:') + '</strong> ' + escHtml(rec.approvalDate||'—') + '</div>' +
+      '<div><strong>' + (isEs?'Causa raíz:':'Root cause:') + '</strong> ' + escHtml(rec.rootCause||'—') + '</div>' +
+      '<div><strong>' + (isEs?'Acción correctiva:':'Corrective action:') + '</strong> ' + escHtml(rec.correctiveAction||'—') + '</div>' +
+      '<div><strong>' + (isEs?'Disposición:':'Disposition:') + '</strong> ' + escHtml(rec.disposition||'—') + '</div>' +
+      (rec.dispNotes ? '<div><strong>' + (isEs?'Notas de disposición:':'Disposition notes:') + '</strong> ' + escHtml(rec.dispNotes) + '</div>' : '') +
+      '</div>';
+    summary.classList.remove('hidden');
+  }
+  rcaShow('section-close');
+  document.getElementById('rca-close-num').textContent = '3';
+  rcaSetStatus('pending', isEs ? 'Cierre — sección del gerente completa, por favor termine abajo' : 'Close-out — manager section complete, please finish below');
+  document.getElementById('rca-section-close').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// Checked once at load — a deep link is the only thing that should trigger this.
+(function _rcaCheckUrlMode(){
+  if (!RCA_LIVE) return;
+  var params = new URLSearchParams(window.location.search);
+  var mode = params.get('mode');
+  var token = params.get('token');
+  if ((mode === 'manager' || mode === 'closeout') && token) _rcaLoadFromToken(mode, token);
+})();
 
 rcaPopulatePrefill();
 // Populate the QA tech name dropdowns from the shared list (see QA_TECH_NAMES)
