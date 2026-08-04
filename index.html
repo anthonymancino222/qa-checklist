@@ -1950,12 +1950,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             <button class="count-btn" onclick="pickCount(this,4)">4</button>
             <button class="count-btn" onclick="pickCount(this,5)">5</button>
             <button class="count-btn" onclick="pickCount(this,6)">6</button>
-            <button class="count-btn" onclick="pickCount(this,7)">7</button>
-            <button class="count-btn" onclick="pickCount(this,8)">8</button>
-            <button class="count-btn" onclick="pickCount(this,9)">9</button>
-            <button class="count-btn" onclick="pickCount(this,10)">10</button>
-            <button class="count-btn" onclick="pickCount(this,11)">11</button>
-            <button class="count-btn" onclick="pickCount(this,12)">12</button>
             <button class="count-btn other-btn" onclick="pickCount(this,0)" style="grid-column:span 3"><span data-en>Other ↓</span><span data-es>Otro ↓</span></button>
             <button class="count-btn other-btn" onclick="pickCount(this,-1)" style="grid-column:span 3"><span data-en>N/A — 1 run</span><span data-es>N/D — 1 corrida</span></button>
           </div>
@@ -2049,23 +2043,23 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             </div>
             <button class="sig-clear" onclick="clearSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
           </div>
-
-          <div class="card">
-            <div class="card-label"><span data-en>Notes</span><span data-es>Notas</span></div>
-            <div class="phrase-row" id="setup-phrase-row"></div>
-            <textarea id="setup-comments" class="input" placeholder="Additional observations…" data-ph-en="Additional observations…" data-ph-es="Observaciones adicionales…"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-label"><span data-en>Start time</span><span data-es>Hora de inicio</span></div>
-          <div class="ts-pill" id="setup-ts"></div>
         </div>
 
         <button class="btn-primary" id="setup-begin-btn" onclick="beginInspection()"><span data-en>Begin inspection →</span><span data-es>Comenzar inspección →</span></button>
         <button class="btn-primary" id="post-body-submit-btn" onclick="beginInspection()" style="display:none;"><span data-en>Submit</span><span data-es>Enviar</span> ✓</button>
         <button id="post-body-save-btn" onclick="saveDraft()" style="display:none;width:100%;margin-top:8px;padding:12px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">💾 <span data-en>Save Progress</span><span data-es>Guardar Progreso</span></button>
         <button id="post-body-cancel-btn" onclick="cancelEntry()" style="display:none;width:100%;margin-top:8px;padding:12px;background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;">✕ <span data-en>Cancel Entry</span><span data-es>Cancelar Entrada</span></button>
+
+        <div class="card" id="setup-notes-card">
+          <div class="card-label"><span data-en>Notes</span><span data-es>Notas</span></div>
+          <div class="phrase-row" id="setup-phrase-row"></div>
+          <textarea id="setup-comments" class="input" placeholder="Additional observations…" data-ph-en="Additional observations…" data-ph-es="Observaciones adicionales…"></textarea>
+        </div>
+
+        <div class="card">
+          <div class="card-label"><span data-en>Start time</span><span data-es>Hora de inicio</span></div>
+          <div class="ts-pill" id="setup-ts"></div>
+        </div>
         </div><!-- /post-station-body -->
         </div><!-- /qc-setup-form -->
 
@@ -7808,6 +7802,7 @@ function pickCount(btn, n) {
   var effectiveCount = (n === -1) ? 1 : (n === 0 ? (parseInt(document.getElementById('other-count').value)||0) : n);
   var isSingle = (effectiveCount === 1);
   document.getElementById('setup-single-fields').style.display = isSingle ? 'block' : 'none';
+  _safeStyle('setup-notes-card', 'display', isSingle ? 'block' : 'none');
   document.getElementById('setup-begin-btn').textContent = isSingle ? 'Submit job ✓' : 'Begin inspection →';
   if (isSingle) {
     buildSetupChecklist();
@@ -8574,6 +8569,7 @@ function _showStationProdFields(val, station) {
     setupState.count = 1;
     buildSetupChecklist(); buildSetupPhrases();
     document.getElementById('setup-single-fields').style.display = 'block';
+    _safeStyle('setup-notes-card', 'display', 'block');
     var _prodCard = document.getElementById('setup-product-card');
     if (_prodCard) _prodCard.style.display = 'none';
     if (countCard) countCard.style.display = 'none';
@@ -10915,13 +10911,24 @@ function resumeDraft(id) {
     // Restore count + checklist values AFTER process (so check restore is always last)
     if (draft.count) {
       setupState.count = draft.count;
+      var _countBtnMatch = false;
       document.querySelectorAll('.count-btn').forEach(function(b) {
         b.classList.remove('selected');
-        if (parseInt(b.textContent) === draft.count) b.classList.add('selected');
+        if (parseInt(b.textContent) === draft.count) { b.classList.add('selected'); _countBtnMatch = true; }
       });
+      // A count above the quick-pick buttons (7+, now folded into "Other"
+      // since only 1-6 show directly — see count-grid) has no button to
+      // match; fall back to the Other field so the saved count still shows
+      // up somewhere instead of silently looking unselected.
+      if (!_countBtnMatch && draft.count > 0) {
+        document.getElementById('other-wrap').style.display = 'block';
+        document.getElementById('other-count').value = draft.count;
+        document.querySelector('#count-grid .other-btn').classList.add('selected');
+      }
       var isSingle = draft.count === 1 || draft.count === -1;
       document.getElementById('post-station-body').style.display = 'block';
       document.getElementById('setup-single-fields').style.display = isSingle ? 'block' : 'none';
+      _safeStyle('setup-notes-card', 'display', isSingle ? 'block' : 'none');
       document.getElementById('setup-begin-btn').textContent = isSingle ? 'Submit job ✓' : 'Begin inspection →';
       if (isSingle) {
         buildSetupChecklist(); buildSetupPhrases();
@@ -11009,6 +11016,7 @@ function startNewJob() {
   if (typeof _ltClearLast === 'function') _ltClearLast();
   _safeSet('setup-job', 'value', '');
   _safeStyle('setup-single-fields', 'display', 'block');
+  _safeStyle('setup-notes-card', 'display', 'block');
   _safeSet('setup-product', 'value', '');
   _safeSet('setup-comments', 'value', '');
   _safeStyle('setup-photo-preview', 'display', 'none');
@@ -11831,6 +11839,7 @@ function onStationChange(station) {
     setupState.count = 1;
     document.querySelectorAll('.count-btn').forEach(function(b){ b.classList.remove('selected'); });
     document.getElementById('setup-single-fields').style.display = 'block';
+    _safeStyle('setup-notes-card', 'display', 'block');
     document.getElementById('setup-begin-btn').textContent = 'Submit job ✓';
     document.getElementById('other-wrap').style.display = 'none';
   }
