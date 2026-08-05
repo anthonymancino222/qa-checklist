@@ -1228,11 +1228,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .rca-token-loading-title{font-size:21px;font-weight:800;color:#1f2937}
 .rca-token-loading-sub{font-size:15px;color:#6b7280;max-width:340px;line-height:1.5}
 .rca-token-loading-sub .btn{margin-top:14px}
-#view-rca .rca-grid-toggle{display:flex;align-items:center;gap:8px;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:9px;cursor:pointer;font-size:14px;font-weight:700;color:#374151;background:#f9fafb;margin-top:4px;transition:all .15s}
-#view-rca .rca-grid-toggle:hover{border-color:#9ca3af}
-#view-rca .rca-grid-toggle .rca-grid-toggle-icon{font-size:12px;color:#9ca3af;flex-shrink:0}
+#view-rca .rca-grid-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border:2px solid #d1d5db;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;color:#374151;background:#f3f4f6;margin-top:4px;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+#view-rca .rca-grid-toggle:hover{border-color:#6b7280;background:#e5e7eb}
+#view-rca .rca-grid-toggle:not(.rca-grid-collapsed-bar){border-radius:10px 10px 0 0;border-bottom-width:0;margin-bottom:0}
+#view-rca .disposition-grid:not(.rca-grid-collapsed){border:2px solid #d1d5db;border-top:none;border-radius:0 0 10px 10px;padding:10px;margin-top:0!important}
+#view-rca .rca-grid-toggle .rca-grid-toggle-chevron{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#4b5563;background:#fff;border:1px solid #d1d5db;border-radius:20px;padding:4px 10px 4px 8px}
+#view-rca .rca-grid-toggle .rca-grid-toggle-chevron .arrow{font-size:15px;line-height:1;transition:transform .2s}
 #view-rca .rca-grid-toggle.rca-grid-has-selection{background:#f0fdf4;border-color:#86efac;color:#166534}
-#view-rca .rca-grid-toggle.rca-grid-needs-selection{background:#fff7ed;border-color:#fdba74;color:#9a3412}
+#view-rca .rca-grid-toggle.rca-grid-has-selection .rca-grid-toggle-chevron{border-color:#86efac;color:#166534}
+#view-rca .rca-grid-toggle.rca-grid-needs-selection{background:#fff7ed;border-color:#fb923c;color:#9a3412}
+#view-rca .rca-grid-toggle.rca-grid-needs-selection .rca-grid-toggle-chevron{border-color:#fb923c;color:#9a3412}
 #view-rca .action-row{display:flex;gap:8px;margin-top:1.25rem;flex-wrap:wrap}
 #view-rca .btn{font-size:15px;font-weight:600;font-family:inherit;border-radius:8px;padding:9px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;border:1px solid #d4d4d0;background:#fff;color:#111}
 #view-rca .btn:hover{background:#f3f4f6}
@@ -14297,9 +14302,13 @@ function _rcaSetGridCollapsed(gridId, collapsed){
   var grid = document.getElementById(gridId);
   var bar = document.getElementById(gridId+'-toggle');
   if (!grid || !bar) return;
+  var isEs = isEsLang();
   grid.classList.toggle('rca-grid-collapsed', collapsed);
-  var icon = bar.querySelector('.rca-grid-toggle-icon');
-  if (icon) icon.textContent = collapsed ? '▸' : '▾';
+  bar.classList.toggle('rca-grid-collapsed-bar', collapsed);
+  var arrow = bar.querySelector('.rca-grid-toggle-chevron .arrow');
+  var label = bar.querySelector('.rca-grid-toggle-chevron .label');
+  if (arrow) arrow.textContent = collapsed ? '▾' : '▴';
+  if (label) label.textContent = collapsed ? (isEs?'Ver opciones':'Show options') : (isEs?'Ocultar':'Hide');
 }
 function _rcaToggleGrid(gridId){
   var grid = document.getElementById(gridId);
@@ -14338,7 +14347,7 @@ function _rcaInitCollapsibleGrids(){
     bar.className = 'rca-grid-toggle';
     bar.id = cfg.grid + '-toggle';
     bar.setAttribute('onclick', "_rcaToggleGrid('"+cfg.grid+"')");
-    bar.innerHTML = '<span class="rca-grid-toggle-icon">▾</span><span class="rca-grid-toggle-text"></span>';
+    bar.innerHTML = '<span class="rca-grid-toggle-text"></span><span class="rca-grid-toggle-chevron"><span class="arrow">▴</span><span class="label"></span></span>';
     grid.parentNode.insertBefore(bar, grid);
     _rcaSyncGridSummary(cfg.grid, cfg.value);
   });
