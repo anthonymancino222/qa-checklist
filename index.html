@@ -14204,7 +14204,19 @@ const RCA_TEST_EMAIL = "anthony.mancino@moquinpress.com";
 
 /* rcaToggleTestMode removed — test-email toggle not used in local mode */
 
-let rcaCurrentPath=0, rcaDispSelected=null, rcaDisp2Selected=null;
+let rcaCurrentPath=0;
+// Multi-select state for the disposition grids ("what happens to the
+// affected product?" can genuinely be more than one thing at once — e.g.
+// "Rework Before Use" AND "100% Inspect"). Arrays of the canonical value
+// strings passed into rcaSetDisp/rcaSetDisp2 at click time, not scraped from
+// button text — button markup includes an icon + bilingual spans, so
+// textContent would concatenate English+Spanish together.
+var rcaDispSelectedValues = [], rcaDisp2SelectedValues = [];
+// Same idea for the dynamically-rendered grids (quality issue, root cause,
+// corrective action, and their manager-mode twins) — keyed by grid id since
+// there are several. Re-renders (station/category change) filter this down
+// to whatever options are still valid rather than wiping it outright.
+var _rcaGridSelectedSets = {};
 // Set once a record round-trips through Apps Script (send_to_manager's
 // response) or is loaded via a ?mode=manager|closeout&token=... deep link —
 // every later POST for that same record (return_to_qa/close_out/handoff)
@@ -14269,15 +14281,19 @@ function rcaShowToast(msg,isErr){
 }
 
 function rcaSetDisp(el,val){
-  if(rcaDispSelected) rcaDispSelected.classList.remove('selected');
-  el.classList.add('selected'); rcaDispSelected=el;
-  document.getElementById('rca-disp-value').value=val;
+  el.classList.toggle('selected');
+  var i = rcaDispSelectedValues.indexOf(val);
+  if (el.classList.contains('selected')) { if (i===-1) rcaDispSelectedValues.push(val); }
+  else if (i!==-1) rcaDispSelectedValues.splice(i,1);
+  document.getElementById('rca-disp-value').value = rcaDispSelectedValues.join(', ');
   _rcaSyncGridSummary('rca-disp-grid','rca-disp-value');
 }
 function rcaSetDisp2(el,val){
-  if(rcaDisp2Selected) rcaDisp2Selected.classList.remove('selected');
-  el.classList.add('selected'); rcaDisp2Selected=el;
-  document.getElementById('rca-disp2-value').value=val;
+  el.classList.toggle('selected');
+  var i = rcaDisp2SelectedValues.indexOf(val);
+  if (el.classList.contains('selected')) { if (i===-1) rcaDisp2SelectedValues.push(val); }
+  else if (i!==-1) rcaDisp2SelectedValues.splice(i,1);
+  document.getElementById('rca-disp2-value').value = rcaDisp2SelectedValues.join(', ');
   _rcaSyncGridSummary('rca-disp2-grid','rca-disp2-value');
 }
 
@@ -14324,15 +14340,20 @@ function _rcaSyncGridSummary(gridId, valueId){
   var textEl = bar.querySelector('.rca-grid-toggle-text');
   var isEs = isEsLang();
   if (val){
-    textEl.textContent = (isEs?'Seleccionado: ':'Selected: ') + val;
+    // Multi-select — several can be chosen, so don't force-collapse on every
+    // pick (that would snap shut after the first tap and fight anyone
+    // choosing more than one). Collapsing is manual via the Hide button now.
+    var parts = val.split(', ');
+    textEl.textContent = (parts.length > 1
+      ? (isEs?'Seleccionados ('+parts.length+'): ':'Selected ('+parts.length+'): ')
+      : (isEs?'Seleccionado: ':'Selected: ')) + val;
     bar.classList.add('rca-grid-has-selection');
     bar.classList.remove('rca-grid-needs-selection');
-    _rcaSetGridCollapsed(gridId, true);
   } else {
     textEl.textContent = isEs ? 'Sin selección — toque para elegir' : 'No selection yet — tap to choose';
     bar.classList.remove('rca-grid-has-selection');
     bar.classList.add('rca-grid-needs-selection');
-    _rcaSetGridCollapsed(gridId, false);
+    _rcaSetGridCollapsed(gridId, false); // force open until at least one is chosen
   }
 }
 // Inserts the toggle/summary bar as a sibling right before each grid — runs
@@ -14361,23 +14382,31 @@ function _rcaInitCollapsibleGrids(){
    and the manager-fill grids (rca-m-*), since it's one incident regardless
    of which path handles it. ── */
 function _rcaGridHTML(gridId, valueId, options){
-  var cur = document.getElementById(valueId).value;
+  var selectedSet = _rcaGridSelectedSets[gridId] || [];
   if (!options.length) return '<div style="font-size:15px;color:#999;padding:4px 0;">' + (isEsLang() ? 'Primero seleccione un problema de calidad arriba.' : 'Select a quality issue above first.') + '</div>';
   return options.map(function(o){
-    return '<div class="disp-option'+(o===cur?' selected':'')+'" onclick="_rcaGridPick(\''+gridId+'\',\''+valueId+'\',this,\''+_ncrBtnEsc(o)+'\')">'+escHtml(o)+'</div>';
+    return '<div class="disp-option'+(selectedSet.indexOf(o)!==-1?' selected':'')+'" onclick="_rcaGridPick(\''+gridId+'\',\''+valueId+'\',this,\''+_ncrBtnEsc(o)+'\')">'+escHtml(o)+'</div>';
   }).join('');
 }
 function _rcaRenderGrid(gridId, valueId, options){
   var grid = document.getElementById(gridId);
   if (!grid) return;
-  if (options.indexOf(document.getElementById(valueId).value) === -1) document.getElementById(valueId).value = '';
+  // Multi-select — drop any previously-picked values that no longer apply
+  // to the new option list (e.g. station/category changed) instead of
+  // wiping the whole selection outright.
+  var set = _rcaGridSelectedSets[gridId] || (_rcaGridSelectedSets[gridId] = []);
+  for (var i = set.length - 1; i >= 0; i--) { if (options.indexOf(set[i]) === -1) set.splice(i, 1); }
+  document.getElementById(valueId).value = set.join(', ');
   grid.innerHTML = _rcaGridHTML(gridId, valueId, options);
   _rcaSyncGridSummary(gridId, valueId);
 }
 function _rcaGridPick(gridId, valueId, el, val){
-  document.querySelectorAll('#'+gridId+' .disp-option').forEach(function(o){ o.classList.remove('selected'); });
-  el.classList.add('selected');
-  document.getElementById(valueId).value = val;
+  el.classList.toggle('selected');
+  var set = _rcaGridSelectedSets[gridId] || (_rcaGridSelectedSets[gridId] = []);
+  var i = set.indexOf(val);
+  if (el.classList.contains('selected')) { if (i===-1) set.push(val); }
+  else if (i!==-1) set.splice(i,1);
+  document.getElementById(valueId).value = set.join(', ');
   _rcaSyncGridSummary(gridId, valueId);
 }
 function rcaRenderIssueCatGrid(){
@@ -14395,9 +14424,19 @@ function rcaRenderIssueCatGrid(){
 }
 function rcaCascadeOptions(kind){
   var station = rcaGetVal('station');
-  var cat = rcaGetVal('issuecat-value');
-  var data = qualityIssueData(station, cat);
-  return data ? data[kind].concat(['N/A','Other']) : [];
+  // Multi-select — quality issue can now be more than one category; union
+  // the root-cause/corrective-action options across all of them rather than
+  // looking up a single category (a comma-joined string would never match
+  // any one key in qualityIssueData).
+  var cats = (rcaGetVal('issuecat-value')||'').split(', ').filter(Boolean);
+  if (!cats.length) return [];
+  var merged = [];
+  cats.forEach(function(cat){
+    var data = qualityIssueData(station, cat);
+    if (data && data[kind]) data[kind].forEach(function(v){ if (merged.indexOf(v)===-1) merged.push(v); });
+  });
+  merged.push('N/A','Other');
+  return merged;
 }
 function rcaRenderCascadeGrids(alsoIssueCat){
   if (alsoIssueCat !== false) rcaRenderIssueCatGrid();
