@@ -1136,6 +1136,12 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   z-index: 110; padding: 60px 14px 24px; overflow-y: auto;
 }
 .continue-overlay.open { display: flex; }
+#qc-upload-overlay{position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,.98);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
+#qc-upload-overlay.hidden{display:none}
+.qc-upload-spinner{width:60px;height:60px;border:6px solid #f3d6e6;border-top-color:var(--pink);border-radius:50%;animation:qc-upload-spin .8s linear infinite}
+@keyframes qc-upload-spin{to{transform:rotate(360deg)}}
+.qc-upload-overlay-title{font-size:21px;font-weight:800;color:#1f2937}
+.qc-upload-overlay-sub{font-size:15px;color:#6b7280;max-width:340px;line-height:1.5}
 /* The confirm dialog can be triggered from inside another already-open
    modal (e.g. "Add Note" → "Lock this note?"). Same z-index + earlier DOM
    position meant it silently opened *behind* that modal — clicking its
@@ -2754,6 +2760,21 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button class="btn-primary" style="flex:1;" onclick="_passcodeCheck()"><span data-en>Confirm</span><span data-es>Confirmar</span></button>
         </div>
       </div>
+    </div>
+
+    <!-- Global "uploading, please wait" overlay — submitJob()/beginInspection()/
+         submitForQAApproval()/beginVeritivPacking() all await one or more
+         _uploadPhotoToDrive() calls (each a real network round trip to the
+         Cloudflare Worker → Google Drive) before the app can move on. That
+         used to be silent — no spinner, no message — so a multi-product run
+         with several photos could sit unresponsive for many seconds and get
+         mistaken for a frozen app, risking someone force-closing and redoing
+         the whole entry. This is shown/hidden around every one of those
+         upload sites so it's never silent again. -->
+    <div id="qc-upload-overlay" class="hidden">
+      <div class="qc-upload-spinner"></div>
+      <div class="qc-upload-overlay-title" id="qc-upload-overlay-title">Uploading photo…</div>
+      <div class="qc-upload-overlay-sub" id="qc-upload-overlay-sub">Please don't close or refresh this page.</div>
     </div>
 
     <!-- Sync-before-new-job gate — shown when Start New Job is tapped on the
@@ -4499,6 +4520,23 @@ var QA_BACKEND_URL = 'https://qa-checklist-backend.anthony-mancino2.workers.dev'
 var QA_BACKEND_API_KEY = 'MoquinQA2026SecureKeyAlpha7';
 var SYNC_PENDING_KEY = 'moquin-qa-sync-pending';
 
+// Shown/hidden around every _uploadPhotoToDrive() call site — see
+// #qc-upload-overlay's own comment for why this exists. msg lets a
+// multi-photo loop (Gluer, Bindery/Pressroom Cutter) show progress
+// ("Uploading photo 2 of 5…") instead of one static line the whole time.
+function _qcShowUploadOverlay(msg){
+  var ov = document.getElementById('qc-upload-overlay');
+  if (!ov) return;
+  var isEs = isEsLang();
+  document.getElementById('qc-upload-overlay-title').textContent = msg || (isEs ? 'Subiendo foto…' : 'Uploading photo…');
+  document.getElementById('qc-upload-overlay-sub').textContent = isEs ? 'No cierre ni recargue esta página.' : "Please don't close or refresh this page.";
+  ov.classList.remove('hidden');
+}
+function _qcHideUploadOverlay(){
+  var ov = document.getElementById('qc-upload-overlay');
+  if (ov) ov.classList.add('hidden');
+}
+
 // Uploads a captured photo (data URL) to the Drive-backed /photo endpoint so
 // it's stored once in Google Drive instead of embedded as base64 inside every
 // synced job/NCR/RCA record (which was filling up localStorage — see the
@@ -6133,7 +6171,10 @@ async function submitForQAApproval() {
     opNotes:     document.getElementById('cm-op-notes').value.trim(),
     lastUpdated: formatTS()
   };
-  if (photoSrc) updates.mrPhoto = await _uploadPhotoToDrive(photoSrc);
+  if (photoSrc) {
+    _qcShowUploadOverlay();
+    try { updates.mrPhoto = await _uploadPhotoToDrive(photoSrc); } finally { _qcHideUploadOverlay(); }
+  }
 
   ipUpdate(continueJobId, updates);
   closeContinueModal();
@@ -9076,7 +9117,8 @@ async function beginVeritivPacking() {
   var prevImg = document.getElementById('veritiv-photo-preview');
   var photoSrc = (prevImg && prevImg.src && prevImg.style.display !== 'none') ? prevImg.src : null;
   if (!photoSrc) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('veritiv-photo-area')); return; }
-  photoSrc = await _uploadPhotoToDrive(photoSrc);
+  _qcShowUploadOverlay();
+  try { photoSrc = await _uploadPhotoToDrive(photoSrc); } finally { _qcHideUploadOverlay(); }
   var record = {
     id:           'vpk-' + Date.now(),
     jobNumber:    job,
@@ -9123,7 +9165,8 @@ async function beginInspection() {
       if (_kUnanswered) return;
       var _kProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
       if (!_kProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
-      _kProdPhoto = await _uploadPhotoToDrive(_kProdPhoto);
+      _qcShowUploadOverlay();
+      try { _kProdPhoto = await _uploadPhotoToDrive(_kProdPhoto); } finally { _qcHideUploadOverlay(); }
       var _kChecklist = getChecklistValues('setup');
       var _kOperator = getKamaOperatorName();
       var _kRecord = {
@@ -9160,7 +9203,9 @@ async function beginInspection() {
     if (!getKamaOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('kama-operator-group')); return; }
     var _kMrPhotoEl = document.getElementById('kama-mr-photo-preview');
     if (!_kMrPhotoEl || _kMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('kama-mr-photo-area')); return; }
-    var _kMrPhoto = await _uploadPhotoToDrive(_kMrPhotoEl.src);
+    _qcShowUploadOverlay();
+    var _kMrPhoto;
+    try { _kMrPhoto = await _uploadPhotoToDrive(_kMrPhotoEl.src); } finally { _qcHideUploadOverlay(); }
     var record = {
       id: 'kama-' + Date.now(),
       jobNumber: job, station: station, formNumber: formNum,
@@ -9201,7 +9246,8 @@ async function beginInspection() {
       if (_requireAllAnswered('setup', CHECKLIST)) return;
       var _dcProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
       if (!_dcProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
-      _dcProdPhoto = await _uploadPhotoToDrive(_dcProdPhoto);
+      _qcShowUploadOverlay();
+      try { _dcProdPhoto = await _uploadPhotoToDrive(_dcProdPhoto); } finally { _qcHideUploadOverlay(); }
       var _dcChecklist = getChecklistValues('setup');
       var _dcOperator = getDCOperatorName();
       var _dcRecord = {
@@ -9234,7 +9280,9 @@ async function beginInspection() {
     if (!getDCOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('dc-operator-group')); return; }
     var _dcMrPhotoEl = document.getElementById('dc-mr-photo-preview');
     if (!_dcMrPhotoEl || _dcMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('dc-mr-photo-area')); return; }
-    var _dcMrPhoto = await _uploadPhotoToDrive(_dcMrPhotoEl.src);
+    _qcShowUploadOverlay();
+    var _dcMrPhoto;
+    try { _dcMrPhoto = await _uploadPhotoToDrive(_dcMrPhotoEl.src); } finally { _qcHideUploadOverlay(); }
     var record = {
       id: 'dc-' + Date.now(),
       jobNumber: job, station: station, formNumber: formId,
@@ -9278,6 +9326,7 @@ async function beginInspection() {
       var _gBatchId = gluerProductCount > 1 ? ('batch-' + _gNow) : null;
       var _gChecks = getChecklistValues('setup');
       var _gSig = getSignatureDataURL();
+      try {
       for (var _gi = 0; _gi < gluerProductCount; _gi++) {
         var _gPInput = document.getElementById('gluer-product-' + _gi);
         var _gPNum = _gPInput ? _gPInput.value.trim() : '';
@@ -9289,6 +9338,7 @@ async function beginInspection() {
         // display:none set once by CSS and never toggled inline made the
         // old style.display check always read as "has a photo."
         if (!_gPhotoEl || !_gPhotoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + _gi)); return; }
+        _qcShowUploadOverlay((isEsLang() ? 'Subiendo foto ' : 'Uploading photo ') + (_gi + 1) + (isEsLang() ? ' de ' : ' of ') + gluerProductCount + '…');
         var _gPhotoSrc = await _uploadPhotoToDrive(_gPhotoEl.src);
         ipAdd({
           id: 'gluer-' + (_gNow + _gi),
@@ -9304,6 +9354,7 @@ async function beginInspection() {
           })
         });
       }
+      } finally { _qcHideUploadOverlay(); }
       showToast(gluerProductCount + ' product' + (gluerProductCount > 1 ? 's' : '') + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
@@ -9326,6 +9377,7 @@ async function beginInspection() {
     var now = Date.now();
     var batchId = gluerProductCount > 1 ? ('batch-' + now) : null;
     var mrChecks = getChecklistValues('setup'); // operator's make-ready answers — QA's review screen prefills from this
+    try {
     for (var gi = 0; gi < gluerProductCount; gi++) {
       var pInput = document.getElementById('gluer-product-' + gi);
       var pNum = pInput ? pInput.value.trim() : '';
@@ -9334,6 +9386,7 @@ async function beginInspection() {
       // Checked by .src — see the matching comment in the production branch
       // above for why style.display isn't a reliable signal for this field.
       if (!photoEl || !photoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + gi)); return; }
+      _qcShowUploadOverlay((isEsLang() ? 'Subiendo foto ' : 'Uploading photo ') + (gi + 1) + (isEsLang() ? ' de ' : ' of ') + gluerProductCount + '…');
       var photoSrc = await _uploadPhotoToDrive(photoEl.src);
       ipAdd({
         id: 'gluer-' + (now + gi),
@@ -9348,6 +9401,7 @@ async function beginInspection() {
         })
       });
     }
+    } finally { _qcHideUploadOverlay(); }
     showToast(gluerProductCount + ' product' + (gluerProductCount > 1 ? 's' : '') + ' → In Make Ready', 'pass');
     startNewJob();
     switchView('inprogress');
@@ -10614,11 +10668,16 @@ async function _submitJobInner() {
     if (_anyMissingPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
     // Multiple entries commonly share the same setupPhotoSrc fallback — upload
     // it once and reuse the resulting link rather than re-uploading per entry.
-    var _uploadedSetupPhotoSrc = setupPhotoSrc ? await _uploadPhotoToDrive(setupPhotoSrc) : null;
+    var _totalToUpload = jobState.entries.length;
+    _qcShowUploadOverlay(_totalToUpload > 1 ? ((isEsLang() ? 'Subiendo fotos (' : 'Uploading photos (') + _totalToUpload + (isEsLang() ? ' productos)…' : ' products)…')) : undefined);
+    var _uploadedSetupPhotoSrc;
+    try {
+    _uploadedSetupPhotoSrc = setupPhotoSrc ? await _uploadPhotoToDrive(setupPhotoSrc) : null;
     for (var _qcIdx = 0; _qcIdx < jobState.entries.length; _qcIdx++) {
       var entry = jobState.entries[_qcIdx];
       var entryFailed = entry.checks && entry.checks.some(function(c){ return c.val === 'fail'; });
       if (entryFailed) continue;
+      if (_totalToUpload > 1) _qcShowUploadOverlay((isEsLang() ? 'Subiendo foto ' : 'Uploading photo ') + (_qcIdx + 1) + (isEsLang() ? ' de ' : ' of ') + _totalToUpload + '…');
       var _entryPhoto = entry.photo ? await _uploadPhotoToDrive(entry.photo) : _uploadedSetupPhotoSrc;
       ipAdd({
         id: 'qc-' + Date.now() + '-' + _qcIdx,
@@ -10639,6 +10698,7 @@ async function _submitJobInner() {
         })
       });
     }
+    } finally { _qcHideUploadOverlay(); }
     renderShipping();
   }
 
