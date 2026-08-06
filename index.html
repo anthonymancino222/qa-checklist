@@ -14381,6 +14381,16 @@ function _rcaInitCollapsibleGrids(){
    drives BOTH the Path-1 grids (rca-rootcause-grid/rca-correctiveaction-grid)
    and the manager-fill grids (rca-m-*), since it's one incident regardless
    of which path handles it. ── */
+// Programmatic prefill (e.g. loading a record by token) must go through
+// here rather than a direct .value assignment on the hidden input — the
+// grids' own selected/rendered state (and what survives a later re-render
+// via _rcaRenderGrid) is sourced from _rcaGridSelectedSets, so setting only
+// the hidden input leaves that set empty and the very next re-render wipes
+// the value straight back out.
+function _rcaSetGridValue(gridId, valueId, valueString){
+  _rcaGridSelectedSets[gridId] = valueString ? valueString.split(', ') : [];
+  document.getElementById(valueId).value = valueString || '';
+}
 function _rcaGridHTML(gridId, valueId, options){
   var selectedSet = _rcaGridSelectedSets[gridId] || [];
   if (!options.length) return '<div style="font-size:15px;color:#999;padding:4px 0;">' + (isEsLang() ? 'Primero seleccione un problema de calidad arriba.' : 'Select a quality issue above first.') + '</div>';
@@ -14907,7 +14917,15 @@ function _rcaFillIncidentInfo(rec){
   }
   // issueDesc was composed as "Category — Detail" by _rcaCompose; split back apart for display.
   var parts = String(rec.issueDesc || '').split(' — ');
-  document.getElementById('rca-issuecat-value').value = parts[0] || rec.issueCategory || '';
+  // Must go through _rcaSetGridValue, not a direct .value assignment — the
+  // multi-select grids source their .selected state (and therefore what
+  // survives the very next re-render) from _rcaGridSelectedSets, not from
+  // the hidden input. Setting .value alone here left the set empty, so the
+  // upcoming rcaOnStationChange() call immediately re-rendered the grid from
+  // that empty set and wiped the category right back out — the category
+  // never stuck for the manager, and with no category selected the root
+  // cause / corrective action grids had nothing to cascade from either.
+  _rcaSetGridValue('rca-issuecat-grid', 'rca-issuecat-value', parts[0] || rec.issueCategory || '');
   document.getElementById('rca-issue-desc').value = parts.length > 1 ? parts.slice(1).join(' — ') : '';
 }
 function _rcaLockIncidentInfo(){
