@@ -16250,6 +16250,19 @@ function _ltPreprocess(img, maxDim, rotateDeg){
   ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
   var id = ctx.getImageData(0, 0, cv.width, cv.height);
   var d = id.data, contrast = 1.35, mid = 128;
+  /* Plain luminance, deliberately — no colour filtering.
+     Dropping the green "Approved For Release" stamp before OCR was tried and
+     measured, twice, and neither version earned its place:
+       - by saturation (remove anything coloured): job 1/12, product 3/12,
+         against 7/12 and 8/12 for plain luminance. It was eating the text.
+         JPEG chroma subsampling puts coloured fringes on every sharp black
+         edge, so "remove coloured pixels" removes the stroke edges.
+       - green-targeted (remove only green-dominant, light pixels): exactly
+         neutral, 6/6 both ways, identical output on every photo.
+     The reason it buys nothing is that on these tags the stamp sits over the
+     customer name, not over the job or product digits — so there is nothing
+     for it to fix. Left as plain luminance until a tag turns up where the
+     stamp actually lands on a number. */
   for (var i = 0; i < d.length; i += 4){
     var g = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
     g = (g - mid) * contrast + mid;

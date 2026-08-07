@@ -212,6 +212,11 @@ function preprocess(img, maxDim, deg){
   ctx.drawImage(img, -sw/2, -sh/2, sw, sh);
   var id = ctx.getImageData(0,0,cv.width,cv.height);
   var d = id.data, contrast = 1.35, mid = 128;
+  /* Plain luminance — colour filtering was tried and measured twice and did
+     not earn its place. Saturation-based removal scored 1/12 job vs 7/12 for
+     plain luminance (JPEG chroma fringing means "coloured" includes every
+     sharp black edge); green-targeted removal was exactly neutral. The stamp
+     sits over the customer name on these tags, not over the digits. */
   for (var i=0;i<d.length;i+=4){
     var g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
     g = (g-mid)*contrast + mid;
