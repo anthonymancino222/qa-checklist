@@ -16190,15 +16190,22 @@ function _ltMapBarcodes(codes){
   var ids  = list.filter(function(c){ return /^\d{6}$/.test(c.text); });
   var qtys = list.filter(function(c){ return /^\d{1,3}(,\d{3})+$/.test(c.text) || (/^\d{1,5}$/.test(c.text)); });
 
-  var jobHit  = ids.filter(function(c){ return /^0\d{5}$/.test(c.text); });
-  var prodHit = ids.filter(function(c){ return /^11\d{4}$/.test(c.text); });
-  if (jobHit.length === 1)  out.job       = jobHit[0].text;
-  if (prodHit.length === 1) out.productId = prodHit[0].text;
+  /* A barcode payload carries no field name, so the digits themselves are
+     the ONLY signal for which field a code belongs to. Job numbers begin 0
+     (046850, 047587, 047589...), product IDs begin 1 (105000, 108514,
+     109934, 118043...). Verified across every tag seen so far.
 
-  // Positional fallback only for what the prefixes didn't settle.
-  var rest = ids.filter(function(c){ return c.text !== out.job && c.text !== out.productId; });
-  if (!out.job && rest.length)       out.job       = rest.shift().text;
-  if (!out.productId && rest.length) out.productId = rest.shift().text;
+     There is deliberately NO fallback that assigns an unmatched code to a
+     field by position. An earlier version did, and it was actively harmful:
+     on tags where only the product barcode decoded, the leftover product ID
+     was dropped into the Job field and reported as barcode-verified. A
+     wrong job number that looks checksum-confirmed is the worst output this
+     code can produce. A code matching neither pattern is now left alone. */
+  var jobHit  = ids.filter(function(c){ return /^0\d{5}$/.test(c.text); });
+  var prodHit = ids.filter(function(c){ return /^1\d{5}$/.test(c.text); });
+  // Ties break by vertical position: the tag prints Job above Product ID.
+  if (jobHit.length)  out.job       = jobHit[0].text;
+  if (prodHit.length) out.productId = prodHit[0].text;
 
   if (out.job)       out.src.job = 'barcode';
   if (out.productId) out.src.productId = 'barcode';
@@ -16258,8 +16265,10 @@ function _ltClean(p){
   if (!p) return p;
   if (p.job && !/^\d{6}$/.test(p.job)) p.job = null;
   if (p.productId && !/^\d{6}$/.test(p.productId)) p.productId = null;
-  if (p.totalQty && !/^\d{1,9}$/.test(p.totalQty)) p.totalQty = null;
-  if (p.qtyPerBox && !/^\d{1,9}$/.test(p.qtyPerBox)) p.qtyPerBox = null;
+  /* Quantities never have a leading zero. OCR returned "0004" for a total
+     of 54,000 on a real tag; the old \d{1,9} gate let it through. */
+  if (p.totalQty && !/^[1-9]\d{0,8}$/.test(p.totalQty)) p.totalQty = null;
+  if (p.qtyPerBox && !/^[1-9]\d{0,8}$/.test(p.qtyPerBox)) p.qtyPerBox = null;
   return p;
 }
 
