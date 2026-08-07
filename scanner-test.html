@@ -149,11 +149,14 @@ function decodeBarcodes(img, cb){
 function mapBarcodes(codes){
   var out = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
   if (!codes || !codes.length) return out;
-  var list = [];
+  var list = [], seen = {};
   for (var i=0;i<codes.length;i++){
     var c = codes[i];
     var t = String(c && c.text != null ? c.text : '').trim();
     if (!t) continue;
+    // Same symbol can be reported twice a few px apart (field: 105877 at y=588 and y=615)
+    if (seen[t]) continue;
+    seen[t] = 1;
     var y = (c.position && c.position.topLeft && typeof c.position.topLeft.y === 'number') ? c.position.topLeft.y : 0;
     list.push({ text:t, y:y });
   }
@@ -294,7 +297,7 @@ function score(p){
    the raw text of the winner. That raw text is the single most useful
    thing for diagnosing a bad read — it shows whether the recognizer saw
    nothing at all, or saw the text and the parser mis-assigned it. */
-function ocrRecognize(img, cb){
+function ocrRecognize(img, uprightProven, cb){
   if (!window.Tesseract) return cb(null, { note:'Tesseract not loaded' });
   var diag = { tried: [], winner: null, rawText: '' };
   var best = null, bestScore = 0;
@@ -302,7 +305,7 @@ function ocrRecognize(img, cb){
   function next(){
     if (i >= angles.length){
       var haveId = best && (best.job || best.productId);
-      if (!haveId && !triedSideways){ triedSideways = true; angles = [90,270]; i = 0; }
+      if (!haveId && !triedSideways && !uprightProven){ triedSideways = true; angles = [90,270]; i = 0; }
       else { cb(bestScore>0?best:null, diag); return; }
     }
     var deg = angles[i++];
@@ -372,7 +375,8 @@ function onPhoto(input){
 
         if (bc.job && bc.productId){ rec.ocrMs = 0; finish(null, { note:'skipped — both IDs came from barcodes' }); return; }
         var to = performance.now();
-        ocrRecognize(img, function(ocr, diag){
+        // A decoded barcode proves the photo is upright enough — skip 90/270.
+        ocrRecognize(img, !!(codes && codes.length), function(ocr, diag){
           rec.ocrMs = Math.round(performance.now() - to);
           finish(ocr, diag);
         });

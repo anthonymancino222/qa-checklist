@@ -16176,11 +16176,15 @@ function _ltMapBarcodes(codes){
   var out = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
   if (!codes || !codes.length) return out;
 
-  var list = [];
+  var list = [], seen = {};
   for (var i = 0; i < codes.length; i++){
     var c = codes[i];
     var t = String(c && c.text != null ? c.text : '').trim();
     if (!t) continue;
+    // The same physical symbol can be reported twice a few pixels apart
+    // (seen in the field: "105877" returned at y=588 and again at y=615).
+    if (seen[t]) continue;
+    seen[t] = 1;
     var y = (c.position && c.position.topLeft && typeof c.position.topLeft.y === 'number')
             ? c.position.topLeft.y : 0;
     list.push({ text: t, y: y });
@@ -16316,7 +16320,14 @@ function _ltRecognize(rawDataUrl, cb){
     var bc = _ltMapBarcodes(codes);
     // Both IDs off checksummed barcodes: done, no OCR needed.
     if (bc.job && bc.productId){ cb(bc); return; }
-    _ltOcrRecognize(rawDataUrl, function(ocr){
+    /* If ANY barcode decoded, the photo is demonstrably upright enough for a
+       decoder to work, so the 90°/270° OCR retry cannot be what saves us —
+       it is pure dead time. Measured in the field: tags where the job
+       barcode failed spent 4.0–4.7s in OCR and scored 0 at every single
+       orientation. Skipping the sideways passes cuts roughly 2.5s off the
+       worst case without giving up anything that has ever worked. */
+    var uprightProven = !!(codes && codes.length);
+    _ltOcrRecognize(rawDataUrl, uprightProven, function(ocr){
       if (!ocr && !_ltHasFields(bc)){ cb(null); return; }
       var merged = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
       ['customer','job','productId','qtyPerBox','totalQty'].forEach(function(k){
@@ -16332,7 +16343,7 @@ function _ltRecognize(rawDataUrl, cb){
    same decoded bitmap and keeps the best-scoring parse. 0/180 first (a
    tag is stuck on the box one way up or the other); 90/270 only if neither
    produced anything usable. */
-function _ltOcrRecognize(rawDataUrl, cb){
+function _ltOcrRecognize(rawDataUrl, uprightProven, cb){
   _ltGetWorker(function(worker){
     if (!worker){ cb(null); return; }
     var img = new Image();
@@ -16348,7 +16359,7 @@ function _ltOcrRecognize(rawDataUrl, cb){
              customer name and the quantities scores 4, which was enough to
              suppress the retry on a genuinely sideways label. */
           var haveId = best && (best.job || best.productId);
-          if (!haveId && !triedSideways){ triedSideways = true; angles = [90, 270]; i = 0; }
+          if (!haveId && !triedSideways && !uprightProven){ triedSideways = true; angles = [90, 270]; i = 0; }
           else { cb(bestScore > 0 ? best : null); return; }
         }
         var angle = angles[i++];
