@@ -16481,30 +16481,65 @@ function _ltFill(p, onlyEmpty){
   return filled;
 }
 
+/* Shooting advice, shown whenever a read is incomplete. Flash is listed
+   first because it is what the floor actually reports helping — most likely
+   because it forces a fast shutter and kills the motion blur you can't see
+   on the preview, not because of brightness as such. The tilt matters
+   because the LED sits about a centimetre from the lens, so straight-on at
+   a taped label the flash reflects right back into the shot. */
+var LT_TIP = 'Tip: turn the camera <b>flash on</b> and tilt the phone slightly '
+           + '(about 15°) so the light doesn\'t bounce straight back off the tape. '
+           + 'Fill the frame with the tag and hold still.';
+
+/* Per-field provenance. A barcode read is checksum-protected — it is either
+   right or it returns nothing — so it deserves to look different from a
+   text read, which is a best guess and should be eyeballed. */
+function _ltReadout(p){
+  var rows = [];
+  function row(label, val, key){
+    if (!val) return;
+    var viaBarcode = p.src && p.src[key] === 'barcode';
+    rows.push('<b>' + label + ' ' + val + '</b> ' +
+      (viaBarcode ? '<span style="color:var(--pass,#1a7f37);">⚡ barcode</span>'
+                  : '<span style="color:var(--text-tertiary);">🔤 text — check it</span>'));
+  }
+  row('Job', p.job, 'job');
+  row('Product', p.productId, 'productId');
+  var missing = [];
+  if (!p.job) missing.push('Job number');
+  if (!p.productId) missing.push('Product ID');
+  var html = rows.join('<br>');
+  if (missing.length){
+    html += (rows.length ? '<br>' : '') +
+      '<span style="color:var(--warn,#9a6700);">⚠️ ' + missing.join(' and ') +
+      ' couldn\'t be read — type ' + (missing.length > 1 ? 'them' : 'it') + ' in.</span>' +
+      '<br><span style="color:var(--text-tertiary);font-size:13px;">' + LT_TIP + '</span>';
+  }
+  return html;
+}
+
 function handleLoadTagPhoto(input){
   var file = input.files && input.files[0];
   input.value = '';
   if (!file) return;
-  _ltStatus('⏳ Loading text reader…');
+  _ltStatus('⏳ Reading tag…');
   var reader = new FileReader();
   reader.onload = function(e){
-    _ltLoadTesseract(function(loaded){
-      if (!loaded){
-        _ltStatus('❌ Couldn\'t load the text reader — this needs internet the first time it\'s used. Tip: iOS Live Text also works — tap into a field, then tap the scan-text button on the keyboard.');
+    // Load Tesseract in the background, but don't block on it — a barcoded
+    // tag is decoded without OCR, so a slow or failed CDN fetch shouldn't
+    // hold up (or sink) a scan that never needed the text reader.
+    _ltLoadTesseract(function(){});
+    _ltRecognize(e.target.result, function(parsed){
+      if (!parsed){
+        _ltStatus('❌ Couldn\'t read the tag.<br><span style="color:var(--text-tertiary);font-size:13px;">' + LT_TIP + '</span>');
         return;
       }
-      _ltStatus('⏳ Reading tag… this takes a few seconds');
-      _ltRecognize(e.target.result, function(parsed){
-        if (!parsed){
-          _ltStatus('❌ Couldn\'t read the tag — try again with the tag flat, filling the frame, in good light.');
-          return;
-        }
-        _ltSaveLast(parsed);
-        var filled = _ltFill(parsed);
-        _ltStatus('✅ Filled from tag: <b>' + filled.join(' · ') + '</b><br><span style="color:var(--text-tertiary);">Double-check the values, then pick the station — the scan data will fill the station fields automatically (or tap ↻ below).</span><br>' +
-          '<button onclick="reapplyLoadTag()" style="margin-top:6px;padding:7px 12px;background:transparent;color:var(--pink);border:1.5px solid var(--pink);border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">↻ Apply last scan to fields</button>');
-        showToast('Load tag scanned', 'pass');
-      });
+      _ltSaveLast(parsed);
+      _ltFill(parsed);
+      _ltStatus(_ltReadout(parsed) +
+        '<br><span style="color:var(--text-tertiary);">Pick the station next — the scan data fills the station fields automatically (or tap ↻ below).</span><br>' +
+        '<button onclick="reapplyLoadTag()" style="margin-top:6px;padding:7px 12px;background:transparent;color:var(--pink);border:1.5px solid var(--pink);border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">↻ Apply last scan to fields</button>');
+      showToast('Load tag scanned', 'pass');
     });
   };
   reader.readAsDataURL(file);
