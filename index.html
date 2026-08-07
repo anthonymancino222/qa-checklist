@@ -16115,63 +16115,251 @@ function _ltLoadTesseract(cb){
   document.head.appendChild(s);
 }
 
-/* Downscale (for speed — a raw 12MP phone photo is painfully slow to OCR),
-   optionally rotate (a sideways/upside-down shot is a common real failure —
-   Tesseract does not auto-correct orientation), and boost contrast in
-   grayscale — printed labels read noticeably more reliably after this than
-   off the raw color photo, where shop-floor lighting/shadow wash text out. */
-function _ltPreprocess(dataUrl, maxDim, rotateDeg, cb){
-  var img = new Image();
-  img.onload = function(){
-    var w = img.width, h = img.height;
-    var scale = Math.min(1, maxDim / Math.max(w, h));
-    var sw = Math.round(w * scale), sh = Math.round(h * scale);
-    var rotated = (rotateDeg === 90 || rotateDeg === 270);
-    var cv = document.createElement('canvas');
-    cv.width = rotated ? sh : sw; cv.height = rotated ? sw : sh;
-    var ctx = cv.getContext('2d');
-    ctx.translate(cv.width / 2, cv.height / 2);
-    ctx.rotate(rotateDeg * Math.PI / 180);
-    ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
-    var id = ctx.getImageData(0, 0, cv.width, cv.height);
-    var d = id.data, contrast = 1.35, mid = 128;
-    for (var i = 0; i < d.length; i += 4){
-      var g = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-      g = (g - mid) * contrast + mid;
-      d[i] = d[i+1] = d[i+2] = g < 0 ? 0 : (g > 255 ? 255 : g);
+/* ── Barcode reader (zxing-wasm) ──
+   Newer load tags carry a Code 128 barcode beside each value. A barcode
+   read is categorically better than OCR: Code 128 carries its own checksum,
+   so a damaged scan yields NOTHING rather than a plausible wrong number —
+   which matters because a QA release filed against the wrong product ID
+   crosses a customer boundary on a gang run. Measured on real tag photos:
+   ~30ms, correct at every rotation, and 0 wrong reads.
+   Lazy-loaded from CDN on first use, same as Tesseract; if it can't load
+   (offline), we silently fall through to OCR. */
+var _ltZXRead = null, _ltZXState = 'idle';
+function _ltLoadZXing(cb){
+  if (_ltZXState === 'ready')  return cb(_ltZXRead);
+  if (_ltZXState === 'failed') return cb(null);
+  if (_ltZXState === 'loading'){ setTimeout(function(){ _ltLoadZXing(cb); }, 150); return; }
+  _ltZXState = 'loading';
+  import('https://cdn.jsdelivr.net/npm/zxing-wasm/dist/reader/index.js')
+    .then(function(m){
+      _ltZXRead = m.readBarcodes || m.readBarcodesFromImageData || null;
+      _ltZXState = _ltZXRead ? 'ready' : 'failed';
+      cb(_ltZXRead);
+    })
+    .catch(function(){ _ltZXState = 'failed'; cb(null); });
+}
+
+/* Decode every barcode in the photo. 1200px is plenty — full resolution
+   measured no better and 2-4x slower. tryHarder is not optional: without it
+   only 1-2 of the 3-4 codes on a tag come back. */
+function _ltDecodeBarcodes(dataUrl, cb){
+  _ltLoadZXing(function(read){
+    if (!read) return cb(null);
+    var img = new Image();
+    img.onload = function(){
+      var w = img.width, h = img.height;
+      var s = Math.min(1, 1200 / Math.max(w, h));
+      var cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
+      var cv = document.createElement('canvas');
+      cv.width = cw; cv.height = ch;
+      var ctx = cv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, cw, ch);
+      var id;
+      try { id = ctx.getImageData(0, 0, cw, ch); } catch(e){ return cb(null); }
+      read(id, { tryHarder: true, tryRotate: true, tryInvert: false, tryDownscale: true,
+                 maxNumberOfSymbols: 20, formats: ['Code128','Code39'] })
+        .then(function(res){ cb(res || []); })
+        .catch(function(){ cb(null); });
+    };
+    img.onerror = function(){ cb(null); };
+    img.src = dataUrl;
+  });
+}
+
+/* Map decoded codes onto fields. The tag prints Job, Product, Qty/Box,
+   Total top-to-bottom, so vertical order is the primary signal; the digit
+   prefixes (job 0xxxxx, product 11xxxx) are used only to CONFIRM or to
+   disambiguate — never to reject, since job numbers are a counter that will
+   roll past 05xxxx one day. Anything ambiguous is left null so OCR and the
+   operator resolve it, rather than guessing. */
+function _ltMapBarcodes(codes){
+  var out = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
+  if (!codes || !codes.length) return out;
+
+  var list = [];
+  for (var i = 0; i < codes.length; i++){
+    var c = codes[i];
+    var t = String(c && c.text != null ? c.text : '').trim();
+    if (!t) continue;
+    var y = (c.position && c.position.topLeft && typeof c.position.topLeft.y === 'number')
+            ? c.position.topLeft.y : 0;
+    list.push({ text: t, y: y });
+  }
+  list.sort(function(a, b){ return a.y - b.y; });
+
+  var ids  = list.filter(function(c){ return /^\d{6}$/.test(c.text); });
+  var qtys = list.filter(function(c){ return /^\d{1,3}(,\d{3})+$/.test(c.text) || (/^\d{1,5}$/.test(c.text)); });
+
+  var jobHit  = ids.filter(function(c){ return /^0\d{5}$/.test(c.text); });
+  var prodHit = ids.filter(function(c){ return /^11\d{4}$/.test(c.text); });
+  if (jobHit.length === 1)  out.job       = jobHit[0].text;
+  if (prodHit.length === 1) out.productId = prodHit[0].text;
+
+  // Positional fallback only for what the prefixes didn't settle.
+  var rest = ids.filter(function(c){ return c.text !== out.job && c.text !== out.productId; });
+  if (!out.job && rest.length)       out.job       = rest.shift().text;
+  if (!out.productId && rest.length) out.productId = rest.shift().text;
+
+  if (out.job)       out.src.job = 'barcode';
+  if (out.productId) out.src.productId = 'barcode';
+
+  if (qtys.length){
+    var q0 = qtys[0].text.replace(/,/g, '');
+    if (/^\d+$/.test(q0)){ out.qtyPerBox = q0; out.src.qtyPerBox = 'barcode'; }
+    if (qtys.length > 1){
+      var q1 = qtys[1].text.replace(/,/g, '');
+      if (/^\d+$/.test(q1)){ out.totalQty = q1; out.src.totalQty = 'barcode'; }
     }
-    ctx.putImageData(id, 0, 0);
-    cb(cv.toDataURL('image/jpeg', 0.92));
-  };
-  img.onerror = function(){ cb(dataUrl); };
-  img.src = dataUrl;
+  }
+  return out;
+}
+
+/* Downscale, rotate, and boost contrast in grayscale, returning a JPEG data
+   URL. Measured, not assumed: handing Tesseract the raw canvas instead reads
+   WORSE than handing it the re-encoded JPEG (IMG_0167's job number reads
+   047562 from the JPEG and comes back empty from the canvas) — the encode
+   appears to smooth sensor noise in a way the recognizer likes. Note this is
+   ONE encode from the original photo; encoding a second time on top of that
+   is what destroys text, so callers must always start from the source image. */
+function _ltPreprocess(img, maxDim, rotateDeg){
+  var w = img.width, h = img.height;
+  var scale = Math.min(1, maxDim / Math.max(w, h));
+  var sw = Math.round(w * scale), sh = Math.round(h * scale);
+  var rotated = (rotateDeg === 90 || rotateDeg === 270);
+  var cv = document.createElement('canvas');
+  cv.width = rotated ? sh : sw; cv.height = rotated ? sw : sh;
+  /* Deliberately NOT willReadFrequently: that flag drops Chrome onto a
+     software canvas whose downscaling rasterizes differently, and it
+     measurably costs accuracy — on a real tag photo the job number read
+     047562 with the default context and came back empty with the flag on.
+     The one getImageData call here is not worth that trade. */
+  var ctx = cv.getContext('2d');
+  ctx.translate(cv.width / 2, cv.height / 2);
+  ctx.rotate(rotateDeg * Math.PI / 180);
+  ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
+  var id = ctx.getImageData(0, 0, cv.width, cv.height);
+  var d = id.data, contrast = 1.35, mid = 128;
+  for (var i = 0; i < d.length; i += 4){
+    var g = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+    g = (g - mid) * contrast + mid;
+    d[i] = d[i+1] = d[i+2] = g < 0 ? 0 : (g > 255 ? 255 : g);
+  }
+  ctx.putImageData(id, 0, 0);
+  return cv.toDataURL('image/jpeg', 0.92);
+}
+
+/* Hard format gate. OCR failure on these tags shows up as extra or dropped
+   digits — a real read came back as "1047368" for job 047368 and "1114122"
+   for product 114122. Those must become NOTHING, not a filled field: a QA
+   release is a controlled record, and a plausible wrong number that an
+   operator tabs past is far more dangerous than a blank one they have to
+   type. Job and Product are always exactly 6 digits on these tags. */
+function _ltClean(p){
+  if (!p) return p;
+  if (p.job && !/^\d{6}$/.test(p.job)) p.job = null;
+  if (p.productId && !/^\d{6}$/.test(p.productId)) p.productId = null;
+  if (p.totalQty && !/^\d{1,9}$/.test(p.totalQty)) p.totalQty = null;
+  if (p.qtyPerBox && !/^\d{1,9}$/.test(p.qtyPerBox)) p.qtyPerBox = null;
+  return p;
 }
 
 function _ltHasFields(p){
-  return !!(p.job || p.customer || p.productId || p.totalQty);
+  return !!(p && (p.job || p.customer || p.productId || p.totalQty));
 }
 
-/* Tries upright first (the common case, one pass). Only if that comes back
-   empty does it retry at 90°/270°/180° — a sideways or upside-down photo is
-   a real recurring failure mode on the shop floor, and this is the one case
-   where paying for extra passes is worth it. cb(parsed) on success, cb(null)
-   if every orientation comes back empty. */
+/* How good is this read? Used to CHOOSE between orientations rather than
+   accepting the first one that returned anything at all — the old code
+   stopped on the first non-empty parse, so an upside-down tag that happened
+   to scrape one plausible number out of noise returned that single wrong
+   field and never tried 180°. Roughly 3 in 8 real photos are inverted, so
+   that alone was close to a coin flip. */
+function _ltScore(p){
+  if (!p) return 0;
+  var s = 0;
+  if (/^\d{6}$/.test(p.job || ''))       s += 3;
+  if (/^\d{6}$/.test(p.productId || '')) s += 3;
+  if (p.totalQty  && /^\d{2,9}$/.test(p.totalQty))  s += 2;
+  if (p.qtyPerBox && /^\d{2,9}$/.test(p.qtyPerBox)) s += 1;
+  if (p.customer && p.customer.length > 2) s += 1;
+  return s;
+}
+
+/* Persistent OCR worker for the load tag. The old code called
+   Tesseract.recognize(), which spins up a worker and reloads the language
+   data on EVERY call, then throws it away — paid once per orientation. */
+var _ltWorker = null, _ltWorkerState = 'idle';
+function _ltGetWorker(cb){
+  if (_ltWorkerState === 'ready')  return cb(_ltWorker);
+  if (_ltWorkerState === 'failed') return cb(null);
+  // No OCR engine (offline / CDN blocked) — barcodes can still carry the scan.
+  if (!window.Tesseract){ _ltWorkerState = 'failed'; return cb(null); }
+  if (_ltWorkerState === 'loading'){ setTimeout(function(){ _ltGetWorker(cb); }, 150); return; }
+  _ltWorkerState = 'loading';
+  Tesseract.createWorker('eng', 1)
+    .then(function(w){ _ltWorker = w; _ltWorkerState = 'ready'; cb(w); })
+    .catch(function(){ _ltWorkerState = 'failed'; cb(null); });
+}
+
+/* Barcode first, OCR second, best-of-orientations rather than first-hit.
+   cb(parsed) — parsed.src marks where each field came from — or cb(null). */
 function _ltRecognize(rawDataUrl, cb){
-  var angles = [0, 90, 270, 180];
-  var i = 0;
-  function tryNext(){
-    if (i >= angles.length){ cb(null); return; }
-    var angle = angles[i++];
-    _ltPreprocess(rawDataUrl, 2000, angle, function(prepped){
-      Tesseract.recognize(prepped, 'eng').then(function(res){
-        var text = (res && res.data && res.data.text) || '';
-        var parsed = _ltParse(text);
-        if (_ltHasFields(parsed)) cb(parsed);
-        else tryNext();
-      }).catch(function(){ tryNext(); });
+  _ltDecodeBarcodes(rawDataUrl, function(codes){
+    var bc = _ltMapBarcodes(codes);
+    // Both IDs off checksummed barcodes: done, no OCR needed.
+    if (bc.job && bc.productId){ cb(bc); return; }
+    _ltOcrRecognize(rawDataUrl, function(ocr){
+      if (!ocr && !_ltHasFields(bc)){ cb(null); return; }
+      var merged = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
+      ['customer','job','productId','qtyPerBox','totalQty'].forEach(function(k){
+        if (bc[k]){ merged[k] = bc[k]; merged.src[k] = 'barcode'; }
+        else if (ocr && ocr[k]){ merged[k] = ocr[k]; merged.src[k] = 'text'; }
+      });
+      cb(_ltHasFields(merged) ? merged : null);
     });
-  }
-  tryNext();
+  });
+}
+
+/* OCR pass. Decodes the photo ONCE, then tries orientations against that
+   same decoded bitmap and keeps the best-scoring parse. 0/180 first (a
+   tag is stuck on the box one way up or the other); 90/270 only if neither
+   produced anything usable. */
+function _ltOcrRecognize(rawDataUrl, cb){
+  _ltGetWorker(function(worker){
+    if (!worker){ cb(null); return; }
+    var img = new Image();
+    img.onerror = function(){ cb(null); };
+    img.onload = function(){
+      var best = null, bestScore = 0;
+      var angles = [0, 180];
+      var i = 0, triedSideways = false;
+      function next(){
+        if (i >= angles.length){
+          /* Retry sideways when we still have no ID at all. Gate on the IDs
+             themselves, not on the score — a parse that picked up only a
+             customer name and the quantities scores 4, which was enough to
+             suppress the retry on a genuinely sideways label. */
+          var haveId = best && (best.job || best.productId);
+          if (!haveId && !triedSideways){ triedSideways = true; angles = [90, 270]; i = 0; }
+          else { cb(bestScore > 0 ? best : null); return; }
+        }
+        var angle = angles[i++];
+        var prepped;
+        try { prepped = _ltPreprocess(img, 2000, angle); }
+        catch(e){ next(); return; }
+        worker.recognize(prepped).then(function(res){
+          var text = (res && res.data && res.data.text) || '';
+          var parsed = _ltClean(_ltParse(text));
+          var sc = _ltScore(parsed);
+          if (sc > bestScore){ bestScore = sc; best = parsed; }
+          // A complete read (job + product + a quantity) is as good as it gets.
+          if (bestScore >= 8){ cb(best); return; }
+          next();
+        }).catch(function(){ next(); });
+      }
+      next();
+    };
+    img.src = rawDataUrl;
+  });
 }
 
 /* Parse the known tag layout: label line, value on the next line.
