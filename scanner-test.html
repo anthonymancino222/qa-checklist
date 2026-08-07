@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Load Tag Scanner — Field Test</title>
+<style>
+  :root{
+    --pink:#e6007e; --ink:#111; --mut:#666; --line:#e3e3e3; --bg:#fff;
+    --ok:#1a7f37; --okbg:#e8f5ec; --warn:#9a6700; --warnbg:#fff6e0; --bad:#b42318; --badbg:#fdeceb;
+  }
+  *{box-sizing:border-box;-webkit-text-size-adjust:100%}
+  body{margin:0;font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#f6f6f7}
+  header{background:#000;color:#fff;padding:14px 16px;position:sticky;top:0;z-index:10}
+  header h1{margin:0;font-size:15px;letter-spacing:.12em;text-transform:uppercase}
+  header p{margin:2px 0 0;font-size:13px;color:#bbb}
+  .wrap{padding:14px;max-width:720px;margin:0 auto}
+  .panel{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  label.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:18px 12px;border:2px solid var(--pink);
+    color:var(--pink);border-radius:12px;font-weight:700;cursor:pointer;background:#fff;font-size:17px}
+  label.btn:active{background:#fdeaf4}
+  label.btn input{display:none}
+  .flashrow{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:15px}
+  .seg{display:flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{border:0;background:#fff;padding:9px 16px;font-size:15px;font-weight:700;color:var(--mut);cursor:pointer}
+  .seg button.on{background:var(--pink);color:#fff}
+  #status{margin-top:12px;font-size:15px;color:var(--mut);min-height:22px}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:14px}
+  .card .top{display:flex;gap:12px;padding:12px}
+  .card img{width:112px;height:150px;object-fit:cover;border-radius:9px;background:#eee;flex:none}
+  .meta{flex:1;min-width:0}
+  .meta .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+  .meta .n{font-weight:800;font-size:15px}
+  .meta .t{font-size:12px;color:var(--mut)}
+  .fld{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:5px;font-size:15px}
+  .fld .k{color:var(--mut);min-width:66px;font-size:13px}
+  .fld .v{font-weight:800;font-variant-numeric:tabular-nums;font-size:17px}
+  .tag{font-size:11px;font-weight:800;padding:2px 7px;border-radius:99px;letter-spacing:.03em}
+  .t-bc{background:var(--okbg);color:var(--ok)}
+  .t-tx{background:var(--warnbg);color:var(--warn)}
+  .t-no{background:var(--badbg);color:var(--bad)}
+  .stats{padding:0 12px 10px;font-size:12px;color:var(--mut);display:flex;flex-wrap:wrap;gap:5px 14px}
+  details{border-top:1px solid var(--line);padding:9px 12px;font-size:13px}
+  details summary{cursor:pointer;color:var(--pink);font-weight:700;font-size:13px}
+  pre{white-space:pre-wrap;word-break:break-word;background:#f4f4f5;padding:9px;border-radius:8px;
+      font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;margin:8px 0 0;max-height:240px;overflow:auto}
+  .row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:4px}
+  .lnk{background:none;border:0;color:var(--mut);text-decoration:underline;font-size:14px;cursor:pointer;padding:6px 0}
+  .empty{color:var(--mut);text-align:center;padding:26px 12px;font-size:15px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Load Tag Scanner — Field Test</h1>
+  <p>Every scan is kept below with what the reader saw. Screenshot and send.</p>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="btns">
+      <label class="btn">📷 Take Photo
+        <input type="file" accept="image/*" capture="environment" onchange="onPhoto(this)">
+      </label>
+      <label class="btn">🖼️ Upload
+        <input type="file" accept="image/*" onchange="onPhoto(this)">
+      </label>
+    </div>
+    <div class="flashrow">
+      <span style="color:var(--mut);font-size:14px">Flash was:</span>
+      <div class="seg">
+        <button id="f-on"  onclick="setFlash(1)">ON</button>
+        <button id="f-off" onclick="setFlash(0)">OFF</button>
+        <button id="f-unk" onclick="setFlash(-1)" class="on">?</button>
+      </div>
+    </div>
+    <div id="status">Ready. Tap Take Photo.</div>
+  </div>
+
+  <div class="row">
+    <div id="count" style="font-size:13px;color:var(--mut)"></div>
+    <button class="lnk" onclick="clearAll()">Clear all scans</button>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────
+   Field-test harness for the QA app's load tag scanner.
+
+   The recognition code below is a deliberate COPY of the scanner in
+   index.html (_ltDecodeBarcodes / _ltMapBarcodes / _ltPreprocess /
+   _ltParse / _ltClean / _ltScore and the OCR orientation loop) so that
+   what you see here is what the real app does. If the scanner in
+   index.html changes, this file must be regenerated to match — it is a
+   measuring instrument, and an instrument that disagrees with the thing
+   it measures is worse than no instrument.
+
+   Nothing is uploaded. Photos and results stay in this browser's
+   localStorage until you tap "Clear all scans".
+   ───────────────────────────────────────────────────────────── */
+
+var KEY = 'moquin_scanner_field_test_v1';
+var MAX_KEEP = 25;
+var flashState = -1;   // 1 on, 0 off, -1 unknown
+
+function setFlash(v){
+  flashState = v;
+  ['f-on','f-off','f-unk'].forEach(function(id){ document.getElementById(id).classList.remove('on'); });
+  document.getElementById(v === 1 ? 'f-on' : v === 0 ? 'f-off' : 'f-unk').classList.add('on');
+}
+function status(s){ document.getElementById('status').innerHTML = s; }
+
+/* ── barcode reader ── */
+var zxRead = null, zxState = 'idle';
+function loadZXing(cb){
+  if (zxState === 'ready')  return cb(zxRead);
+  if (zxState === 'failed') return cb(null);
+  if (zxState === 'loading'){ setTimeout(function(){ loadZXing(cb); }, 150); return; }
+  zxState = 'loading';
+  import('https://cdn.jsdelivr.net/npm/zxing-wasm/dist/reader/index.js')
+    .then(function(m){
+      zxRead = m.readBarcodes || m.readBarcodesFromImageData || null;
+      zxState = zxRead ? 'ready' : 'failed';
+      cb(zxRead);
+    })
+    .catch(function(){ zxState = 'failed'; cb(null); });
+}
+
+function decodeBarcodes(img, cb){
+  loadZXing(function(read){
+    if (!read) return cb(null);
+    var w = img.width, h = img.height;
+    var s = Math.min(1, 1200 / Math.max(w, h));
+    var cw = Math.max(1, Math.round(w*s)), ch = Math.max(1, Math.round(h*s));
+    var cv = document.createElement('canvas');
+    cv.width = cw; cv.height = ch;
+    var ctx = cv.getContext('2d', { willReadFrequently:true });
+    ctx.drawImage(img, 0, 0, cw, ch);
+    var id;
+    try { id = ctx.getImageData(0,0,cw,ch); } catch(e){ return cb(null); }
+    read(id, { tryHarder:true, tryRotate:true, tryInvert:false, tryDownscale:true,
+               maxNumberOfSymbols:20, formats:['Code128','Code39'] })
+      .then(function(r){ cb(r || []); }).catch(function(){ cb(null); });
+  });
+}
+
+function mapBarcodes(codes){
+  var out = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
+  if (!codes || !codes.length) return out;
+  var list = [];
+  for (var i=0;i<codes.length;i++){
+    var c = codes[i];
+    var t = String(c && c.text != null ? c.text : '').trim();
+    if (!t) continue;
+    var y = (c.position && c.position.topLeft && typeof c.position.topLeft.y === 'number') ? c.position.topLeft.y : 0;
+    list.push({ text:t, y:y });
+  }
+  list.sort(function(a,b){ return a.y - b.y; });
+  var ids  = list.filter(function(c){ return /^\d{6}$/.test(c.text); });
+  var qtys = list.filter(function(c){ return /^\d{1,3}(,\d{3})+$/.test(c.text) || /^\d{1,5}$/.test(c.text); });
+  var jobHit  = ids.filter(function(c){ return /^0\d{5}$/.test(c.text); });
+  var prodHit = ids.filter(function(c){ return /^11\d{4}$/.test(c.text); });
+  if (jobHit.length === 1)  out.job = jobHit[0].text;
+  if (prodHit.length === 1) out.productId = prodHit[0].text;
+  var rest = ids.filter(function(c){ return c.text !== out.job && c.text !== out.productId; });
+  if (!out.job && rest.length)       out.job = rest.shift().text;
+  if (!out.productId && rest.length) out.productId = rest.shift().text;
+  if (out.job)       out.src.job = 'barcode';
+  if (out.productId) out.src.productId = 'barcode';
+  if (qtys.length){
+    var q0 = qtys[0].text.replace(/,/g,'');
+    if (/^\d+$/.test(q0)){ out.qtyPerBox = q0; out.src.qtyPerBox = 'barcode'; }
+    if (qtys.length > 1){
+      var q1 = qtys[1].text.replace(/,/g,'');
+      if (/^\d+$/.test(q1)){ out.totalQty = q1; out.src.totalQty = 'barcode'; }
+    }
+  }
+  return out;
+}
+
+/* ── OCR ── */
+var tessLoaded = false;
+function loadTesseract(cb){
+  if (window.Tesseract) return cb(true);
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
+  s.onload = function(){ cb(true); };
+  s.onerror = function(){ cb(false); };
+  document.head.appendChild(s);
+}
+
+/* NOTE: no willReadFrequently here — it drops Chrome onto a software
+   canvas whose downscaling rasterizes differently and measurably costs
+   accuracy. Returns a JPEG data URL, which Tesseract reads better than a
+   raw canvas. Same as the live app. */
+function preprocess(img, maxDim, deg){
+  var w=img.width, h=img.height;
+  var scale = Math.min(1, maxDim/Math.max(w,h));
+  var sw=Math.round(w*scale), sh=Math.round(h*scale);
+  var rot = (deg===90||deg===270);
+  var cv = document.createElement('canvas');
+  cv.width = rot?sh:sw; cv.height = rot?sw:sh;
+  var ctx = cv.getContext('2d');
+  ctx.translate(cv.width/2, cv.height/2);
+  ctx.rotate(deg*Math.PI/180);
+  ctx.drawImage(img, -sw/2, -sh/2, sw, sh);
+  var id = ctx.getImageData(0,0,cv.width,cv.height);
+  var d = id.data, contrast = 1.35, mid = 128;
+  for (var i=0;i<d.length;i+=4){
+    var g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+    g = (g-mid)*contrast + mid;
+    d[i]=d[i+1]=d[i+2]= g<0?0:(g>255?255:g);
+  }
+  ctx.putImageData(id,0,0);
+  return cv.toDataURL('image/jpeg', 0.92);
+}
+
+function parseTag(text){
+  var out = { customer:null, job:null, productId:null, totalQty:null, qtyPerBox:null };
+  var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+  function isJunkLine(s){
+    if (/approved|release/i.test(s)) return true;
+    if (/^[A-Za-z]{0,2}\d{3,}[A-Za-z]{0,2}$/.test(s.replace(/\s+/g,''))) return true;
+    return false;
+  }
+  function nextVal(i, skipJunk){
+    for (var j=i+1;j<Math.min(i+5,lines.length);j++){
+      if (!lines[j]) continue;
+      if (skipJunk && isJunkLine(lines[j])) continue;
+      return lines[j];
+    }
+    return '';
+  }
+  function digitsOf(s){
+    var norm = String(s).replace(/[OoIl|]/g, function(ch,pos,str){
+      var prev = str[pos-1]||'', next = str[pos+1]||'';
+      if (/\d/.test(prev) || /\d/.test(next)) return (ch==='O'||ch==='o') ? '0' : '1';
+      return ch;
+    });
+    var m = norm.replace(/[,\.]/g,'').match(/\d{2,}/);
+    return m ? m[0] : null;
+  }
+  for (var i=0;i<lines.length;i++){
+    var low = lines[i].toLowerCase();
+    if (!out.customer && low.indexOf('customer')>=0 && low.indexOf('name')>=0){
+      var cand = nextVal(i,true).replace(/[^A-Za-z0-9 &().\/'-]/g,'').trim();
+      if (cand && !/^(job|number|product|form|qty|total)/i.test(cand)) out.customer = cand;
+    }
+    if (!out.job && low.indexOf('job')>=0 && low.indexOf('number')>=0){
+      out.job = digitsOf(lines[i]) || digitsOf(nextVal(i));
+    }
+    if (!out.productId && (low.indexOf('product id')>=0 || low.indexOf('form id')>=0 || (low.indexOf('product')>=0 && low.indexOf('form')>=0))){
+      out.productId = digitsOf(lines[i].replace(/id/ig,'')) || digitsOf(nextVal(i));
+    }
+    if (!out.qtyPerBox && low.indexOf('per box')>=0){
+      out.qtyPerBox = digitsOf(lines[i]) || digitsOf(nextVal(i));
+    }
+    if (!out.totalQty && low.indexOf('total')>=0 && (low.indexOf('quantity')>=0 || low.indexOf('qty')>=0)){
+      out.totalQty = digitsOf(lines[i]) || digitsOf(nextVal(i));
+    }
+  }
+  var flat = text.replace(/\n/g,' ');
+  if (!out.job){ var m1 = flat.match(/job\s*number\D{0,6}(\d{4,7})/i); if (m1) out.job = m1[1]; }
+  if (!out.productId){ var m2 = flat.match(/(?:product|form)\s*id\D{0,20}(\d{4,7})/i); if (m2) out.productId = m2[1]; }
+  if (!out.totalQty){ var m3 = flat.match(/total\s*quantity\D{0,6}([\d,]{3,9})/i); if (m3) out.totalQty = m3[1].replace(/,/g,''); }
+  return out;
+}
+
+function clean(p){
+  if (!p) return p;
+  if (p.job && !/^\d{6}$/.test(p.job)) p.job = null;
+  if (p.productId && !/^\d{6}$/.test(p.productId)) p.productId = null;
+  if (p.totalQty && !/^\d{1,9}$/.test(p.totalQty)) p.totalQty = null;
+  if (p.qtyPerBox && !/^\d{1,9}$/.test(p.qtyPerBox)) p.qtyPerBox = null;
+  return p;
+}
+
+function score(p){
+  if (!p) return 0;
+  var s = 0;
+  if (/^\d{6}$/.test(p.job||'')) s += 3;
+  if (/^\d{6}$/.test(p.productId||'')) s += 3;
+  if (p.totalQty && /^\d{2,9}$/.test(p.totalQty)) s += 2;
+  if (p.qtyPerBox && /^\d{2,9}$/.test(p.qtyPerBox)) s += 1;
+  if (p.customer && p.customer.length > 2) s += 1;
+  return s;
+}
+
+/* OCR pass, instrumented: records every orientation tried, its score, and
+   the raw text of the winner. That raw text is the single most useful
+   thing for diagnosing a bad read — it shows whether the recognizer saw
+   nothing at all, or saw the text and the parser mis-assigned it. */
+function ocrRecognize(img, cb){
+  if (!window.Tesseract) return cb(null, { note:'Tesseract not loaded' });
+  var diag = { tried: [], winner: null, rawText: '' };
+  var best = null, bestScore = 0;
+  var angles = [0,180], i = 0, triedSideways = false;
+  function next(){
+    if (i >= angles.length){
+      var haveId = best && (best.job || best.productId);
+      if (!haveId && !triedSideways){ triedSideways = true; angles = [90,270]; i = 0; }
+      else { cb(bestScore>0?best:null, diag); return; }
+    }
+    var deg = angles[i++];
+    var prepped;
+    try { prepped = preprocess(img, 2000, deg); } catch(e){ next(); return; }
+    var t0 = performance.now();
+    Tesseract.recognize(prepped, 'eng').then(function(res){
+      var text = (res && res.data && res.data.text) || '';
+      var parsed = clean(parseTag(text));
+      var sc = score(parsed);
+      diag.tried.push({ deg:deg, score:sc, ms:Math.round(performance.now()-t0),
+                        job:parsed.job, product:parsed.productId });
+      if (sc > bestScore){ bestScore = sc; best = parsed; diag.winner = deg; diag.rawText = text; }
+      if (bestScore >= 8){ cb(best, diag); return; }
+      next();
+    }).catch(function(){ next(); });
+  }
+  next();
+}
+
+/* ── run one photo ── */
+function onPhoto(input){
+  var file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  status('⏳ Reading tag…');
+  loadTesseract(function(ok){ tessLoaded = ok; });
+
+  var fr = new FileReader();
+  fr.onload = function(e){
+    var img = new Image();
+    img.onerror = function(){ status('❌ Could not open that image.'); };
+    img.onload = function(){
+      var tStart = performance.now();
+      var rec = { n:0, ts:Date.now(), flash:flashState,
+                  w:img.width, h:img.height, thumb:makeThumb(img),
+                  barcodes:[], bcMs:0, ocrMs:0, totalMs:0,
+                  job:null, product:null, qtyBox:null, total:null, src:{},
+                  ocrDiag:null, path:'' };
+
+      var tb = performance.now();
+      decodeBarcodes(img, function(codes){
+        rec.bcMs = Math.round(performance.now() - tb);
+        rec.barcodes = (codes||[]).map(function(c){
+          return { text:String(c.text==null?'':c.text),
+                   fmt:c.format||'?',
+                   y:(c.position&&c.position.topLeft)?Math.round(c.position.topLeft.y):-1 };
+        });
+        var bc = mapBarcodes(codes);
+
+        function finish(ocr, diag){
+          ['customer','job','productId','qtyPerBox','totalQty'].forEach(function(k){
+            var target = k==='productId'?'product':k==='qtyPerBox'?'qtyBox':k==='totalQty'?'total':k;
+            if (bc[k]){ rec[target] = bc[k]; rec.src[target] = 'barcode'; }
+            else if (ocr && ocr[k]){ rec[target] = ocr[k]; rec.src[target] = 'text'; }
+          });
+          rec.ocrDiag = diag || null;
+          rec.totalMs = Math.round(performance.now() - tStart);
+          rec.path = (rec.src.job==='barcode' && rec.src.product==='barcode') ? 'barcode only'
+                   : (rec.barcodes.length ? 'barcode + text' : 'text only');
+          save(rec);
+          render();
+          status(rec.job || rec.product
+            ? '✅ Scan recorded — see below.'
+            : '⚠️ Nothing readable. Recorded anyway (that\'s useful too).');
+        }
+
+        if (bc.job && bc.productId){ rec.ocrMs = 0; finish(null, { note:'skipped — both IDs came from barcodes' }); return; }
+        var to = performance.now();
+        ocrRecognize(img, function(ocr, diag){
+          rec.ocrMs = Math.round(performance.now() - to);
+          finish(ocr, diag);
+        });
+      });
+    };
+    img.src = e.target.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+function makeThumb(img){
+  var s = Math.min(1, 420/Math.max(img.width, img.height));
+  var w = Math.round(img.width*s), h = Math.round(img.height*s);
+  var cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(img, 0, 0, w, h);
+  return cv.toDataURL('image/jpeg', 0.55);
+}
+
+/* ── storage & render ── */
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ return []; } }
+function save(rec){
+  var all = load();
+  rec.n = (all.length ? all[0].n : 0) + 1;
+  all.unshift(rec);
+  while (all.length > MAX_KEEP) all.pop();
+  try { localStorage.setItem(KEY, JSON.stringify(all)); }
+  catch(e){
+    // Quota — drop oldest until it fits rather than losing the new scan.
+    while (all.length > 3){
+      all.pop();
+      try { localStorage.setItem(KEY, JSON.stringify(all)); return; } catch(e2){}
+    }
+  }
+}
+function clearAll(){
+  if (!confirm('Delete all recorded scans?')) return;
+  localStorage.removeItem(KEY); render(); status('Cleared.');
+}
+
+function tag(src){
+  if (src === 'barcode') return '<span class="tag t-bc">⚡ BARCODE</span>';
+  if (src === 'text')    return '<span class="tag t-tx">🔤 TEXT</span>';
+  return '<span class="tag t-no">✕ NOT READ</span>';
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+
+function render(){
+  var all = load();
+  var list = document.getElementById('list');
+  document.getElementById('count').textContent = all.length ? (all.length + ' scan' + (all.length>1?'s':'') + ' recorded (newest first)') : '';
+  if (!all.length){ list.innerHTML = '<div class="empty">No scans yet.<br>Take a photo of a load tag to start.</div>'; return; }
+
+  list.innerHTML = all.map(function(r){
+    var d = new Date(r.ts);
+    var flash = r.flash===1 ? 'flash ON' : r.flash===0 ? 'flash OFF' : 'flash ?';
+    var bcList = r.barcodes.length
+      ? r.barcodes.map(function(b){ return '  ' + b.fmt + '  "' + esc(b.text) + '"  y=' + b.y; }).join('\n')
+      : '  (none decoded)';
+    var od = r.ocrDiag || {};
+    var tried = (od.tried && od.tried.length)
+      ? od.tried.map(function(t){ return '  ' + String(t.deg).padStart(3) + '°  score=' + t.score + '  ' + t.ms + 'ms  job=' + t.job + ' prod=' + t.product; }).join('\n')
+      : ('  ' + (od.note || 'n/a'));
+    return '' +
+    '<div class="card">' +
+      '<div class="top">' +
+        '<img src="' + r.thumb + '" alt="">' +
+        '<div class="meta">' +
+          '<div class="hd"><span class="n">Scan #' + r.n + '</span>' +
+            '<span class="t">' + d.toLocaleTimeString() + '</span></div>' +
+          '<div class="fld"><span class="k">Job</span><span class="v">' + (r.job || '—') + '</span>' + tag(r.src.job) + '</div>' +
+          '<div class="fld"><span class="k">Product</span><span class="v">' + (r.product || '—') + '</span>' + tag(r.src.product) + '</div>' +
+          '<div class="fld"><span class="k">Qty/Box</span><span class="v">' + (r.qtyBox || '—') + '</span>' + tag(r.src.qtyBox) + '</div>' +
+          '<div class="fld"><span class="k">Total</span><span class="v">' + (r.total || '—') + '</span>' + tag(r.src.total) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="stats">' +
+        '<span><b>' + r.totalMs + 'ms</b> total</span>' +
+        '<span>barcode ' + r.bcMs + 'ms</span>' +
+        '<span>text ' + (r.ocrMs || 0) + 'ms</span>' +
+        '<span>' + r.path + '</span>' +
+        '<span>' + flash + '</span>' +
+        '<span>' + r.w + '×' + r.h + '</span>' +
+        '<span>' + r.barcodes.length + ' barcode' + (r.barcodes.length===1?'':'s') + '</span>' +
+      '</div>' +
+      '<details><summary>Details for Claude</summary>' +
+        '<pre>BARCODES FOUND:\n' + esc(bcList) +
+        '\n\nOCR ORIENTATIONS TRIED:\n' + esc(tried) +
+        (od.winner != null ? ('\n  winner: ' + od.winner + '°') : '') +
+        '\n\nRAW OCR TEXT:\n' + esc((od.rawText || '(none)').slice(0, 1200)) + '</pre>' +
+      '</details>' +
+    '</div>';
+  }).join('');
+}
+
+render();
+</script>
+</body>
+</html>
