@@ -269,7 +269,7 @@ select.input { cursor: pointer; -webkit-appearance: menulist; appearance: auto; 
 
 /* ── Product count grid ── */
 .count-grid {
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px;
 }
 .count-btn {
   padding: 15px 4px; border-radius: 8px;
@@ -286,7 +286,7 @@ select.input { cursor: pointer; -webkit-appearance: menulist; appearance: auto; 
 }
 .count-btn.other-btn {
   font-family: var(--font); font-size: 16px; font-weight: 600;
-  grid-column: span 3; padding: 13px;
+  grid-column: span 4; padding: 13px;
 }
 
 /* ── Timestamp ── */
@@ -1000,8 +1000,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   /* Checklist toggles: bigger tap targets */
   .tgl { padding: 13px 14px; font-size: 16px; min-height: 48px; }
 
-  /* Count grid: 3 columns fits better on narrow screens */
-  .count-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  /* Count grid: 4 columns — 1-8 lands as two even rows, Other spans the
+     full width below. Must stay a multiple of the .other-btn span (4), or
+     that button spills into an implicit extra column. */
+  .count-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .count-btn { padding: 16px 4px; font-size: 18px; min-height: 56px; }
 
   /* Cards: tighter padding */
@@ -1974,8 +1976,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             <button class="count-btn" onclick="pickCount(this,4)">4</button>
             <button class="count-btn" onclick="pickCount(this,5)">5</button>
             <button class="count-btn" onclick="pickCount(this,6)">6</button>
-            <button class="count-btn other-btn" onclick="pickCount(this,0)" style="grid-column:span 3"><span data-en>Other ↓</span><span data-es>Otro ↓</span></button>
-            <button class="count-btn other-btn" onclick="pickCount(this,-1)" style="grid-column:span 3"><span data-en>N/A — 1 run</span><span data-es>N/D — 1 corrida</span></button>
+            <button class="count-btn" onclick="pickCount(this,7)">7</button>
+            <button class="count-btn" onclick="pickCount(this,8)">8</button>
+            <button class="count-btn other-btn" onclick="pickCount(this,0)" style="grid-column:span 4"><span data-en>Other ↓</span><span data-es>Otro ↓</span></button>
           </div>
           <div id="other-wrap" style="margin-top:10px;display:none;">
             <input id="other-count" class="input" type="number" inputmode="numeric"
@@ -7876,8 +7879,7 @@ function pickCount(btn, n) {
   var wrap = document.getElementById('other-wrap');
   wrap.style.display = (n === 0) ? 'block' : 'none';
   if (n === 0) { setupState.count = 0; document.getElementById('other-count').focus(); }
-  if (n === -1) setupState.count = 1;
-  var effectiveCount = (n === -1) ? 1 : (n === 0 ? (parseInt(document.getElementById('other-count').value)||0) : n);
+  var effectiveCount = (n === 0) ? (parseInt(document.getElementById('other-count').value)||0) : n;
   var isSingle = (effectiveCount === 1);
   document.getElementById('setup-single-fields').style.display = isSingle ? 'block' : 'none';
   _safeStyle('setup-notes-card', 'display', isSingle ? 'block' : 'none');
@@ -11013,16 +11015,16 @@ function resumeDraft(id) {
         b.classList.remove('selected');
         if (parseInt(b.textContent) === draft.count) { b.classList.add('selected'); _countBtnMatch = true; }
       });
-      // A count above the quick-pick buttons (7+, now folded into "Other"
-      // since only 1-6 show directly — see count-grid) has no button to
-      // match; fall back to the Other field so the saved count still shows
-      // up somewhere instead of silently looking unselected.
+      // A count above the quick-pick buttons (9+, folded into "Other" since
+      // only 1-8 show directly — see count-grid) has no button to match;
+      // fall back to the Other field so the saved count still shows up
+      // somewhere instead of silently looking unselected.
       if (!_countBtnMatch && draft.count > 0) {
         document.getElementById('other-wrap').style.display = 'block';
         document.getElementById('other-count').value = draft.count;
         document.querySelector('#count-grid .other-btn').classList.add('selected');
       }
-      var isSingle = draft.count === 1 || draft.count === -1;
+      var isSingle = draft.count === 1;
       document.getElementById('post-station-body').style.display = 'block';
       document.getElementById('setup-single-fields').style.display = isSingle ? 'block' : 'none';
       _safeStyle('setup-notes-card', 'display', isSingle ? 'block' : 'none');
