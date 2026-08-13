@@ -4730,6 +4730,47 @@ function headerSyncNowClick() {
   });
 }
 
+// How many stores still have an unconfirmed push. _syncPushAll marks a store
+// pending before the fetch and only clears it on a res.ok, so anything left
+// in here after a sync attempt genuinely did NOT reach the server — which is
+// what lets the save-progress toast below tell the operator the truth instead
+// of claiming "synced" off the back of a call that silently swallowed an
+// offline failure (_syncNowAll catches everything and races an 8s timeout, so
+// its promise resolving proves nothing on its own).
+function _syncPendingCount() {
+  try { return Object.keys(JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '{}')).length; }
+  catch(e) { return 0; }
+}
+
+// Push/pull immediately after Save Progress queues a draft. Runs behind the
+// shared upload overlay because _syncNowAll() is a real network round trip
+// (up to its own 8s cap) and a silent multi-second wait on this app has been
+// mistaken for a frozen screen before. The draft is already in localStorage
+// by the time this runs, so however the sync goes the entry is safe — this
+// only decides which toast the operator sees.
+function _saveDraftSync() {
+  var isEs = isEsLang();
+  _qcShowUploadOverlay(isEs ? 'Guardando y sincronizando…' : 'Saving and syncing…');
+  var finish = function() {
+    _qcHideUploadOverlay();
+    _refreshCurrentView();
+    checkDraftBanner();
+    var stranded = _syncPendingCount() > 0 || navigator.onLine === false;
+    if (stranded) {
+      showToast(isEs
+        ? 'Progreso guardado en este dispositivo — se sincronizará al reconectar'
+        : 'Progress saved on this device — will sync when back online', 'fail');
+    } else {
+      showToast(isEs
+        ? '✓ Progreso guardado y sincronizado — listo para un nuevo trabajo'
+        : '✓ Progress saved & synced — ready for a new job', 'pass');
+    }
+  };
+  // .then(ok, fail) rather than a bare .then so the overlay can't get stuck
+  // open if _syncNowAll ever starts rejecting.
+  Promise.resolve(_syncNowAll()).then(finish, finish);
+}
+
 /* ══════════════════════════════════
    IN-PROGRESS STORAGE
    localStorage + in-memory fallback
@@ -10791,10 +10832,15 @@ function saveDraft() {
     var drafts = loadDrafts();
     drafts.unshift(draft);
     saveDrafts(drafts);
-    showToast('Progress saved — form ready for new entry', 'pass');
+    // Clear the form and land back on the QC landing (draft banner + Start
+    // New Job) BEFORE kicking off the sync, so the operator ends up on an
+    // unambiguous "here's what to do next" screen no matter how the sync
+    // goes — rather than being left in front of a half-cleared form with no
+    // obvious next step. The draft is already in localStorage above, so a
+    // slow, failed, or timed-out sync can never cost them the entry.
     startNewJob();
-    showQCScreen('qc-setup');
-    checkDraftBanner();
+    beginFreshJobEntry();
+    _saveDraftSync();
   } catch(err) {
     showToast('Could not save progress — please try again', 'fail');
   }
