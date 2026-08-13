@@ -1611,7 +1611,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         <div id="qc-landing">
           <!-- Draft resume banner -->
           <div id="qc-draft-banner" style="display:none;background:rgba(var(--pink-rgb,220,38,127),.08);border:2px solid var(--pink);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
-            <div style="font-size:15px;font-weight:800;color:var(--pink);margin-bottom:4px;">📋 <span data-en>Saved entry found</span><span data-es>Entrada guardada encontrada</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
+              <div style="font-size:15px;font-weight:800;color:var(--pink);">📋 <span data-en>Saved entry found</span><span data-es>Entrada guardada encontrada</span></div>
+              <!-- Hands this entry to the other stations so someone else can
+                   finish the job (operator sent home mid-run, shift change).
+                   Label/behaviour set per-draft by checkDraftBanner. -->
+              <button id="qc-draft-share-btn" onclick="shareDraft()" style="padding:7px 12px;background:transparent;color:var(--pink);border:1.5px solid var(--pink);border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;"></button>
+            </div>
             <div id="qc-draft-info" style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;"></div>
             <div style="display:flex;gap:8px;">
               <button onclick="resumeDraft()" style="flex:1;padding:9px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;"><span data-en>Resume Entry</span><span data-es>Reanudar Entrada</span></button>
@@ -4566,8 +4572,10 @@ function _uploadPhotoToDrive(dataUrl) {
     .catch(function() { return dataUrl; });
 }
 
+// qc_draft (a shared Save Progress entry) keys off plain `id`, same as a job —
+// only NCR's own stores use ncrId/__draftId.
 function _syncIdField(type) {
-  return type === 'job' ? 'id' : type === 'ncr' ? 'ncrId' : '__draftId';
+  return (type === 'job' || type === 'qc_draft') ? 'id' : type === 'ncr' ? 'ncrId' : '__draftId';
 }
 function _syncMarkPending(type, isPending) {
   try {
@@ -4685,10 +4693,16 @@ function _syncInitialPull() {
 // finished, finished; anything still pending is picked up by the normal
 // online/30s retry loop.
 function _syncNowAll() {
-  var jobs = ipLoad(), ncrs = ncrLoad(), drafts = ncrDraftLoad();
+  var jobs = ipLoad(), ncrs = ncrLoad(), drafts = ncrDraftLoad(), qcDrafts = loadDrafts();
   var tasks = [
     _syncPushAll('job', jobs), _syncPushAll('ncr', ncrs), _syncPushAll('ncr_draft', drafts),
-    _syncPullAndMerge('job', jobs, ipSave), _syncPullAndMerge('ncr', ncrs, ncrSave), _syncPullAndMerge('ncr_draft', drafts, ncrDraftSave)
+    _syncPullAndMerge('job', jobs, ipSave), _syncPullAndMerge('ncr', ncrs, ncrSave), _syncPullAndMerge('ncr_draft', drafts, ncrDraftSave),
+    // qc_draft is PULL-ONLY here on purpose: a Save Progress entry is local
+    // until the operator explicitly hands it off (see _syncShareDraft), so
+    // there is nothing to push on a routine sync — but every device needs to
+    // receive the ones that WERE handed off, and to prune the ones another
+    // station has since picked up.
+    _syncPullAndMerge('qc_draft', qcDrafts, saveDrafts)
   ].map(function(p){ return Promise.resolve(p).catch(function(){}); });
   var allDone = Promise.all(tasks);
   var timeout = new Promise(function(resolve){ setTimeout(resolve, 8000); });
@@ -4708,6 +4722,10 @@ function _refreshCurrentView() {
   if (id === 'ncrpie')     renderNCRPie();
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    renderRecords();
+  // A sync can pull in a saved entry another station handed off, or prune one
+  // that's since been picked up — the banner has to be re-rendered for either
+  // to be visible without navigating away and back.
+  if (id === 'qc' && typeof checkDraftBanner === 'function') checkDraftBanner();
   updateQCBadge();
   updateQAReleaseBadge();
 }
@@ -4730,45 +4748,28 @@ function headerSyncNowClick() {
   });
 }
 
-// How many stores still have an unconfirmed push. _syncPushAll marks a store
-// pending before the fetch and only clears it on a res.ok, so anything left
-// in here after a sync attempt genuinely did NOT reach the server — which is
-// what lets the save-progress toast below tell the operator the truth instead
-// of claiming "synced" off the back of a call that silently swallowed an
-// offline failure (_syncNowAll catches everything and races an 8s timeout, so
-// its promise resolving proves nothing on its own).
-function _syncPendingCount() {
-  try { return Object.keys(JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '{}')).length; }
-  catch(e) { return 0; }
-}
-
-// Push/pull immediately after Save Progress queues a draft. Runs behind the
-// shared upload overlay because _syncNowAll() is a real network round trip
-// (up to its own 8s cap) and a silent multi-second wait on this app has been
-// mistaken for a frozen screen before. The draft is already in localStorage
-// by the time this runs, so however the sync goes the entry is safe — this
-// only decides which toast the operator sees.
-function _saveDraftSync() {
-  var isEs = isEsLang();
-  _qcShowUploadOverlay(isEs ? 'Guardando y sincronizando…' : 'Saving and syncing…');
-  var finish = function() {
-    _qcHideUploadOverlay();
-    _refreshCurrentView();
-    checkDraftBanner();
-    var stranded = _syncPendingCount() > 0 || navigator.onLine === false;
-    if (stranded) {
-      showToast(isEs
-        ? 'Progreso guardado en este dispositivo — se sincronizará al reconectar'
-        : 'Progress saved on this device — will sync when back online', 'fail');
-    } else {
-      showToast(isEs
-        ? '✓ Progreso guardado y sincronizado — listo para un nuevo trabajo'
-        : '✓ Progress saved & synced — ready for a new job', 'pass');
-    }
-  };
-  // .then(ok, fail) rather than a bare .then so the overlay can't get stuck
-  // open if _syncNowAll ever starts rejecting.
-  Promise.resolve(_syncNowAll()).then(finish, finish);
+// Shares ONE saved entry with the other devices, on explicit request from the
+// banner's "Sync to other device" button. Deliberately a single-record PUT
+// rather than a store added to _syncPushAll/_syncRetryPending:
+//
+//   * Only entries the operator actually chose to hand off leave the device.
+//     Everything else stays local, which is what Save Progress is for.
+//   * Nothing bulk-pushes qc_draft in the background, so a soft-delete can't
+//     be undone by a later push. The bulk endpoint clears `deleted` on
+//     conflict, so a background push of a locally-still-present record would
+//     resurrect a draft another station had already picked up.
+//
+// Resolves true only on a real res.ok — the caller reports failure honestly
+// instead of claiming a hand-off that never landed.
+function _syncShareDraft(draft) {
+  if (!QA_BACKEND_URL) return Promise.resolve(false);
+  return fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(draft.id), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': QA_BACKEND_API_KEY },
+    body: JSON.stringify({ type: 'qc_draft', data: draft })
+  })
+    .then(function(res){ return !!res.ok; })
+    .catch(function(){ return false; });
 }
 
 /* ══════════════════════════════════
@@ -10832,15 +10833,20 @@ function saveDraft() {
     var drafts = loadDrafts();
     drafts.unshift(draft);
     saveDrafts(drafts);
-    // Clear the form and land back on the QC landing (draft banner + Start
-    // New Job) BEFORE kicking off the sync, so the operator ends up on an
-    // unambiguous "here's what to do next" screen no matter how the sync
-    // goes — rather than being left in front of a half-cleared form with no
-    // obvious next step. The draft is already in localStorage above, so a
-    // slow, failed, or timed-out sync can never cost them the entry.
+    // Clear the form and land back on the QC landing (saved-entry banner +
+    // Start New Job) so the operator is left on an unambiguous "here's what
+    // to do next" screen rather than in front of a half-cleared form.
+    //
+    // Saving deliberately stays LOCAL — no sync is forced here. Sharing a
+    // saved entry with the other stations is an explicit, per-draft decision
+    // made from the banner's "Sync to other device" button (shareDraft), so
+    // the common case (pause a job, pick it back up at this same station)
+    // costs nothing and never waits on the network.
     startNewJob();
     beginFreshJobEntry();
-    _saveDraftSync();
+    showToast(isEsLang()
+      ? 'Progreso guardado en este dispositivo — listo para un nuevo trabajo'
+      : 'Progress saved on this device — ready for a new job', 'pass');
   } catch(err) {
     showToast('Could not save progress — please try again', 'fail');
   }
@@ -10869,21 +10875,37 @@ function checkDraftBanner() {
   if (!drafts.length) { banner.style.display = 'none'; return; }
   banner.style.display = 'block';
 
-  // Wire the top-level Resume Entry / Discard buttons to the most recent draft
+  // Wire the top-level Resume Entry / Discard / Sync buttons to the most
+  // recent draft — same convention the header buttons have always used.
   var firstId = drafts[0].id;
   var resumeBtn = banner.querySelector('button[onclick^="resumeDraft"]');
   var discardBtn = banner.querySelector('button[onclick^="discardDraft"]');
   if (resumeBtn) resumeBtn.setAttribute('onclick', 'resumeDraft(\'' + firstId + '\')');
   if (discardBtn) discardBtn.setAttribute('onclick', 'discardDraft(\'' + firstId + '\')');
+  var shareBtn = document.getElementById('qc-draft-share-btn');
+  if (shareBtn) {
+    shareBtn.setAttribute('onclick', 'shareDraft(\'' + firstId + '\')');
+    shareBtn.textContent = _draftShareLabel(drafts[0]);
+    shareBtn.title = drafts[0].shared
+      ? (isEsLang() ? 'Ya compartido — vuelva a sincronizar para enviar los cambios más recientes' : 'Already shared — re-sync to send the latest changes')
+      : (isEsLang() ? 'Permitir que otra estación reanude esta entrada' : 'Let another station resume this entry');
+  }
 
   // Per-draft list (shown when there are multiple drafts)
   info.innerHTML = drafts.length > 1 ? drafts.map(function(d) {
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid rgba(220,38,127,.15);">' +
-      '<span style="font-size:14px;color:var(--text-secondary);flex:1;"><b style="color:var(--pink);">' + escHtml(d.station || '—') + '</b> · Job ' + escHtml(d.jobNumber || '—') + ' · ' + escHtml(d.ts || '') + '</span>' +
+      '<span style="font-size:14px;color:var(--text-secondary);flex:1;"><b style="color:var(--pink);">' + escHtml(d.station || '—') + '</b> · Job ' + escHtml(d.jobNumber || '—') + ' · ' + escHtml(d.ts || '') + (d.shared ? ' · <b style="color:var(--pink);">' + (isEsLang() ? 'compartido' : 'shared') + '</b>' : '') + '</span>' +
+      '<button onclick="shareDraft(\'' + d.id + '\')" title="' + (isEsLang() ? 'Sincronizar a otro dispositivo' : 'Sync to other device') + '" style="padding:5px 10px;background:transparent;color:var(--pink);border:1px solid var(--pink);border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;">' + (d.shared ? '✓ 📤' : '📤') + '</button>' +
       '<button onclick="resumeDraft(\'' + d.id + '\')" style="padding:5px 12px;background:var(--pink);color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;">Resume</button>' +
       '<button onclick="discardDraft(\'' + d.id + '\')" style="padding:5px 10px;background:transparent;color:var(--text-tertiary);border:1px solid var(--border);border-radius:6px;font-size:14px;cursor:pointer;white-space:nowrap;">✕</button>' +
     '</div>';
-  }).join('') : '<div style="font-size:14px;color:var(--text-secondary);"><b style="color:var(--pink);">' + escHtml(drafts[0].station || '—') + '</b> · Job ' + escHtml(drafts[0].jobNumber || '—') + ' · ' + escHtml(drafts[0].ts || '') + '</div>';
+  }).join('') : '<div style="font-size:14px;color:var(--text-secondary);"><b style="color:var(--pink);">' + escHtml(drafts[0].station || '—') + '</b> · Job ' + escHtml(drafts[0].jobNumber || '—') + ' · ' + escHtml(drafts[0].ts || '') + (drafts[0].shared ? ' · <b style="color:var(--pink);">' + (isEsLang() ? 'compartido' : 'shared') + '</b>' : '') + '</div>';
+}
+
+function _draftShareLabel(draft) {
+  var isEs = isEsLang();
+  if (draft && draft.shared) return isEs ? '✓ Compartido — actualizar' : '✓ Shared — update';
+  return isEs ? '📤 Sincronizar a otro disp.' : '📤 Sync to other device';
 }
 
 // Swaps the QC-tab landing (draft banner + Start New Job button) for the
@@ -11123,16 +11145,80 @@ function resumeDraft(id) {
   }
 
   // Remove this draft from the list
+  // A shared entry belongs to whoever picks it up first, so dropping the
+  // server copy on resume does double duty: it stops a second station from
+  // resuming the same hand-off and finishing the job twice, and it stops this
+  // device's next pull from re-adding an entry already loaded into the form.
+  if (draft.shared) _syncDeleteRecord('qc_draft', id);
   drafts = drafts.filter(function(d) { return d.id !== id; });
   saveDrafts(drafts);
   checkDraftBanner();
 }
 
+// Hands a saved entry to the other devices, so a job started here can be
+// finished at another station — operator sent home mid-run, shift change,
+// whatever. Opt-in per entry: everything else Save Progress writes stays on
+// this device only.
+function shareDraft(id) {
+  var drafts = loadDrafts();
+  var draft = null;
+  for (var i = 0; i < drafts.length; i++) { if (drafts[i].id === id) { draft = drafts[i]; break; } }
+  if (!draft) return;
+  var isEs = isEsLang();
+  var label = (draft.station || '—') + ' · Job ' + (draft.jobNumber || '—');
+  var msg = draft.shared
+    ? (isEs
+        ? '¿Volver a enviar los cambios más recientes de ' + label + ' a los otros dispositivos?'
+        : 'Send the latest changes for ' + label + ' to the other devices?')
+    : (isEs
+        ? '¿Sincronizar ' + label + ' a los otros dispositivos? Otra estación podrá reanudar y terminar este trabajo. Se quitará de esta lista en cuanto alguien la reanude.'
+        : 'Sync ' + label + ' to the other devices? Another station will be able to resume and finish this job. It leaves this list as soon as someone resumes it.');
+  showConfirm(msg, function(ok){
+    if (!ok) return;
+    _qcShowUploadOverlay(isEs ? 'Sincronizando entrada guardada…' : 'Syncing saved entry…');
+    // Flagged BEFORE the push so the copy that lands on the server already
+    // says shared — that flag is what makes the receiving device (and this
+    // one) soft-delete the server copy when the entry is resumed or
+    // discarded, instead of leaving an orphan for the next pull to re-add.
+    var shared = loadDrafts();
+    var target = null;
+    for (var j = 0; j < shared.length; j++) { if (shared[j].id === id) { target = shared[j]; break; } }
+    if (!target) { _qcHideUploadOverlay(); return; }
+    target.shared = true;
+    target.sharedAt = formatTS();
+    _syncShareDraft(target).then(function(okPush){
+      _qcHideUploadOverlay();
+      if (okPush) {
+        saveDrafts(shared);
+        checkDraftBanner();
+        showToast(isEs
+          ? '✓ Entrada sincronizada — otra estación puede reanudarla tras sincronizar'
+          : '✓ Entry synced — another station can resume it after they sync', 'pass');
+      } else {
+        // The shared flag is never written on failure, but the banner still
+        // has to be re-rendered from that unchanged state — otherwise a label
+        // left over from a previous render can keep claiming "✓ Shared" for an
+        // entry that never reached the server.
+        checkDraftBanner();
+        showToast(isEs
+          ? 'No se pudo sincronizar — la entrada sigue guardada aquí. Intente de nuevo.'
+          : "Couldn't sync — the entry is still saved here. Try again.", 'fail');
+      }
+    });
+  }, { okLabel: isEs ? 'Sincronizar' : 'Sync it', danger: false });
+}
+
 function discardDraft(id) {
   showConfirm('Discard this saved entry? This cannot be undone.', function(ok){
     if (!ok) return;
-    var drafts = loadDrafts().filter(function(d) { return d.id !== id; });
-    saveDrafts(drafts);
+    var all = loadDrafts();
+    var gone = null;
+    for (var i = 0; i < all.length; i++) { if (all[i].id === id) { gone = all[i]; break; } }
+    // A shared entry has a server copy that the next pull would re-add — the
+    // soft delete is what makes "discard" actually mean discard, here and on
+    // every other device.
+    if (gone && gone.shared) _syncDeleteRecord('qc_draft', id);
+    saveDrafts(all.filter(function(d) { return d.id !== id; }));
     checkDraftBanner();
   }, { okLabel: 'Discard' });
 }
