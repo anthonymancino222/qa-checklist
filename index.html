@@ -2448,6 +2448,19 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <div style="font-size:15px;font-weight:700;color:var(--green);">✅ <span data-en>In Production</span><span data-es>En Producción</span></div>
               <div style="font-size:14px;color:var(--green);margin-top:3px;"><span data-en>Tap Finish Job when the production run is complete.</span><span data-es>Toque Terminar Trabajo cuando la corrida de producción esté completa.</span></div>
             </div>
+            <!-- Job Summary for every NON-gluer station (die cutters, Kama,
+                 cutters, Vendor, non-Veritiv Packing). The gluer keeps its own
+                 copy further down, deliberately sitting right above "Final
+                 Quantity Produced" so Qty to Execute and the AQL box are next
+                 to the field they inform; the other stations have no such
+                 anchor, and a QA walking up to a running job wants the make
+                 ready photo and the numbers first. Populated by
+                 _renderProdSummary, which renders into exactly one container.
+                 Veritiv Packing uses cm-prod-summary-pk instead. -->
+            <div class="card" id="cm-prod-summary-top-card" style="margin:0;display:none;">
+              <div class="card-label"><span data-en>Job Summary</span><span data-es>Resumen del Trabajo</span></div>
+              <div id="cm-prod-summary-top"></div>
+            </div>
             <!-- Gluer Shift Handoff deep-link (hidden for non-gluer) — opens the
                  separate Shift Handoff app with Job#/Product#/Station/Pass/Qty
                  pre-filled, for high-volume gluer runs that span more than one
@@ -5900,6 +5913,14 @@ function openContinueModal(id) {
     // Show/reset Gluer finish-job questions
     var isGluerProd = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
     document.getElementById('cm-prod-gluer-qs').style.display = isGluerProd ? 'block' : 'none';
+    // Job Summary card for the stations that have no summary of their own —
+    // the gluer's lives inside cm-prod-gluer-qs and Veritiv Packing's inside
+    // cm-prod-veritiv-qs, so this covers everything else (die cutters, Kama,
+    // both cutters, Vendor, non-Veritiv Packing). Without it, a QA opening a
+    // running die-cutter job saw nothing but "In Production" and Finish Job.
+    var _isVeritivPk = (job.station === 'Packing' && job.customer === 'Veritiv');
+    var _topSumCard = document.getElementById('cm-prod-summary-top-card');
+    if (_topSumCard) _topSumCard.style.display = (!isGluerProd && !_isVeritivPk) ? 'block' : 'none';
     var _handoffCard = document.getElementById('cm-prod-gluer-handoff-card');
     if (_handoffCard) _handoffCard.style.display = isGluerProd ? 'block' : 'none';
     // QA Notes — one shared station for every station type now (previously
@@ -6033,7 +6054,7 @@ function openContinueModal(id) {
 
       var isPkHold = job.station === 'Packing' && job.customer === 'Veritiv';
       var _phEs = isEsLang();
-      var phSummary = document.getElementById('cm-prod-summary');
+      var phSummary = _prodStatusSummaryTarget();
       phSummary.innerHTML =
         '<div style="font-size:14px;line-height:1.9;margin-bottom:12px;">' +
           '<div><strong>' + (_phEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber) + '</div>' +
@@ -6107,7 +6128,7 @@ function openContinueModal(id) {
     if (_staleHoldCard2) _staleHoldCard2.remove();
 
     var _spEs = isEsLang();
-    var spSummary = document.getElementById('cm-prod-summary');
+    var spSummary = _prodStatusSummaryTarget();
     spSummary.innerHTML =
       '<div style="font-size:14px;line-height:1.9;margin-bottom:12px;">' +
         '<div><strong>' + (_spEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber) + '</div>' +
@@ -8944,11 +8965,39 @@ function _renderQaJobSummary(job) {
 // own function (rather than inline in openContinueModal) so editing Qty to
 // Execute can re-render it, AQL box included, without duplicating this
 // whole block.
+// Target for the status-style summaries the on_hold and 2nd_pass_ready
+// branches build (job info + a coloured "what happens next" box). Both used to
+// write into #cm-prod-summary, which lives inside #cm-prod-gluer-qs — a block
+// those same branches explicitly hide — so every word of it was invisible: a
+// partial-run or 2nd-pass-ready job showed no job details and no status at
+// all. Routing them at the always-visible top card fixes that, and showing the
+// card here is what stops it lingering with the previous job's summary after a
+// production job was opened first.
+function _prodStatusSummaryTarget() {
+  var card = document.getElementById('cm-prod-summary-top-card');
+  if (card) card.style.display = 'block';
+  var inFlow = document.getElementById('cm-prod-summary');
+  if (inFlow) inFlow.innerHTML = '';
+  var pk = document.getElementById('cm-prod-summary-pk');
+  if (pk) pk.innerHTML = '';
+  return document.getElementById('cm-prod-summary-top');
+}
+
 function _renderProdSummary(job) {
   var cmIsGluer = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
   var summary = document.getElementById('cm-prod-summary');
   var summaryPk = document.getElementById('cm-prod-summary-pk');
+  var summaryTop = document.getElementById('cm-prod-summary-top');
   var _prodSumEs = isEsLang();
+  // Exactly ONE container may hold the summary at a time. The markup below
+  // carries ids (cm-prod-station-row, cm-prod-qtyexec-input, …) that the DATA
+  // EDIT flows resolve with getElementById, so rendering it into two places
+  // would leave those edits reading and writing the wrong copy.
+  var _prodSumClear = function(keep) {
+    [summary, summaryPk, summaryTop].forEach(function(el){
+      if (el && el !== keep) el.innerHTML = '';
+    });
+  };
   if (job.station === 'Packing' && job.customer === 'Veritiv') {
     var _pkQtyLines = _jobQtySummaryLines(job);
     var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
@@ -8962,8 +9011,8 @@ function _renderProdSummary(job) {
       (job.first25Notes ? '<div><strong>' + (_prodSumEs?'Notas del Problema:':'Issue Notes:') + '</strong> ' + escHtml(job.first25Notes) + '</div>' : '') +
       '<div><strong>' + (_prodSumEs?'Iniciado:':'Started:') + '</strong> '     + escHtml(job.timestamp||'—')      + '</div>' +
       '</div>';
-    if (summary) summary.innerHTML = _pkHtml;
     if (summaryPk) summaryPk.innerHTML = _pkHtml;
+    _prodSumClear(summaryPk);
     renderVeritivSpotCheckLog(job.veritivSpotChecks || []);
   } else {
     var _summaryQty = 0;
@@ -8977,10 +9026,11 @@ function _renderProdSummary(job) {
     // below it and (b) is realistically off from what make-ready recorded
     // (the actual order changing after the job started running).
     var _qtyExecEditable = _dataEditMode && cmIsGluer && !_jobIsGluerFirstPass(job);
-    summary.innerHTML =
+    var _prodSumHtml =
       (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
+      '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer||'—')     + '</div>' +
       '<div id="cm-prod-station-row"><strong>' + (_prodSumEs?'Estación:':'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—') +
         (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-prod-station-row\',\'cm-prod-station-edit\')" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
       '</div>' +
@@ -9027,8 +9077,19 @@ function _renderProdSummary(job) {
       '</div>' : '') +
       '<div><strong>' + (_prodSumEs?'Cantidad Final Producida:':'Final Qty Produced:') + '</strong> ' + escHtml(_prodQtyLines.finalQty) + '</div>' +
       '<div><strong>' + (_prodSumEs?'Iniciado:':'Started:') + '</strong> '  + escHtml(job.timestamp||'—')   + '</div>' +
+      // What the operator wrote at make ready. Stored by Kama, both die
+      // cutters and the gluer, but never surfaced anywhere in this popup
+      // before — it's the one field that says what's actually going on with
+      // the run, which is the whole point of a second QA opening this.
+      (job.mrComments ? '<div style="margin-top:6px;"><strong>' + (_prodSumEs?'Notas de Preparación:':'Make Ready Notes:') + '</strong> ' + escHtml(job.mrComments) + '</div>' : '') +
       '</div>' +
       (cmIsGluer && _summaryQty ? '<div id="cm-prod-aql-box" style="margin-top:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px 16px;">' + _aqlHTML(getAQLInfo(_summaryQty)) + '</div>' : '<div id="cm-prod-aql-box"></div>');
+    // The gluer keeps its in-flow card (Qty to Execute + AQL sit directly
+    // above the Final Quantity field they inform); every other station gets
+    // the card at the top of the panel.
+    var _prodSumTarget = cmIsGluer ? summary : summaryTop;
+    if (_prodSumTarget) _prodSumTarget.innerHTML = _prodSumHtml;
+    _prodSumClear(_prodSumTarget);
   }
 }
 function _startEditQtyToExecute() {
