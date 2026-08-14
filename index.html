@@ -1559,8 +1559,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <span id="signed-in-user" style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;" title="Signed in with Google">👤 <span id="signed-in-user-name"></span></span>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     <button id="header-sync-btn" onclick="headerSyncNowClick()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
-    <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
-    <button onclick="clearAllJobs()" style="font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;border:1px solid var(--border-mid);color:var(--text-tertiary);background:transparent;cursor:pointer;" title="Testing only — wipes every job">Clear All (Testing)</button>
+    <!-- Hidden by default (the header sits outside the sign-in gate, so it's
+         visible even before anyone's signed in) — _applyDataEditVisibility(),
+         called from _onGoogleSignIn(), is what reveals this, and only for
+         DATA_EDIT_ALLOWED_EMAIL. -->
+    <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="display:none;font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
   </div>
 </header>
 
@@ -4002,6 +4005,13 @@ function toggleDataEditMode(onToggled){
     _updateHeaderDataEditBtn();
   }
   if (_dataEditMode) { _dataEditMode = false; apply(); return; }
+  // Belt-and-suspenders: the button that calls this is already hidden for
+  // everyone but DATA_EDIT_ALLOWED_EMAIL, so this only matters if that ever
+  // gets bypassed some other way.
+  if (!_isDataEditAllowedUser()) {
+    showAlert(isEs ? 'EDITAR DATOS está restringido a una cuenta específica.' : 'DATA EDIT is restricted to a specific account.');
+    return;
+  }
   showPasscodePrompt(isEs ? 'Se requiere un código para editar campos del trabajo.' : 'A passcode is required to edit job fields.', function(ok){
     if (!ok) return;
     _dataEditMode = true;
@@ -4586,6 +4596,24 @@ var GOOGLE_CLIENT_ID = '588376109764-m9ma8k76d5fttujgq0mq6u1oa6d0kblu.apps.googl
 var _googleIdToken = null;
 var _signedInUser = null; // { name, email } — cosmetic only, for the header
 
+// DATA EDIT changes station/operator/CAD/qty on live jobs and unlocks
+// deleting them outright — restricted to one specific signed-in account
+// rather than anyone who happens to know the passcode (which is sitting in
+// this same public page's source, same as GOOGLE_CLIENT_ID above, so it was
+// never real protection on its own).
+var DATA_EDIT_ALLOWED_EMAIL = 'anthony.mancino@moquinpress.com';
+function _isDataEditAllowedUser() {
+  return !!(_signedInUser && _signedInUser.email === DATA_EDIT_ALLOWED_EMAIL);
+}
+// Shows/hides the header DATA EDIT button by identity — called once right
+// after sign-in. The button defaults to hidden in the HTML itself (the
+// header sits outside the sign-in gate, so it's visible even before anyone's
+// signed in), so this only ever needs to reveal it, never hide it further.
+function _applyDataEditVisibility() {
+  var btn = document.getElementById('header-data-edit-btn');
+  if (btn) btn.style.display = _isDataEditAllowedUser() ? 'inline-block' : 'none';
+}
+
 // Every backend call merges this in. X-API-Key stays alongside the token
 // during the transition window described in the Worker's own comments —
 // remove it once everyone's confirmed on this sign-in flow.
@@ -4618,6 +4646,7 @@ function _onGoogleSignIn(response) {
     _signedInUser = { name: payload.name, email: payload.email };
     _renderSignedInUser();
   } catch (e) { /* cosmetic only — a decode failure here doesn't block anything */ }
+  _applyDataEditVisibility();
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
 }
 
@@ -4915,28 +4944,6 @@ function ipSave(jobs) {
   try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e) {}
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
   _syncPushAll('job', jobs);
-}
-function clearAllJobs() {
-  showPasscodePrompt(isEsLang() ? 'Se requiere un código para borrar datos.' : 'A passcode is required to clear data.', function(okCode){
-    if (!okCode) return;
-    showConfirm('Clear all jobs? This cannot be undone.', function(ok1){
-      if (!ok1) return;
-      showConfirm('Are you sure? All job data will be permanently deleted.', function(ok2){
-        if (!ok2) return;
-        // Clear all localStorage keys directly
-        localStorage.removeItem('moquin-qa-inprogress');
-        localStorage.removeItem('moquin-qa-drafts');
-        localStorage.removeItem('moquin-qa-draft'); // legacy single-draft key
-        // Reset in-memory state
-        _ipMem = []; _ipLoaded = true;
-        sessionLog = [];
-        renderBoard();
-        startNewJob();
-        checkDraftBanner();
-        if (typeof renderRecords === 'function') renderRecords();
-      }, { okLabel: 'Delete everything' });
-    }, { okLabel: 'Continue' });
-  });
 }
 function ipAdd(record) {
   var jobs = ipLoad();
@@ -5505,7 +5512,7 @@ function openContinueModal(id) {
   // below the fold) so it's the first thing visible when the popup opens —
   // only production/QA-release panels have editable summary fields.
   var dataEditBtn = document.getElementById('cm-data-edit-btn');
-  var dataEditShown = (job.process === 'production' || job.process === 'qa_pending' || job.process === 'qa_release');
+  var dataEditShown = (job.process === 'production' || job.process === 'qa_pending' || job.process === 'qa_release') && _isDataEditAllowedUser();
   if (dataEditBtn) {
     dataEditBtn.style.display = dataEditShown ? 'inline-block' : 'none';
     dataEditBtn.textContent = _dataEditMode ? (isEsLang()?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (isEsLang()?'✏️ EDITAR DATOS':'✏️ DATA EDIT');
