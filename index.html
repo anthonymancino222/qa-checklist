@@ -1556,7 +1556,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <button type="button" id="text-size-preset-btn" onclick="cyclePresetTextSize()" title="Tap to jump between 3 sizes: 100% / 130% / 200%" aria-label="Jump between 3 text sizes">100%</button>
       <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
     </div>
-    <span id="signed-in-user" style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;" title="Signed in with Google">👤 <span id="signed-in-user-name"></span></span>
+    <span id="signed-in-user" onclick="_signOutOfApp()" style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;" title="Tap to sign out">👤 <span id="signed-in-user-name"></span></span>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     <button id="header-sync-btn" onclick="headerSyncNowClick()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
     <!-- Hidden by default (the header sits outside the sign-in gate, so it's
@@ -4674,18 +4674,65 @@ function _initGoogleSignIn(attempt) {
   }
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
-    callback: _onGoogleSignIn
-    // auto_select deliberately OFF: this app runs on shared shop-floor
-    // tablets. Auto-selecting the last-used account would sign in whoever
-    // opens the tablet next AS the previous person — exactly wrong for the
-    // "who really did this" attribution this whole feature exists for.
-    // Everyone picks their own account, every time the page loads.
+    callback: _onGoogleSignIn,
+    // auto_select re-enabled on reconsideration: the original worry here was
+    // multiple different PEOPLE sharing one browser profile, where
+    // auto-selecting would silently sign in whoever opens the tablet next AS
+    // the previous person. The actual floor deployment isn't that — floor
+    // tablets all sign in as one shared docshare@moquinpress.com account, so
+    // there's no "wrong individual" to protect there, and admin accounts
+    // (Anthony, Mathias) use their own separate devices, not shared ones.
+    // auto_select only ever resumes whatever account was ALREADY used on
+    // THAT specific device — it can't grant a different device's identity.
+    auto_select: true
   });
   google.accounts.id.renderButton(document.getElementById('g_id_signin'), {
     theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: 280
   });
+  // Actively attempts a silent resume on load (rather than waiting for a
+  // click) — this is what makes a returning device skip the sign-in screen
+  // entirely as long as its browser still has that Google session.
+  google.accounts.id.prompt();
+  // ID tokens expire after ~1hr; a shift runs much longer than that while
+  // the tab stays open. Re-prompting well before expiry keeps _googleIdToken
+  // fresh silently, with no visible interruption, as long as the browser's
+  // own Google session is still valid.
+  setInterval(function() {
+    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+      google.accounts.id.prompt();
+    }
+  }, 45 * 60 * 1000);
 }
 _initGoogleSignIn();
+
+// Explicit "until they choose to log out" exit — disableAutoSelect() tells
+// Google Identity Services not to silently resume this account on the next
+// visit, so this genuinely signs out rather than just hiding the app for a
+// few seconds until the next auto-resume fires.
+function _signOutOfApp() {
+  // Confirmed, not instant — this is reachable by a single tap on a shared
+  // floor tablet signed in as docshare@moquinpress.com; an accidental tap
+  // shouldn't be able to kick a whole station out of the app mid-shift.
+  var isEs = isEsLang();
+  var who = (_signedInUser && (_signedInUser.name || _signedInUser.email)) || '';
+  showConfirm(
+    isEs ? ('¿Cerrar sesión de ' + who + '?') : ('Sign out of ' + who + '?'),
+    function(ok) {
+      if (!ok) return;
+      if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+        google.accounts.id.disableAutoSelect();
+      }
+      _googleIdToken = null;
+      _signedInUser = null;
+      _applyDataEditVisibility();
+      var appLayout = document.getElementById('appLayout');
+      if (appLayout) appLayout.style.display = 'none';
+      var overlay = document.getElementById('google-signin-overlay');
+      if (overlay) overlay.style.display = 'flex';
+    },
+    { okLabel: isEs ? 'Cerrar sesión' : 'Sign out' }
+  );
+}
 
 // Shown/hidden around every _uploadPhotoToDrive() call site — see
 // #qc-upload-overlay's own comment for why this exists. msg lets a
