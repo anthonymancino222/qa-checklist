@@ -1562,7 +1562,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <!-- Hidden by default (the header sits outside the sign-in gate, so it's
          visible even before anyone's signed in) — _applyDataEditVisibility(),
          called from _onGoogleSignIn(), is what reveals this, and only for
-         DATA_EDIT_ALLOWED_EMAIL. -->
+         an email in DATA_EDIT_ALLOWED_EMAILS. -->
     <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="display:none;font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
   </div>
 </header>
@@ -4006,8 +4006,8 @@ function toggleDataEditMode(onToggled){
   }
   if (_dataEditMode) { _dataEditMode = false; apply(); return; }
   // Belt-and-suspenders: the button that calls this is already hidden for
-  // everyone but DATA_EDIT_ALLOWED_EMAIL, so this only matters if that ever
-  // gets bypassed some other way.
+  // everyone not in DATA_EDIT_ALLOWED_EMAILS, so this only matters if that
+  // ever gets bypassed some other way.
   if (!_isDataEditAllowedUser()) {
     showAlert(isEs ? 'EDITAR DATOS está restringido a una cuenta específica.' : 'DATA EDIT is restricted to a specific account.');
     return;
@@ -4597,13 +4597,13 @@ var _googleIdToken = null;
 var _signedInUser = null; // { name, email } — cosmetic only, for the header
 
 // DATA EDIT changes station/operator/CAD/qty on live jobs and unlocks
-// deleting them outright — restricted to one specific signed-in account
-// rather than anyone who happens to know the passcode (which is sitting in
-// this same public page's source, same as GOOGLE_CLIENT_ID above, so it was
-// never real protection on its own).
-var DATA_EDIT_ALLOWED_EMAIL = 'anthony.mancino@moquinpress.com';
+// deleting them outright — restricted to specific signed-in accounts rather
+// than anyone who happens to know the passcode (which is sitting in this
+// same public page's source, same as GOOGLE_CLIENT_ID above, so it was never
+// real protection on its own).
+var DATA_EDIT_ALLOWED_EMAILS = ['anthony.mancino@moquinpress.com', 'mathias@moquinpress.com'];
 function _isDataEditAllowedUser() {
-  return !!(_signedInUser && _signedInUser.email === DATA_EDIT_ALLOWED_EMAIL);
+  return !!(_signedInUser && DATA_EDIT_ALLOWED_EMAILS.indexOf(_signedInUser.email) !== -1);
 }
 // Shows/hides the header DATA EDIT button by identity — called once right
 // after sign-in. The button defaults to hidden in the HTML itself (the
