@@ -1564,8 +1564,32 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
          called from _onGoogleSignIn(), is what reveals this, and only for
          an email in DATA_EDIT_ALLOWED_EMAILS. -->
     <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="display:none;font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
+    <!-- Same visibility gate as DATA EDIT, same reasoning — hidden by
+         default, _applyDataEditVisibility() reveals it only for an email in
+         DATA_EDIT_ALLOWED_EMAILS. Independent of _dataEditMode itself: this
+         isn't a per-field edit control, it's a standalone admin action. -->
+    <button id="header-deleted-items-btn" onclick="openDeletedItemsView()" style="display:none;font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
   </div>
 </header>
+
+<!-- Deleted-items admin view — reachable only via header-deleted-items-btn,
+     itself hidden unless _isDataEditAllowedUser(). Lists soft-deleted
+     job/NCR records (still sitting in D1, just flagged) with a Restore
+     button per item — the practical "undo a delete" this app was missing;
+     until now the only way to actually flip deleted back off was someone
+     hand-running a database query in the Cloudflare console. -->
+<div class="continue-overlay" id="deletedItemsOverlay" onclick="if(event.target===this)closeDeletedItemsView()">
+  <div class="continue-modal" style="max-width:640px;">
+    <div class="continue-modal-head">
+      <div style="font-size:17px;font-weight:800;">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></div>
+      <button class="continue-close" onclick="closeDeletedItemsView()">✕</button>
+    </div>
+    <div class="continue-modal-body">
+      <div style="font-size:13.5px;color:var(--text-secondary);margin-bottom:10px;"><span data-en>Deleted jobs and NCRs are never actually erased — restoring one just makes it visible again.</span><span data-es>Los trabajos y NCR eliminados nunca se borran realmente — restaurar uno solo lo hace visible de nuevo.</span></div>
+      <div id="deleted-items-list"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Layout — hidden until Google Sign-In succeeds (see google-signin-overlay
      above); shown by _onGoogleSignIn(). Not just cosmetic: this is what stops
@@ -4620,6 +4644,8 @@ function _isDataEditAllowedUser() {
 function _applyDataEditVisibility() {
   var btn = document.getElementById('header-data-edit-btn');
   if (btn) btn.style.display = _isDataEditAllowedUser() ? 'inline-block' : 'none';
+  var delBtn = document.getElementById('header-deleted-items-btn');
+  if (delBtn) delBtn.style.display = _isDataEditAllowedUser() ? 'inline-block' : 'none';
 }
 
 // Every backend call merges this in. X-API-Key stays alongside the token
@@ -5074,6 +5100,127 @@ function _logDataEditAuditThenDelete(type, id, label) {
     _deleteRecordById(type, id);
   });
 }
+
+/* ══════════════════════════════════
+   DELETED ITEMS (undo-delete)
+   Deletes here have always been soft — the data was never actually erased,
+   just hidden — but until now the only way to actually flip that flag back
+   was hand-running a database query in the Cloudflare console. This is the
+   button. Scoped to job + ncr: those are the two types a person actually
+   deletes through a UI button; ncr_draft is a pre-submission scratch state
+   (nothing lost that mattered), and rca isn't synced to the backend at all
+   yet, so there's no server-side "deleted" flag for it to undo.
+══════════════════════════════════ */
+var _deletedItemsCache = []; // [{ type, id, data, updatedAt }] — repopulated each time the view opens
+
+function openDeletedItemsView() {
+  // Belt-and-suspenders, same pattern as toggleDataEditMode() — the button
+  // that calls this is already hidden for everyone else.
+  if (!_isDataEditAllowedUser()) {
+    showAlert(isEsLang() ? 'Elementos Eliminados está restringido a una cuenta específica.' : 'Deleted Items is restricted to a specific account.');
+    return;
+  }
+  document.getElementById('deletedItemsOverlay').classList.add('open');
+  _loadAndRenderDeletedItems();
+}
+function closeDeletedItemsView() {
+  document.getElementById('deletedItemsOverlay').classList.remove('open');
+}
+
+function _loadAndRenderDeletedItems() {
+  var isEs = isEsLang();
+  var list = document.getElementById('deleted-items-list');
+  list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-tertiary);">' + (isEs?'Cargando…':'Loading…') + '</div>';
+
+  Promise.all([
+    fetch(QA_BACKEND_URL + '/records?type=job', { headers: _authHeaders() }).then(function(r){ return r.json(); }).then(function(j){ return (j.records||[]).map(function(r){ r.__recType = 'job'; return r; }); }).catch(function(){ return null; }),
+    fetch(QA_BACKEND_URL + '/records?type=ncr', { headers: _authHeaders() }).then(function(r){ return r.json(); }).then(function(j){ return (j.records||[]).map(function(r){ r.__recType = 'ncr'; return r; }); }).catch(function(){ return null; })
+  ]).then(function(results){
+    if (results[0] === null && results[1] === null) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);">' + (isEs?'No se pudo cargar. Verifique la conexión e intente de nuevo.':'Could not load. Check your connection and try again.') + '</div>';
+      return;
+    }
+    var all = [].concat(results[0]||[], results[1]||[]).filter(function(r){ return r.deleted; });
+    all.sort(function(a,b){ return (b.updatedAt||0) - (a.updatedAt||0); }); // most recently deleted first
+    _deletedItemsCache = all.map(function(r){ return { type: r.__recType, id: r.id, data: r.data, updatedAt: r.updatedAt }; });
+    _renderDeletedItemsList();
+  });
+}
+
+function _renderDeletedItemsList() {
+  var isEs = isEsLang();
+  var list = document.getElementById('deleted-items-list');
+  if (!_deletedItemsCache.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-tertiary);">' + (isEs?'Nada eliminado por ahora.':'Nothing deleted right now.') + '</div>';
+    return;
+  }
+  list.innerHTML = _deletedItemsCache.map(function(item, idx){
+    var d = item.data || {};
+    var isJob = item.type === 'job';
+    var title = isJob ? ((isEs?'Trabajo ':'Job ') + escHtml(d.jobNumber||'—')) : ((isEs?'NCR ' : 'NCR ') + escHtml(d.ncrId||item.id));
+    var sub = [d.station ? stationLabel(d.station) : null, d.customer || null].filter(Boolean).map(escHtml).join(' · ');
+    var when = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '—';
+    return '<div class="card" style="margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+      '<div>' +
+        '<div style="font-weight:700;font-size:14.5px;">' + title + '</div>' +
+        (sub ? '<div style="font-size:13px;color:var(--text-secondary);">' + sub + '</div>' : '') +
+        '<div style="font-size:12px;color:var(--text-tertiary);">' + (isEs?'Eliminado: ':'Deleted: ') + escHtml(when) + '</div>' +
+      '</div>' +
+      '<button class="btn-primary" style="width:auto;padding:8px 14px;min-height:0;white-space:nowrap;" onclick="restoreDeletedRecord(' + idx + ')">↩️ ' + (isEs?'Restaurar':'Restore') + '</button>' +
+    '</div>';
+  }).join('');
+}
+
+// idx indexes into _deletedItemsCache (populated fresh each time the view
+// opens) rather than passing type/id through the onclick string directly —
+// simpler escaping, and it's already the exact record we just fetched, no
+// need to re-look-up anything.
+function restoreDeletedRecord(idx) {
+  if (!_isDataEditAllowedUser()) {
+    showAlert(isEsLang() ? 'Elementos Eliminados está restringido a una cuenta específica.' : 'Deleted Items is restricted to a specific account.');
+    return;
+  }
+  var item = _deletedItemsCache[idx];
+  if (!item) return;
+  var isEs = isEsLang();
+  var label = item.type === 'job' ? ((isEs?'Trabajo ':'Job ') + (item.data.jobNumber||'—')) : ('NCR ' + (item.data.ncrId||item.id));
+
+  showConfirm(
+    isEs ? ('¿Restaurar ' + label + '?') : ('Restore ' + label + '?'),
+    function(ok) {
+      if (!ok) return;
+      var data = item.data;
+      // Jobs carry their own stageHistory — log the restore into it before
+      // pushing, same reasoning as every other DATA EDIT action: nothing
+      // recorded who did this before this feature existed.
+      if (item.type === 'job') {
+        data.stageHistory = _stageSnapshot(data.stageHistory, 'data_edit', 'DATA EDIT — Job Restored', {});
+      }
+      fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(item.id), {
+        method: 'PUT',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
+        body: JSON.stringify({ type: item.type, data: data })
+      }).then(function(res){
+        if (!res.ok) throw new Error('restore failed');
+        if (item.type === 'job') {
+          var jobs = ipLoad(); jobs.unshift(data); ipSave(jobs);
+          renderInProgress(); renderQARelease();
+        } else {
+          var ncrs = ncrLoad(); ncrs.unshift(data); ncrSave(ncrs);
+          if (typeof renderNCRView === 'function') renderNCRView();
+        }
+        if (typeof renderRecords === 'function') renderRecords();
+        _deletedItemsCache.splice(idx, 1);
+        _renderDeletedItemsList();
+        showToast(isEs ? '✓ Restaurado' : '✓ Restored', 'pass');
+      }).catch(function(){
+        showToast(isEs ? 'No se pudo restaurar — intente de nuevo.' : "Couldn't restore — try again.", 'fail');
+      });
+    },
+    { okLabel: isEs ? 'Restaurar' : 'Restore', danger: false }
+  );
+}
+
 function _getJobStageHistory(id) {
   var jobs = ipLoad();
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === id) return jobs[i].stageHistory || null; }
