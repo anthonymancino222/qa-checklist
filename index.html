@@ -1497,9 +1497,35 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .rca-pdf-field span{ font-size:14px; }
 .rca-pdf-photos{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 .rca-pdf-photos img{ width:140px; height:140px; object-fit:cover; border:1px solid #ddd; border-radius:6px; }
+
+/* Sign-in gate — the ONE overlay in this app with no dismiss/click-outside
+   handler, since unlike every other popup here, letting someone close this
+   without signing in would defeat the whole point of it. */
+#google-signin-overlay{position:fixed;inset:0;z-index:99999;background:var(--black,#0a0a0a);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;}
+.gsi-card{max-width:360px;width:100%;}
+.gsi-card .brand-name{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;}
+.gsi-card .gsi-sub{font-size:14.5px;color:#b9b9b9;line-height:1.5;margin-bottom:28px;}
+#g_id_signin{display:flex;justify-content:center;min-height:44px;}
+.gsi-fallback-note{font-size:12.5px;color:#8a8a8a;margin-top:18px;}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+
+<!-- Sign-in gate — shown until a real @moquinpress.com Google account signs
+     in; the Worker refuses every /records request without the token this
+     produces (see checkAuth() in the backend), so hiding the rest of the app
+     here isn't just cosmetic — it also stops anyone from reading whatever
+     job data a PREVIOUS person's shift already cached into this device's
+     localStorage, on a shared shop-floor tablet. -->
+<div id="google-signin-overlay">
+  <div class="gsi-card">
+    <div class="brand-name">Moquin Press · QA System</div>
+    <div class="gsi-sub">Sign in with your Moquin Google account to continue.</div>
+    <div id="g_id_signin"></div>
+    <div class="gsi-fallback-note" id="gsi-fallback-note" style="display:none;">Having trouble? Reload the page — the sign-in button sometimes needs a moment to load.</div>
+  </div>
+</div>
 
 <!-- Scanner overlay -->
 <div class="scanner-overlay" id="scanOverlay">
@@ -1530,6 +1556,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <button type="button" id="text-size-preset-btn" onclick="cyclePresetTextSize()" title="Tap to jump between 3 sizes: 100% / 130% / 200%" aria-label="Jump between 3 text sizes">100%</button>
       <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
     </div>
+    <span id="signed-in-user" style="font-size:12.5px;color:var(--text-tertiary);white-space:nowrap;" title="Signed in with Google"></span>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     <button id="header-sync-btn" onclick="headerSyncNowClick()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
     <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
@@ -1537,8 +1564,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   </div>
 </header>
 
-<!-- Layout -->
-<div class="layout">
+<!-- Layout — hidden until Google Sign-In succeeds (see google-signin-overlay
+     above); shown by _onGoogleSignIn(). Not just cosmetic: this is what stops
+     a shared tablet from displaying whatever job data a previous person's
+     shift already cached into localStorage before anyone signs in today. -->
+<div class="layout" id="appLayout" style="display:none;">
 
   <!-- Sidebar nav -->
   <nav class="sidebar" id="sidebar">
@@ -4542,6 +4572,84 @@ var QA_BACKEND_URL = 'https://qa-checklist-backend.anthony-mancino2.workers.dev'
 var QA_BACKEND_API_KEY = 'MoquinQA2026SecureKeyAlpha7';
 var SYNC_PENDING_KEY = 'moquin-qa-sync-pending';
 
+/* ══════════════════════════════════
+   GOOGLE SIGN-IN
+   Client IDs are meant to be public (unlike the key above) — safe to embed
+   here. The Worker is the only thing that actually verifies the token this
+   produces; nothing here should be treated as a security boundary on its
+   own, this is just where the token gets obtained.
+══════════════════════════════════ */
+var GOOGLE_CLIENT_ID = '588376109764-m9ma8k76d5fttujgq0mq6u1oa6d0kblu.apps.googleusercontent.com';
+// The signed-in ID token — kept in memory only, never localStorage. It's
+// only valid for about an hour; persisting a stale one would just turn into
+// a confusing 401 later instead of a clean re-prompt.
+var _googleIdToken = null;
+var _signedInUser = null; // { name, email } — cosmetic only, for the header
+
+// Every backend call merges this in. X-API-Key stays alongside the token
+// during the transition window described in the Worker's own comments —
+// remove it once everyone's confirmed on this sign-in flow.
+function _authHeaders() {
+  var h = { 'X-API-Key': QA_BACKEND_API_KEY };
+  if (_googleIdToken) h['Authorization'] = 'Bearer ' + _googleIdToken;
+  return h;
+}
+
+function _renderSignedInUser() {
+  var el = document.getElementById('signed-in-user');
+  if (el && _signedInUser) el.textContent = _signedInUser.name || _signedInUser.email || '';
+}
+
+// Fires once someone picks a Moquin account. Reveals the real app, decodes
+// the token's payload PURELY for the cosmetic "signed in as ___" header text
+// (this is NOT a verification step — the only verification that counts
+// happens server-side in the Worker's checkAuth(), against Google's own
+// signing keys), then kicks off the sync that used to run unconditionally at
+// the bottom of this script.
+function _onGoogleSignIn(response) {
+  _googleIdToken = response.credential;
+  var overlay = document.getElementById('google-signin-overlay');
+  if (overlay) overlay.style.display = 'none';
+  var appLayout = document.getElementById('appLayout');
+  if (appLayout) appLayout.style.display = 'flex';
+  try {
+    var payloadB64 = response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    var payload = JSON.parse(decodeURIComponent(escape(atob(payloadB64))));
+    _signedInUser = { name: payload.name, email: payload.email };
+    _renderSignedInUser();
+  } catch (e) { /* cosmetic only — a decode failure here doesn't block anything */ }
+  if (typeof _syncInitialPull === 'function') _syncInitialPull();
+}
+
+// google.accounts.id loads async (script tag has `defer`) — this polls
+// briefly rather than assuming load order, since a race here would mean the
+// sign-in button silently never appears.
+function _initGoogleSignIn(attempt) {
+  attempt = attempt || 0;
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+    if (attempt > 40) { // ~10s — give up quietly; the fallback note still shows
+      var note = document.getElementById('gsi-fallback-note');
+      if (note) note.style.display = 'block';
+      return;
+    }
+    setTimeout(function() { _initGoogleSignIn(attempt + 1); }, 250);
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: _onGoogleSignIn
+    // auto_select deliberately OFF: this app runs on shared shop-floor
+    // tablets. Auto-selecting the last-used account would sign in whoever
+    // opens the tablet next AS the previous person — exactly wrong for the
+    // "who really did this" attribution this whole feature exists for.
+    // Everyone picks their own account, every time the page loads.
+  });
+  google.accounts.id.renderButton(document.getElementById('g_id_signin'), {
+    theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'pill', width: 280
+  });
+}
+_initGoogleSignIn();
+
 // Shown/hidden around every _uploadPhotoToDrive() call site — see
 // #qc-upload-overlay's own comment for why this exists. msg lets a
 // multi-photo loop (Gluer, Bindery/Pressroom Cutter) show progress
@@ -4577,7 +4685,7 @@ function _uploadPhotoToDrive(dataUrl) {
 
   return fetch(QA_BACKEND_URL + '/photo', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': QA_BACKEND_API_KEY },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
     body: JSON.stringify({ filename: filename, mimeType: mimeType, dataBase64: base64 })
   })
     .then(function(resp) { return resp.ok ? resp.json() : null; })
@@ -4616,7 +4724,7 @@ function _syncPushAll(type, list) {
   _syncMarkPending(type, true);
   return fetch(QA_BACKEND_URL + '/records/bulk', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': QA_BACKEND_API_KEY },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
     body: JSON.stringify({ records: records })
   }).then(function(res){
     if (res.ok) _syncMarkPending(type, false);
@@ -4658,7 +4766,7 @@ function _syncDeleteRecord(type, id){
   if (!QA_BACKEND_URL || type === 'rca') return;
   fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(id), {
     method: 'DELETE',
-    headers: { 'X-API-Key': QA_BACKEND_API_KEY }
+    headers: _authHeaders()
   }).catch(function(){ /* offline — server copy stays until this succeeds some other time */ });
 }
 
@@ -4672,7 +4780,7 @@ function _syncDeleteRecord(type, id){
 function _syncPullAndMerge(type, currentList, saveFn) {
   if (!QA_BACKEND_URL) return;
   var idField = _syncIdField(type);
-  return fetch(QA_BACKEND_URL + '/records?type=' + type)
+  return fetch(QA_BACKEND_URL + '/records?type=' + type, { headers: _authHeaders() })
     .then(function(res){ return res.json(); })
     .then(function(json){
       var records = json.records || [];
@@ -4778,7 +4886,7 @@ function _syncShareDraft(draft) {
   if (!QA_BACKEND_URL) return Promise.resolve(false);
   return fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(draft.id), {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': QA_BACKEND_API_KEY },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
     body: JSON.stringify({ type: 'qc_draft', data: draft })
   })
     .then(function(res){ return !!res.ok; })
@@ -12293,8 +12401,10 @@ checkDraftBanner();
 // since it's normally refreshed by those views' own render functions.
 updateQAReleaseBadge();
 
-// Pull in anything created on another device since this one last loaded
-_syncInitialPull();
+// Pull in anything created on another device since this one last loaded —
+// now runs from _onGoogleSignIn() once someone's actually signed in, not
+// unconditionally here (there's nothing to sign into yet at this point in
+// page load).
 
 // Surface a recent load-tag scan (within the shift) so it can be
 // re-applied after a page reload or accidental form reset
