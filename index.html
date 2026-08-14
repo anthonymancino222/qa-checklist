@@ -1556,7 +1556,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <button type="button" id="text-size-preset-btn" onclick="cyclePresetTextSize()" title="Tap to jump between 3 sizes: 100% / 130% / 200%" aria-label="Jump between 3 text sizes">100%</button>
       <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
     </div>
-    <span id="signed-in-user" style="font-size:12.5px;color:var(--text-tertiary);white-space:nowrap;" title="Signed in with Google"></span>
+    <span id="signed-in-user" style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;" title="Signed in with Google">👤 <span id="signed-in-user-name"></span></span>
     <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     <button id="header-sync-btn" onclick="headerSyncNowClick()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
     <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
@@ -4596,7 +4596,7 @@ function _authHeaders() {
 }
 
 function _renderSignedInUser() {
-  var el = document.getElementById('signed-in-user');
+  var el = document.getElementById('signed-in-user-name');
   if (el && _signedInUser) el.textContent = _signedInUser.name || _signedInUser.email || '';
 }
 
