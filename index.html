@@ -4062,14 +4062,18 @@ function _findJobById(jobId){
 function _saveEditJobStation(jobId, prefix){
   var found = _findJobById(jobId); if (!found) return;
   var sel = document.getElementById(prefix + '-station-input');
+  var oldVal = found.job.station;
   found.job.station = sel.value;
+  _logDataEditAudit(found.job, 'DATA EDIT — Station changed: ' + (oldVal || '—') + ' → ' + sel.value);
   ipSave(found.jobs);
   if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
 }
 function _saveEditJobOperator(jobId, prefix){
   var found = _findJobById(jobId); if (!found) return;
   var input = document.getElementById(prefix + '-operator-input');
+  var oldVal = found.job.operatorName;
   found.job.operatorName = input.value.trim();
+  _logDataEditAudit(found.job, 'DATA EDIT — Operator changed: ' + (oldVal || '—') + ' → ' + found.job.operatorName);
   ipSave(found.jobs);
   if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
 }
@@ -4078,8 +4082,10 @@ function _saveEditJobCadStyle(jobId, prefix){
   var sel = document.getElementById(prefix + '-cad-input');
   if (!found.job.checklist) found.job.checklist = [];
   var entry = found.job.checklist.filter(function(x){ return x.id === 'gl-cad-style'; })[0];
+  var oldVal = entry ? entry.val : null;
   if (entry) entry.val = sel.value;
   else found.job.checklist.push({ id: 'gl-cad-style', val: sel.value });
+  _logDataEditAudit(found.job, 'DATA EDIT — CAD Style changed: ' + (oldVal || '—') + ' → ' + sel.value);
   ipSave(found.jobs);
   if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
 }
@@ -4088,7 +4094,9 @@ function _saveEditJobQtyExecQa(jobId, prefix){
   var input = document.getElementById(prefix + '-qtyexec-input');
   var newQty = _qtyClean(input.value);
   if (newQty <= 0) { showAlert(isEsLang() ? 'Ingrese una cantidad válida.' : 'Enter a valid quantity.'); return; }
+  var oldQty = _stationQtyToExecute(found.job);
   _setStationQtyToExecute(found.job, newQty);
+  _logDataEditAudit(found.job, 'DATA EDIT — Qty to Execute changed: ' + oldQty + ' → ' + newQty);
   ipSave(found.jobs);
   if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
 }
@@ -4943,7 +4951,10 @@ function ipSave(jobs) {
   _ipMem = jobs;
   try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e) {}
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
-  _syncPushAll('job', jobs);
+  // Returned (previously fire-and-forget) so a caller that needs the push to
+  // actually land before doing something else — e.g. deleting the very
+  // record it just audit-logged — can wait on it instead of racing it.
+  return _syncPushAll('job', jobs);
 }
 function ipAdd(record) {
   var jobs = ipLoad();
@@ -4982,8 +4993,39 @@ function _mergeChecklist(oldChecklist, newChecklist) {
 }
 function _stageSnapshot(existingHistory, stage, label, data) {
   var hist = existingHistory ? existingHistory.slice() : [];
-  hist.push({ stage: stage, label: label, ts: formatTS(), data: data });
+  // signedInAs records whoever was actually logged in when this stage was
+  // recorded — separate from any typed/picked operator name inside `data`,
+  // which stays the real "who did the work" for normal floor stages (see
+  // DATA_EDIT_ALLOWED_EMAILS' own comment for why these aren't the same
+  // thing). null on a shared floor login just means "an authorized device,
+  // no individual identity" — not a bug, just what a shared login can tell you.
+  hist.push({ stage: stage, label: label, ts: formatTS(), signedInAs: (_signedInUser ? _signedInUser.email : null), data: data });
   return hist;
+}
+// Every DATA EDIT change is gated to a named account (DATA_EDIT_ALLOWED_EMAILS)
+// — this is what actually writes that identity into the job's OWN history, so
+// "who changed this" is answerable later from the record itself. Nothing did
+// this before: edits and deletes had no audit trail at all, not even the
+// typed operator name floor stages get.
+function _logDataEditAudit(job, label) {
+  job.stageHistory = _stageSnapshot(job.stageHistory, 'data_edit', label, {});
+}
+// Deleting is the one DATA EDIT action with no job object left to update
+// afterward, so the audit entry has to be written and PUSHED to the server
+// before the delete request goes out — not after. Sequencing matters
+// specifically because the bulk-upsert endpoint clears `deleted` on
+// conflict: an audit push that arrived after the delete would resurrect the
+// very record it was trying to document.
+function _logDataEditAuditThenDelete(type, id, label) {
+  if (type !== 'job') { _deleteRecordById(type, id); return Promise.resolve(); }
+  var jobs = ipLoad();
+  var job = null;
+  for (var i = 0; i < jobs.length; i++) { if (String(jobs[i].id) === String(id)) { job = jobs[i]; break; } }
+  if (!job) { _deleteRecordById(type, id); return Promise.resolve(); }
+  _logDataEditAudit(job, label);
+  return Promise.resolve(ipSave(jobs)).catch(function(){}).then(function(){
+    _deleteRecordById(type, id);
+  });
 }
 function _getJobStageHistory(id) {
   var jobs = ipLoad();
@@ -5021,10 +5063,11 @@ function deleteIPJob(jobId) {
     isEs ? 'Esto eliminará este trabajo de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this job. This cannot be undone.',
     function(ok){
       if (!ok) return;
-      _deleteRecordById('job', jobId);
-      renderInProgress();
-      renderQARelease();
-      showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+      _logDataEditAuditThenDelete('job', jobId, 'DATA EDIT — Job Deleted').then(function(){
+        renderInProgress();
+        renderQARelease();
+        showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+      });
     },
     { okLabel: isEs ? 'Eliminar' : 'Delete' }
   );
@@ -9243,7 +9286,9 @@ function _saveEditQtyToExecute(jobId) {
   var job = null;
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === jobId) { job = jobs[i]; break; } }
   if (!job) return;
+  var oldQty = _stationQtyToExecute(job);
   _setStationQtyToExecute(job, newQty);
+  _logDataEditAudit(job, 'DATA EDIT — Qty to Execute changed: ' + oldQty + ' → ' + newQty);
   ipSave(jobs);
   _renderProdSummary(job); // re-renders both the qty line AND the AQL box, which reads the same source
 }
@@ -11144,12 +11189,13 @@ function _cmDeleteJob() {
         isEs ? 'Confirme una vez más — esto eliminará el trabajo de forma PERMANENTE.' : 'Please confirm one more time — this will PERMANENTLY delete the job.',
         function(ok2) {
           if (!ok2) return;
-          _deleteRecordById('job', jobId);
-          closeContinueModal();
-          renderInProgress();
-          renderQARelease();
-          renderShipping();
-          showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+          _logDataEditAuditThenDelete('job', jobId, 'DATA EDIT — Job Deleted').then(function(){
+            closeContinueModal();
+            renderInProgress();
+            renderQARelease();
+            renderShipping();
+            showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+          });
         },
         { okLabel: isEs ? 'Sí, Eliminar' : 'Yes, Delete' }
       );
@@ -11172,12 +11218,13 @@ function _shipDeleteJob() {
         isEs ? 'Confirme una vez más — esto eliminará el trabajo de forma PERMANENTE.' : 'Please confirm one more time — this will PERMANENTLY delete the job.',
         function(ok2) {
           if (!ok2) return;
-          _deleteRecordById('job', jobId);
-          closeShippingModal();
-          renderShipping();
-          renderInProgress();
-          renderQARelease();
-          showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+          _logDataEditAuditThenDelete('job', jobId, 'DATA EDIT — Job Deleted').then(function(){
+            closeShippingModal();
+            renderShipping();
+            renderInProgress();
+            renderQARelease();
+            showToast(isEs ? 'Trabajo eliminado' : 'Job deleted', 'pass');
+          });
         },
         { okLabel: isEs ? 'Sí, Eliminar' : 'Yes, Delete' }
       );
@@ -15857,9 +15904,10 @@ function deleteRecordEntry(type, id){
       isEs ? 'Esto eliminará este registro de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this record. This cannot be undone.',
       function(okConfirm){
         if (!okConfirm) return;
-        _deleteRecordById(type, id);
-        renderRecords();
-        showToast(isEs ? 'Registro eliminado' : 'Record deleted', 'pass');
+        _logDataEditAuditThenDelete(type, id, 'DATA EDIT — Record Deleted from Records').then(function(){
+          renderRecords();
+          showToast(isEs ? 'Registro eliminado' : 'Record deleted', 'pass');
+        });
       },
       { okLabel: isEs ? 'Eliminar' : 'Delete' }
     );
@@ -16230,7 +16278,12 @@ function _renderStageHistoryCard(entry){
     '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px;">' +
       '<div style="font-size:15px;font-weight:800;color:var(--text-primary);">' + escHtml(entry.label||'') + '</div>' +
       '<div style="font-size:13.5px;color:var(--text-tertiary);white-space:nowrap;">' + escHtml(entry.ts||'') + '</div>' +
-    '</div>';
+    '</div>' +
+    // Whoever was actually signed in when this stage was recorded — most
+    // meaningful for DATA EDIT entries (individually named accounts), but
+    // shown whenever present rather than special-cased, since a shared
+    // floor login is still real, accurate information about the entry.
+    (entry.signedInAs ? '<div style="font-size:12.5px;color:var(--text-tertiary);margin-bottom:8px;">' + (_shEs?'Sesión iniciada como: ':'Signed in as: ') + escHtml(entry.signedInAs) + '</div>' : '');
   Object.keys(d).forEach(function(k){
     if (special.indexOf(k) !== -1) return;
     var v = d[k];
