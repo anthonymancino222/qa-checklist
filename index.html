@@ -910,6 +910,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .records-nav-btn { padding: 14px 8px; font-size: 15px; font-weight: 800; border-radius: 10px; border: 2px solid var(--pink); background: #fff; color: var(--pink); cursor: pointer; }
 .records-nav-btn:hover, .records-nav-btn:active { background: var(--pink); color: #fff; }
 .records-back-btn { background: rgba(255,31,143,.08); color: var(--pink); border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; }
+
+/* Back-to-dashboard button on each QA sub-screen (NCR/NCR in Progress/
+   NCR Pie Chart/RCA/Records) — the QA dashboard's app-icon tiles are the
+   only other way in, and not everyone thinks to tap the sidebar icon again
+   to get back out, so every sub-screen gets an explicit way back. */
+.qa-back-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,31,143,.08); color: var(--pink); border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; -webkit-tap-highlight-color: transparent; }
+.qa-back-btn:hover, .qa-back-btn:active { background: var(--pink); color: #fff; }
 .jp-list-section-title:first-child { margin-top: 0; }
 
 /* QA dashboard — phone-home-screen-style app icons for the NCR/RCA/Records
@@ -3106,19 +3113,19 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       </div>
     </div>
     <div id="view-ncr" class="screen">
-      <div class="view-header"><div class="view-title"><span data-en>NCR</span><span data-es>RNC</span></div><div class="view-sub"><span data-en>Raise a nonconformance report</span><span data-es>Levantar un reporte de no conformidad</span></div></div>
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>NCR</span><span data-es>RNC</span></div><div class="view-sub"><span data-en>Raise a nonconformance report</span><span data-es>Levantar un reporte de no conformidad</span></div></div>
       <div id="ncr-body"></div>
     </div>
     <div id="view-ncrprog" class="screen">
-      <div class="view-header"><div class="view-title"><span data-en>NCR in Progress</span><span data-es>RNC en Progreso</span></div><div class="view-sub"><span data-en>Open / active NCRs</span><span data-es>RNC abiertos / activos</span></div></div>
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>NCR in Progress</span><span data-es>RNC en Progreso</span></div><div class="view-sub"><span data-en>Open / active NCRs</span><span data-es>RNC abiertos / activos</span></div></div>
       <div id="ncrprog-body"></div>
     </div>
     <div id="view-ncrpie" class="screen">
-      <div class="view-header"><div class="view-title"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></div><div class="view-sub"><span data-en>Analytics by station, status, customer, type</span><span data-es>Análisis por estación, estado, cliente, tipo</span></div></div>
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></div><div class="view-sub"><span data-en>Analytics by station, status, customer, type</span><span data-es>Análisis por estación, estado, cliente, tipo</span></div></div>
       <div id="ncrpie-body"></div>
     </div>
     <div id="view-rca" class="screen">
-      <div class="view-header"><div class="view-title"><span data-en>RCA</span><span data-es>ACR</span></div><div class="view-sub"><span data-en>Root cause analysis &amp; corrective action</span><span data-es>Análisis de causa raíz y acción correctiva</span></div></div><div class="rca-page-wrap">
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>RCA</span><span data-es>ACR</span></div><div class="view-sub"><span data-en>Root cause analysis &amp; corrective action</span><span data-es>Análisis de causa raíz y acción correctiva</span></div></div><div class="rca-page-wrap">
   <div class="toast" id="rca-toast"></div>
 
   <!-- Full-screen loading overlay for the ?mode=manager|closeout&token=...
@@ -3575,7 +3582,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 </div>
     </div>
     <div id="view-records" class="screen">
-      <div class="view-header"><div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div><div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div></div>
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div><div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div></div>
       <div style="padding:0 16px 24px;">
         <input type="text" id="records-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderRecords()" style="margin-bottom:14px;">
         <div id="records-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
