@@ -911,45 +911,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .records-nav-btn:hover, .records-nav-btn:active { background: var(--pink); color: #fff; }
 .records-back-btn { background: rgba(255,31,143,.08); color: var(--pink); border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; }
 .jp-list-section-title:first-child { margin-top: 0; }
-.bnav-alert-dot { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; display: none; }
 
-/* ── More sheet (mobile overflow nav) ── */
-.more-sheet-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.5); z-index: 9100;
-  align-items: flex-end;
-}
-.more-sheet-overlay.open { display: flex; }
-.more-sheet-panel {
-  background: var(--surface); border-radius: 16px 16px 0 0;
-  width: 100%; padding: 8px 14px calc(env(safe-area-inset-bottom, 12px) + 10px);
-}
-.more-sheet-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 4px 14px;
-}
-.more-sheet-title { font-size: 17px; font-weight: 800; color: var(--text-primary); }
-.more-sheet-close {
-  background: var(--bg); border: none; font-size: 20px; cursor: pointer;
-  color: var(--text-secondary); line-height: 1; padding: 8px 13px; border-radius: 8px;
-  -webkit-tap-highlight-color: transparent;
-}
-/* Redesigned so each row visibly reads as its own tappable button (border +
-   background + a trailing chevron), not just plain text with a divider
-   line — the divider-only look was too easy to mistake for non-interactive. */
-.more-sheet-item {
-  display: flex; align-items: center; gap: 14px;
-  padding: 16px 16px; margin-bottom: 8px;
-  border: 1.5px solid var(--border-mid); border-radius: 12px;
-  cursor: pointer; font-size: 17px; font-weight: 700;
-  color: var(--text-primary); background: var(--bg);
-  width: 100%; text-align: left; font-family: var(--font);
-  -webkit-tap-highlight-color: transparent;
-}
-.more-sheet-item:last-child { margin-bottom: 0; }
-.more-sheet-item:active { background: var(--pink-soft); border-color: var(--pink); }
-.more-sheet-item svg { flex-shrink: 0; color: var(--pink); width: 22px; height: 22px; }
-.more-sheet-item::after { content: '›'; margin-left: auto; font-size: 24px; font-weight: 700; color: var(--text-tertiary); }
+/* QA dashboard — phone-home-screen-style app icons for the NCR/RCA/Records
+   sub-apps that used to live in the sidebar/bottom-nav "More" overflow. */
+.qa-dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 22px; padding: 8px 16px 24px; max-width: 560px; }
+.qa-dash-icon { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.qa-dash-icon-tile { width: 64px; height: 64px; border-radius: 18px; display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.18); transition: transform .1s; }
+.qa-dash-icon-tile svg { width: 30px; height: 30px; }
+.qa-dash-icon:active .qa-dash-icon-tile { transform: scale(.92); }
+.qa-dash-icon-label { font-size: 13px; font-weight: 700; color: var(--text-primary); text-align: center; }
+.bnav-alert-dot { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; display: none; }
 
 /* ── Tablet (681–1023 px): sidebar always visible, same as desktop ──
    Previously slid off-canvas behind a hamburger button; now stays open
@@ -1616,27 +1587,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       </div>
     </div>
     <div class="nav-group">
-      <div class="nav-group-label"><span data-en>NCR</span><span data-es>RNC</span></div>
-      <div class="nav-item" id="nav-ncr" onclick="switchView('ncr')" title="NCR">
-        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><span class="nav-label"><span data-en>NCR</span><span data-es>RNC</span></span>
-      </div>
-      <div class="nav-item" id="nav-ncrprog" onclick="switchView('ncrprog')" title="NCR in Progress">
-        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span><span class="nav-label"><span data-en>NCR in Progress</span><span data-es>RNC en Progreso</span></span>
-      </div>
-      <div class="nav-item" id="nav-ncrpie" onclick="switchView('ncrpie')" title="NCR – Pie Chart">
-        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span><span class="nav-label"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></span>
-      </div>
-    </div>
-    <div class="nav-group">
-      <div class="nav-group-label"><span data-en>RCA</span><span data-es>ACR</span></div>
-      <div class="nav-item" id="nav-rca" onclick="switchView('rca')" title="RCA">
-        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span><span class="nav-label"><span data-en>RCA</span><span data-es>ACR</span></span>
-      </div>
-    </div>
-    <div class="nav-group">
-      <div class="nav-group-label"><span data-en>Records</span><span data-es>Registros</span></div>
-      <div class="nav-item" id="nav-records" onclick="switchView('records')" title="Records">
-        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span><span class="nav-label"><span data-en>Records</span><span data-es>Registros</span></span>
+      <div class="nav-group-label"><span data-en>QA</span><span data-es>Calidad</span></div>
+      <div class="nav-item" id="nav-qa" onclick="switchView('qa')" title="QA">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="nav-label"><span data-en>QA</span><span data-es>Calidad</span></span>
       </div>
     </div>
     <div class="nav-group">
@@ -3126,6 +3079,31 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         </div>
       </div>
       <div id="shipping-list" style="padding:0 16px 24px;"></div>
+    </div>
+    <div id="view-qa" class="screen">
+      <div class="view-header"><div class="view-title"><span data-en>QA</span><span data-es>Calidad</span></div><div class="view-sub"><span data-en>Nonconformance, root cause &amp; records</span><span data-es>No conformidades, causa raíz y registros</span></div></div>
+      <div class="qa-dash-grid">
+        <div class="qa-dash-icon" onclick="switchView('ncr')" title="NCR">
+          <div class="qa-dash-icon-tile" style="background:var(--red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>NCR</span><span data-es>RNC</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('ncrprog')" title="NCR in Progress">
+          <div class="qa-dash-icon-tile" style="background:var(--amber);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>NCR in Progress</span><span data-es>RNC en Progreso</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('ncrpie')" title="NCR – Pie Chart">
+          <div class="qa-dash-icon-tile" style="background:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('rca')" title="RCA">
+          <div class="qa-dash-icon-tile" style="background:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>RCA</span><span data-es>ACR</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('records')" title="Records">
+          <div class="qa-dash-icon-tile" style="background:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>Records</span><span data-es>Registros</span></span>
+        </div>
+      </div>
     </div>
     <div id="view-ncr" class="screen">
       <div class="view-header"><div class="view-title"><span data-en>NCR</span><span data-es>RNC</span></div><div class="view-sub"><span data-en>Raise a nonconformance report</span><span data-es>Levantar un reporte de no conformidad</span></div></div>
@@ -7990,9 +7968,15 @@ function filterFaq(){
 /* ══════════════════════════════════
    NAV
 ══════════════════════════════════ */
+// NCR/RCA/Records live inside the "QA" dashboard screen (app-icon tiles) —
+// this maps each of those sub-screens back to the "qa" tab so the sidebar
+// and bottom nav highlight QA as active while one of them is open.
+var QA_DASH_SUBVIEWS = { ncr: 'qa', ncrprog: 'qa', ncrpie: 'qa', rca: 'qa', records: 'qa' };
+
 function switchView(id) {
+  var navId = QA_DASH_SUBVIEWS[id] || id;
   document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
-  var ni = document.getElementById('nav-'+id);
+  var ni = document.getElementById('nav-'+navId);
   if (ni) ni.classList.add('active');
   document.querySelectorAll('#mainContent > .screen').forEach(function(s){ s.classList.remove('active'); });
   var v = document.getElementById('view-'+id);
@@ -8006,26 +7990,11 @@ function switchView(id) {
   if (id === 'rca')        rcaPopulatePrefill();
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    renderRecords();
-  // Sync bottom nav — primary tabs only; secondary tabs leave "More" active
-  var primaryTabs = ['qc','inprogress','qarelease','shipping'];
   document.querySelectorAll('.bnav-item').forEach(function(b){ b.classList.remove('active'); });
-  var bni = document.getElementById('bnav-'+id);
-  if (bni) { bni.classList.add('active'); }
-  else {
-    var moreBtn = document.getElementById('bnav-more');
-    if (moreBtn) moreBtn.classList.add('active');
-  }
+  var bni = document.getElementById('bnav-'+navId);
+  if (bni) bni.classList.add('active');
   _scrollMainToTop();
   closeSidebar();
-}
-
-function openMoreSheet() {
-  document.getElementById('moreSheetOverlay').classList.add('open');
-}
-function closeMoreSheet(e) {
-  if (!e || e.target === document.getElementById('moreSheetOverlay') || e.currentTarget === document.querySelector('.more-sheet-close')) {
-    document.getElementById('moreSheetOverlay').classList.remove('open');
-  }
 }
 
 /* Bilingual toggle — static markup app-wide uses [data-en]/[data-es] spans.
@@ -18299,46 +18268,16 @@ function handleLoadTagPhoto(input){
       </div>
       Shipping
     </button>
-    <button class="bnav-item" id="bnav-more" onclick="openMoreSheet()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
-      More
+    <button class="bnav-item" id="bnav-faq" onclick="switchView('faq')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Help
+    </button>
+    <button class="bnav-item" id="bnav-qa" onclick="switchView('qa')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      QA
     </button>
   </div>
 </nav>
-
-<!-- More sheet (mobile secondary nav) -->
-<div class="more-sheet-overlay" id="moreSheetOverlay" onclick="closeMoreSheet(event)">
-  <div class="more-sheet-panel">
-    <div class="more-sheet-header">
-      <span class="more-sheet-title">More</span>
-      <button class="more-sheet-close" onclick="closeMoreSheet()">✕</button>
-    </div>
-    <button class="more-sheet-item" onclick="switchView('ncr');closeMoreSheet()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      NCR
-    </button>
-    <button class="more-sheet-item" onclick="switchView('ncrprog');closeMoreSheet()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      NCR in Progress
-    </button>
-    <button class="more-sheet-item" onclick="switchView('ncrpie');closeMoreSheet()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-      NCR – Pie Chart
-    </button>
-    <button class="more-sheet-item" onclick="switchView('rca');closeMoreSheet()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      RCA
-    </button>
-    <button class="more-sheet-item" onclick="switchView('records');closeMoreSheet()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Records
-    </button>
-    <button class="more-sheet-item" onclick="switchView('faq');closeMoreSheet()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      Help / FAQ
-    </button>
-  </div>
-</div>
 
 <!-- Gluer batch picker sheet -->
 <div id="gluer-batch-sheet" class="batch-sheet-overlay" style="display:none;" onclick="closeGluerBatchSheet(event)">
