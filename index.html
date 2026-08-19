@@ -91,7 +91,21 @@ body {
 }
 .brand-co { font-size: 15px; letter-spacing: .2em; text-transform: uppercase; color: var(--lime); font-weight: 700; white-space: nowrap; }
 .brand-name { font-size: 18px; font-weight: 800; color: #fff; line-height: 1.1; white-space: nowrap; }
-.header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px; justify-content: flex-end; }
+.header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; row-gap: 10px; justify-content: flex-end; }
+/* Two visual groups instead of one undifferentiated row: "identity" stuff
+   (text size / who's signed in / language) vs. "actions" (sync + the
+   admin-only DATA EDIT / Deleted Items pair) — a thin divider between them
+   on desktop, a full stacked row each on mobile (see media query below). */
+.header-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px; }
+.header-group-actions { padding-left: 14px; border-left: 1px solid rgba(255,255,255,.15); }
+#signed-in-user { font-size: 13.5px; font-weight: 700; color: #fff; white-space: nowrap; cursor: pointer; }
+.header-pill-btn {
+  font-size: 13.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--pink); color: var(--pink); background: transparent;
+  cursor: pointer; letter-spacing: .04em; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
+}
+.header-pill-btn:hover, .header-pill-btn:active { background: var(--pink); color: #fff; }
 .text-size-ctrl {
   display: flex; align-items: center; gap: 6px;
 }
@@ -464,7 +478,7 @@ select.input { cursor: pointer; -webkit-appearance: menulist; appearance: auto; 
 .batch-sheet-panel { background:var(--card-bg); border-radius:16px 16px 0 0; width:100%; max-height:80vh; overflow-y:auto; padding-bottom:env(safe-area-inset-bottom,12px); }
 @media (max-width: 680px) {
   /* Clear the fixed bottom nav so no sheet rows are hidden under it */
-  .batch-sheet-panel { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  .batch-sheet-panel { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
   .batch-sheet-overlay { z-index: 9200; }
   .batch-sheet-row { padding: 14px 16px; min-height: 56px; }
 }
@@ -843,17 +857,24 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   border-top: 1px solid rgba(255,255,255,.1);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.bnav-row { display: flex; height: 56px; }
+.bnav-row { display: flex; height: 60px; }
 .bnav-item {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 3px;
   background: none; border: none; cursor: pointer;
-  color: rgba(255,255,255,.4); font-size: 14px; font-weight: 700;
-  font-family: var(--font); letter-spacing: .04em; padding: 0;
+  color: rgba(255,255,255,.4); font-weight: 700;
+  font-family: var(--font); letter-spacing: .02em; padding: 4px 2px;
   -webkit-tap-highlight-color: transparent; transition: color .12s;
-  min-width: 44px;
+  min-width: 44px; width: 0; /* with flex:1, forces equal columns instead of
+                                 growing past the row and crowding neighbors */
 }
 .bnav-item.active { color: var(--lime); }
+/* Label text — nowrap + ellipsis rather than wrapping to a 2nd line, which
+   used to run one tab's label into the next tab's icon/label at 6-across. */
+.bnav-label {
+  font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
 .bnav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
 .bnav-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
 .jp-prod-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: box-shadow .15s, transform .1s; }
@@ -946,18 +967,23 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   html, body { overflow-x: hidden; max-width: 100%; }
   .layout, .main { overflow-x: hidden; }
 
-  /* Header: compact */
-  .app-header { padding: 0 12px; }
+  /* Header: compact, and stacked instead of one row trying (and failing) to
+     fit brand + text-size + name + language + sync + admin buttons side by
+     side — each piece gets its own clearly-separated row, centered. */
+  .app-header { flex-direction: column; align-items: stretch; padding: 12px 14px; row-gap: 10px; }
   .brand-co { font-size: 14px; letter-spacing: .14em; }
   .brand-name { font-size: 15px; }
   .menu-btn { display: none !important; }
+  .header-right { width: 100%; justify-content: center; }
+  .header-group { width: 100%; justify-content: center; }
+  .header-group-actions { padding-left: 0; border-left: none; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.15); }
 
   /* Sidebar hidden entirely — replaced by bottom nav */
   .sidebar { display: none !important; }
 
   /* Main: full-width, padded above bottom nav */
   .main {
-    padding: 12px 12px calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+    padding: 12px 12px calc(60px + env(safe-area-inset-bottom, 0px) + 12px);
   }
 
   /* Bottom nav visible */
@@ -992,8 +1018,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   #ip-kanban-scroll-top { display: none; }
   .kanban-col { flex: none !important; width: 100% !important; min-height: 0 !important; }
 
-  /* Header clear-data button: compact but still readable */
-  .header-right > button { padding: 7px 10px !important; font-size: 15px !important; }
+  /* Header action buttons (sync / data edit / deleted items): compact but still readable */
+  .header-pill-btn, .lang-toggle-btn { padding: 7px 10px !important; font-size: 14px !important; }
 
   /* Text-size control: drop the label, shrink buttons so it fits the compact header */
   .text-size-ctrl-label { display: none; }
@@ -1048,7 +1074,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
   /* ── Continue modal: full-width, clear of bottom nav ── */
   .continue-overlay {
-    padding: 12px 10px calc(56px + env(safe-area-inset-bottom, 0px) + 12px);
+    padding: 12px 10px calc(60px + env(safe-area-inset-bottom, 0px) + 12px);
     align-items: flex-start;
   }
   .continue-modal { max-width: 100%; }
@@ -1528,25 +1554,29 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <div class="brand-name">QA System</div>
   </div>
   <div class="header-right">
-    <div class="text-size-ctrl" role="group" aria-label="Text size">
-      <span class="text-size-ctrl-label"><span data-en>Text size:</span><span data-es>Tamaño del texto:</span></span>
-      <button type="button" onclick="stepTextSize(-1)" title="Decrease text size" aria-label="Decrease text size">A−</button>
-      <button type="button" id="text-size-preset-btn" onclick="cyclePresetTextSize()" title="Tap to jump between 3 sizes: 100% / 130% / 200%" aria-label="Jump between 3 text sizes">100%</button>
-      <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
+    <div class="header-group header-group-identity">
+      <div class="text-size-ctrl" role="group" aria-label="Text size">
+        <span class="text-size-ctrl-label"><span data-en>Text size:</span><span data-es>Tamaño del texto:</span></span>
+        <button type="button" onclick="stepTextSize(-1)" title="Decrease text size" aria-label="Decrease text size">A−</button>
+        <button type="button" id="text-size-preset-btn" onclick="cyclePresetTextSize()" title="Tap to jump between 3 sizes: 100% / 130% / 200%" aria-label="Jump between 3 text sizes">100%</button>
+        <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
+      </div>
+      <span id="signed-in-user" onclick="_signOutOfApp()" title="Tap to sign out">👤 <span id="signed-in-user-name"></span></span>
+      <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     </div>
-    <span id="signed-in-user" onclick="_signOutOfApp()" style="font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;cursor:pointer;" title="Tap to sign out">👤 <span id="signed-in-user-name"></span></span>
-    <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
-    <button id="header-sync-btn" onclick="headerSyncNowClick()" style="font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
-    <!-- Hidden by default (the header sits outside the sign-in gate, so it's
-         visible even before anyone's signed in) — _applyDataEditVisibility(),
-         called from _onGoogleSignIn(), is what reveals this, and only for
-         an email in DATA_EDIT_ALLOWED_EMAILS. -->
-    <button id="header-data-edit-btn" onclick="toggleDataEditMode()" style="display:none;font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
-    <!-- Same visibility gate as DATA EDIT, same reasoning — hidden by
-         default, _applyDataEditVisibility() reveals it only for an email in
-         DATA_EDIT_ALLOWED_EMAILS. Independent of _dataEditMode itself: this
-         isn't a per-field edit control, it's a standalone admin action. -->
-    <button id="header-deleted-items-btn" onclick="openDeletedItemsView()" style="display:none;font-size:13.5px;font-weight:700;padding:4px 10px;border-radius:6px;border:1px solid var(--pink);color:var(--pink);background:transparent;cursor:pointer;letter-spacing:.04em;white-space:nowrap;" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
+    <div class="header-group header-group-actions">
+      <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
+      <!-- Hidden by default (the header sits outside the sign-in gate, so it's
+           visible even before anyone's signed in) — _applyDataEditVisibility(),
+           called from _onGoogleSignIn(), is what reveals this, and only for
+           an email in DATA_EDIT_ALLOWED_EMAILS. -->
+      <button id="header-data-edit-btn" class="header-pill-btn" onclick="toggleDataEditMode()" style="display:none;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
+      <!-- Same visibility gate as DATA EDIT, same reasoning — hidden by
+           default, _applyDataEditVisibility() reveals it only for an email in
+           DATA_EDIT_ALLOWED_EMAILS. Independent of _dataEditMode itself: this
+           isn't a per-field edit control, it's a standalone admin action. -->
+      <button id="header-deleted-items-btn" class="header-pill-btn" onclick="openDeletedItemsView()" style="display:none;" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
+    </div>
   </div>
 </header>
 
@@ -18255,33 +18285,33 @@ function handleLoadTagPhoto(input){
   <div class="bnav-row">
     <button class="bnav-item active" id="bnav-qc" onclick="switchView('qc')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-      QC
+      <span class="bnav-label">QC</span>
     </button>
     <button class="bnav-item" id="bnav-inprogress" onclick="switchView('inprogress')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
-      In Progress
+      <span class="bnav-label">Progress</span>
     </button>
     <button class="bnav-item" id="bnav-qarelease" onclick="switchView('qarelease')">
       <div class="bnav-icon-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
         <span class="bnav-alert-dot" id="qa-release-dot"></span>
       </div>
-      QA Release
+      <span class="bnav-label">Release</span>
     </button>
     <button class="bnav-item" id="bnav-shipping" onclick="switchView('shipping')">
       <div class="bnav-icon-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
         <span class="bnav-alert-dot" id="shipping-dot"></span>
       </div>
-      Shipping
+      <span class="bnav-label">Shipping</span>
     </button>
     <button class="bnav-item" id="bnav-faq" onclick="switchView('faq')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      Help
+      <span class="bnav-label">Help</span>
     </button>
     <button class="bnav-item" id="bnav-qa" onclick="switchView('qa')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-      QA
+      <span class="bnav-label">QA</span>
     </button>
   </div>
 </nav>
