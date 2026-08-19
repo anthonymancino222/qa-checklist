@@ -4637,11 +4637,81 @@ var SYNC_PENDING_KEY = 'moquin-qa-sync-pending';
    own, this is just where the token gets obtained.
 ══════════════════════════════════ */
 var GOOGLE_CLIENT_ID = '588376109764-m9ma8k76d5fttujgq0mq6u1oa6d0kblu.apps.googleusercontent.com';
-// The signed-in ID token — kept in memory only, never localStorage. It's
-// only valid for about an hour; persisting a stale one would just turn into
-// a confusing 401 later instead of a clean re-prompt.
+// The signed-in ID token itself is short-lived (~1hr) and never persisted on
+// its own — but WHETHER someone is considered "signed in" on this device is
+// now tracked separately in localStorage (see _LOCAL_SESSION_KEY below), so
+// the app doesn't depend on Google's own silent-resume ("One Tap") succeeding
+// on every single page load just to skip the sign-in screen. That silent
+// resume is unreliable in practice — a browser's own privacy settings, a
+// stale/expired Google browser session, or someone having dismissed the
+// One Tap prompt once in the past can all make it fail silently, which is
+// what was forcing a real re-sign-in far more often than intended.
 var _googleIdToken = null;
 var _signedInUser = null; // { name, email } — cosmetic only, for the header
+
+// ── Local "stay signed in" session ──────────────────────────────────────
+// A device is treated as signed in as long as this exists in localStorage
+// and its lastActivityAt is within the inactivity window below — same idea
+// as the AppSheet app people are used to, which never re-asked for a login
+// on a device that was still being used. Explicit sign-out clears this.
+var _LOCAL_SESSION_KEY = 'qa_local_session_v1';
+var _LOCAL_SESSION_MAX_INACTIVITY_MS = 12 * 60 * 60 * 1000; // 12 hours
+function _saveLocalSession(idToken) {
+  try {
+    localStorage.setItem(_LOCAL_SESSION_KEY, JSON.stringify({
+      name: _signedInUser && _signedInUser.name,
+      email: _signedInUser && _signedInUser.email,
+      idToken: idToken || null,
+      lastActivityAt: Date.now()
+    }));
+  } catch (e) { /* localStorage unavailable (private mode, quota) — just means this device won't stay signed in; not fatal */ }
+}
+function _readLocalSession() {
+  try {
+    var raw = localStorage.getItem(_LOCAL_SESSION_KEY);
+    if (!raw) return null;
+    var s = JSON.parse(raw);
+    if (!s || !s.email || !s.lastActivityAt) return null;
+    if (Date.now() - s.lastActivityAt > _LOCAL_SESSION_MAX_INACTIVITY_MS) return null; // expired — 12h+ untouched
+    return s;
+  } catch (e) { return null; }
+}
+function _clearLocalSession() {
+  try { localStorage.removeItem(_LOCAL_SESSION_KEY); } catch (e) {}
+}
+// Refreshes lastActivityAt so the 12h window is "since last use," not "since
+// login" — throttled to once/minute so real interactions don't spam writes.
+var _lastActivityTouch = 0;
+function _touchLocalSessionActivity() {
+  if (!_signedInUser) return;
+  var now = Date.now();
+  if (now - _lastActivityTouch < 60000) return;
+  _lastActivityTouch = now;
+  _saveLocalSession(_googleIdToken);
+}
+document.addEventListener('click', _touchLocalSessionActivity, { passive: true });
+document.addEventListener('keydown', _touchLocalSessionActivity, { passive: true });
+document.addEventListener('touchstart', _touchLocalSessionActivity, { passive: true });
+// Runs before Google's own script has necessarily loaded — deliberately not
+// dependent on it. If a valid local session exists, skip the sign-in screen
+// immediately; _initGoogleSignIn()'s own silent-resume attempt (below) still
+// runs afterward on a best-effort basis to refresh a real Google ID token in
+// the background, but its failure no longer bounces the user back to a
+// manual sign-in prompt they have to click through every time.
+function _tryRestoreLocalSession() {
+  var s = _readLocalSession();
+  if (!s) return false;
+  _signedInUser = { name: s.name, email: s.email };
+  _googleIdToken = s.idToken || null;
+  var overlay = document.getElementById('google-signin-overlay');
+  if (overlay) overlay.style.display = 'none';
+  var appLayout = document.getElementById('appLayout');
+  if (appLayout) appLayout.style.display = 'flex';
+  _renderSignedInUser();
+  _applyDataEditVisibility();
+  if (typeof _syncInitialPull === 'function') _syncInitialPull();
+  return true;
+}
 
 // DATA EDIT changes station/operator/CAD/qty on live jobs and unlocks
 // deleting them outright — restricted to specific signed-in accounts rather
@@ -4696,6 +4766,12 @@ function _onGoogleSignIn(response) {
     _renderSignedInUser();
   } catch (e) { /* cosmetic only — a decode failure here doesn't block anything */ }
   _applyDataEditVisibility();
+  // Establishes (or refreshes) this device's local "stay signed in" session —
+  // see _saveLocalSession() above. From this point on, reopening/reloading
+  // the app on this device skips the sign-in screen entirely as long as it's
+  // used again within the 12h inactivity window, regardless of whether
+  // Google's own silent one-tap resume succeeds on that later visit.
+  _saveLocalSession(_googleIdToken);
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
 }
 
@@ -4744,6 +4820,12 @@ function _initGoogleSignIn(attempt) {
     }
   }, 45 * 60 * 1000);
 }
+// Restore this device's local session FIRST (skips the sign-in screen
+// immediately if one's still valid, with no dependency on Google at all),
+// then kick off Google's own init/silent-resume — which still runs either
+// way, both to handle a device with no local session yet and to refresh a
+// real ID token in the background for one that was just restored.
+_tryRestoreLocalSession();
 _initGoogleSignIn();
 
 // Explicit "until they choose to log out" exit — disableAutoSelect() tells
@@ -4763,6 +4845,7 @@ function _signOutOfApp() {
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
         google.accounts.id.disableAutoSelect();
       }
+      _clearLocalSession();
       _googleIdToken = null;
       _signedInUser = null;
       _applyDataEditVisibility();
