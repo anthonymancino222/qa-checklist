@@ -79,6 +79,14 @@ A **"🗑️ Deleted Items"** header button (`#header-deleted-items-btn`, next t
 - `restoreDeletedRecord(idx)` confirms, then `PUT`s the record's own data back (clearing `deleted` server-side), adds it back into the in-memory `ipLoad()`/`ncrLoad()` list, and — for jobs only, since NCRs have no `stageHistory` — writes a "Job Restored" entry via `_stageSnapshot()` so the restore itself is audited (who, when), same reasoning as every other DATA EDIT action.
 - **Tested against the live backend**: confirmed the button/action are both independently blocked for a non-allowed signed-in account (verified via the overlay's actual open/closed state, not leftover dialog text), confirmed only genuinely-deleted records appear and in the right order, and confirmed a full delete→restore round trip via the real Cloudflare Worker brings a record back with its data and stage history intact.
 
+## QA dashboard (nav consolidation)
+
+The sidebar/bottom-nav were consolidated down to 6 top-level tabs: **QC Approval, Job in Progress, QA Release, Shipping Approval, Help/FAQ, QA**. The last one, `#view-qa`, is a phone-home-screen-style grid of app icons (`.qa-dash-grid`/`.qa-dash-icon`) for **NCR, NCR in Progress, NCR – Pie Chart, RCA, Records** — clicking a tile just calls the same `switchView('ncr')` etc. those sections always used, so none of their underlying functionality changed.
+
+- `QA_DASH_SUBVIEWS` (in `switchView()`) maps each of those five sub-screens back to `'qa'` so the sidebar nav-item and bottom-nav tab both highlight **QA** as active while one of them is open, even though the visible screen (`#view-ncr`, `#view-rca`, …) is its own thing.
+- The mobile bottom nav's old "More" overflow sheet (`#moreSheetOverlay`, `openMoreSheet()`/`closeMoreSheet()`) is gone entirely — replaced by making Help/FAQ and QA direct bottom-nav tabs, since 6 tabs fit a phone width fine without an overflow menu.
+- Only nav/routing changed — no screen's own rendering, data, or backend calls were touched.
+
 ## Workflow — who pushes what
 
 The user has granted standing permission for Claude to directly execute deploys in this project — push to GitHub, deploy/edit the Cloudflare Worker, edit the Apps Script backend — without asking each time. This has been the actual working pattern across multiple sessions: Claude runs `git add`/`commit`/`push` directly via PowerShell, and edits/deploys the Worker through a connected Cloudflare dashboard browser tab. **Permission is granted broadly; what actually blocks Claude is capability, not permission** — three distinct kinds of block have been confirmed, and none of them can be talked past by the user saying "you have permission":
