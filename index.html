@@ -4465,7 +4465,7 @@ var CHECKLIST_PACKING_VERITIV_QA = [
   { id:'pk-aql',       name:['AQL Sampling Requirements','Requisitos de Muestreo AQL'],   type:'aql',      req:true },
   { id:'pk-qty',       name:['Qty to Execute (by packer)','Cantidad a Ejecutar (por empacador)'],  type:'qty',      onchange:'checkPackingQty' },
   { id:'pk-final-qty', name:['Final Quantity Produced','Cantidad Final Producida'],      type:'qty',      onchange:'checkPackingQty' },
-  { id:'pk-shortage',  name:['Shortage','Faltante'],                     type:'shortage'                             },
+  { id:'pk-shortage',  name:['Shortage','Faltante'],                     type:'packing-shortage'                     },
   { id:'pk-sample-sz', name:['Sample Size','Tamaño de Muestra'],                  type:'qty'                                  },
   { id:'pk-rejected',  name:['Rejected Samples','Muestras Rechazadas'],             type:'yesno',    req:true, invertYesNo:true  },
   { id:'pk-mq-sample', name:['Moquin Sample','Muestra Moquin'],                type:'yesno',    req:true                    },
@@ -6760,10 +6760,14 @@ function _sendGlrNotifyEmail(job, glrReleaseNotes) {
   var stateLabel = isShort
     ? (isEs ? 'Trabajo Corto' : 'Job Short')
     : (isEs ? 'No Alcanzó Sobrantes' : 'Did Not Make Overs');
-  var subj = 'QA Alert — ' + stateLabel + ' — Job ' + job.jobNumber + (job.productNumber ? (' — Product ' + job.productNumber) : '');
+  // Veritiv Packing jobs store the product under job.product, not
+  // job.productNumber (which every Gluer job uses) — check both so this
+  // stays accurate for whichever station's release actually called it.
+  var _notifyProductNum = job.productNumber || job.product;
+  var subj = 'QA Alert — ' + stateLabel + ' — Job ' + job.jobNumber + (_notifyProductNum ? (' — Product ' + _notifyProductNum) : '');
   var lines = [
     (isEs ? 'TRABAJO #: '   : 'JOB #: ')     + job.jobNumber,
-    (isEs ? 'PRODUCTO #: '  : 'PRODUCT #: ') + (job.productNumber || '—'),
+    (isEs ? 'PRODUCTO #: '  : 'PRODUCT #: ') + (_notifyProductNum || '—'),
     (isEs ? 'ESTACIÓN: '    : 'STATION: ')   + (job.station || '—'),
     '',
     (isEs ? 'PROBLEMA: ' : 'ISSUE: ') + stateLabel
@@ -6817,7 +6821,7 @@ function approveStartProduction() {
     } else if (item.type === 'select') {
       var sEl = wrap.querySelector('select');
       result = sEl ? sEl.value : '';
-    } else if (item.type === 'shortage') {
+    } else if (item.type === 'shortage' || item.type === 'packing-shortage') {
       if (wrap.style.display !== 'none') {
         var lbl  = document.getElementById('cmqa-shortage-label');
         var rv   = getShortageReasons('cmqa');
@@ -7060,6 +7064,36 @@ function approveStartProduction() {
       var glrNoOvers = _glrReasonPickerValues('cmqa-glr-why-no-overs', 'cmqa-glr-notify-no-overs');
       if (!glrNoOvers.reasons.length || !glrNoOvers.notify.length) { showAlert(_glrRelEs ? 'El trabajo no alcanzó la meta de sobrantes — elija un motivo y a quién notificar antes de liberar.' : 'Job did not make the overs target — pick a reason and who to notify before releasing.'); _scrollToField(glrNoOversSection); return; }
       glrReleaseNotes = { state: 'no_overs', reasons: glrNoOvers.reasons, notify: glrNoOvers.notify };
+    }
+  }
+
+  // Standard Veritiv Packing release — same short/no-overs reason + notify
+  // requirement as the Gluer release above, reusing the same
+  // packing-shortage checklist item (#cmqa-ci-pk-shortage) that already
+  // computes/display the isShort vs isLow label via checkPackingQty().
+  // Stored in the SAME glrReleaseNotes slot as Gluer's (naming aside, that
+  // field/its Records display are both fully generic — see job.glrReleaseNotes
+  // usage in the Records "Job Summary" card) since isVeritiv and
+  // isGluerRelease can never both be true for the same job.
+  if (isVeritiv) {
+    var _pkRelEs = isEsLang();
+    var pkShortWrap = document.getElementById('cmqa-ci-pk-shortage');
+    if (pkShortWrap && pkShortWrap.style.display !== 'none') {
+      var _pkQtyEl      = document.getElementById('cmqa-val-pk-qty');
+      var _pkFinalQtyEl = document.getElementById('cmqa-val-pk-final-qty');
+      var _pkOrderedQty = _pkQtyEl ? (parseInt(_pkQtyEl.value) || 0) : 0;
+      var _pkFinalQty   = _pkFinalQtyEl ? (parseInt(_pkFinalQtyEl.value) || 0) : 0;
+      var _pkIsShort    = _pkFinalQty < _pkOrderedQty;
+      var pkReasons = getShortageReasonsArray('cmqa');
+      var pkNotify  = getPackingShortageNotify('cmqa');
+      if (!pkReasons.length || !pkNotify.length) { showAlert(_pkRelEs ? 'El trabajo está corto — elija un motivo y a quién notificar antes de liberar.' : 'Job is short — pick a reason and who to notify before releasing.'); _scrollToField(pkShortWrap); return; }
+      if (_pkIsShort) {
+        var _pkQtyShort = _pkOrderedQty - _pkFinalQty;
+        var _pkShortPct = _pkOrderedQty > 0 ? Math.round((_pkQtyShort / _pkOrderedQty) * 100) : 0;
+        glrReleaseNotes = { state: 'short', reasons: pkReasons, notify: pkNotify, qtyShort: _pkQtyShort, shortPct: _pkShortPct };
+      } else {
+        glrReleaseNotes = { state: 'no_overs', reasons: pkReasons, notify: pkNotify };
+      }
     }
   }
 
@@ -10221,6 +10255,46 @@ function buildChecklistItem(item, prefix) {
     return div;
   }
 
+  // Same reason checkboxes as plain 'shortage' above, plus a "who should be
+  // notified" picker underneath — used only by CHECKLIST_PACKING_VERITIV_QA
+  // (the QA-release-time checklist, prefix always 'cmqa'), since that's the
+  // one release path that actually requires and emails a notify list before
+  // letting the job through (mirrors the Gluer release's gluer-shortage
+  // type). The plain ships-direct Packing checklist keeps the simpler
+  // reason-only 'shortage' type above — no release gate to hang a
+  // requirement on there.
+  if (type === 'packing-shortage') {
+    div.style.display = 'none';
+    var pkShortageOpts = ['Printing','Die Cut','Kama','Gluer','Vendor','Other'];
+    var pkNotifyRows = GLR_NOTIFY_OPTIONS.map(function(o) {
+      var eid = prefix + '-pk-notify-' + o.name.replace(/\s+/g, '-');
+      return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;background:rgba(0,0,0,.03);border:1px solid transparent;" onclick="this.style.background=this.querySelector(\'input\').checked?\'rgba(220,38,127,.15)\':\'rgba(0,0,0,.03)\';this.style.borderColor=this.querySelector(\'input\').checked?\'var(--pink)\':\'transparent\';">' +
+        '<input type="checkbox" id="'+eid+'" value="'+escHtml(o.name)+'" data-email="'+escHtml(o.email)+'" style="width:18px;height:18px;accent-color:var(--pink);cursor:pointer;flex-shrink:0;">' +
+        '<span>'+escHtml(o.name)+(o.email?' <span style="color:var(--text-tertiary);font-weight:400;font-size:12.5px;">('+escHtml(o.email)+')</span>':'')+'</span>' +
+      '</label>';
+    }).join('');
+    div.innerHTML =
+      '<div style="padding:4px 0;">' +
+        '<div class="ci-name" id="'+prefix+'-shortage-label" style="color:var(--red);font-weight:700;margin-bottom:10px;"></div>' +
+        '<div id="'+prefix+'-shortage-checks" style="display:flex;flex-direction:column;gap:4px;">' +
+          pkShortageOpts.map(function(o){
+            var eid = prefix+'-sr-'+o.replace(/\s+/g,'-');
+            var oLabel = SHORTAGE_REASON_LABELS[o] ? SHORTAGE_REASON_LABELS[o][isEs?1:0] : o;
+            return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;background:rgba(220,38,38,.04);border:1px solid transparent;transition:background .12s;">' +
+              '<input type="checkbox" id="'+eid+'" value="'+escHtml(o)+'" onchange="handleShortageReason(\''+prefix+'\');this.closest(\'label\').style.background=this.checked?\'rgba(220,38,38,.12)\':\' rgba(220,38,38,.04)\';this.closest(\'label\').style.borderColor=this.checked?\'var(--red)\':\' transparent\';" style="width:18px;height:18px;accent-color:var(--red);cursor:pointer;flex-shrink:0;">' +
+              escHtml(oLabel) +
+            '</label>';
+          }).join('') +
+        '</div>' +
+        '<textarea class="input" id="'+prefix+'-shortage-other" placeholder="' + (isEs ? 'Describa el problema…' : 'Describe the issue…') + '" style="margin-top:8px;display:none;resize:vertical;min-height:60px;"></textarea>' +
+        '<div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-mid);">' +
+          '<div class="card-label" style="margin-bottom:6px;font-size:13.5px;">' + (isEs ? '¿A quién se debe notificar?' : 'Who should be Notified?') + ' <span style="color:var(--red)">*</span></div>' +
+          '<div style="display:flex;flex-direction:column;gap:2px;" id="'+prefix+'-pk-notify">' + pkNotifyRows + '</div>' +
+        '</div>' +
+      '</div>';
+    return div;
+  }
+
   // data-name-en/es let a language toggle relabel this in place later
   // (see _relabelAllChecklistItems) without rebuilding the checklist DOM —
   // a rebuild would wipe whatever the operator/QA tech has already answered.
@@ -10578,12 +10652,15 @@ function checkPackingQty() {
       if (isShort) labelEl.textContent = 'Job is Short — What caused the shortage?';
       else if (isLow) labelEl.textContent = 'Did not make ' + oversPct + '% overs — What caused this?';
     }
-    // Reset reason when section becomes hidden
+    // Reset reason (and, for the QA-release packing-shortage variant, the
+    // notify picker) when the section becomes hidden
     if (!isShort && !isLow) {
       var sChecks = document.querySelectorAll('#'+pfx+'-shortage-checks input');
       sChecks.forEach(function(c){ c.checked = false; c.closest('label').style.background='rgba(220,38,38,.04)'; c.closest('label').style.borderColor='transparent'; });
       var rOth = document.getElementById(pfx+'-shortage-other');
       if (rOth) { rOth.value = ''; rOth.style.display = 'none'; }
+      var nChecks = document.querySelectorAll('#'+pfx+'-pk-notify input');
+      nChecks.forEach(function(c){ c.checked = false; c.closest('label').style.background='rgba(0,0,0,.03)'; c.closest('label').style.borderColor='transparent'; });
     }
     updateAQLDisplay(pfx);
   });
@@ -10763,6 +10840,26 @@ function getShortageReasons(prefix) {
     if (otherText.trim()) reasons[otherIdx] = otherText.trim();
   }
   return reasons.join(', ');
+}
+// Same reason checkboxes as getShortageReasons(), but returns an array
+// rather than a joined string — needed for the Packing QA release's
+// releaseNotes.reasons, which (like the Gluer release's) is read as an
+// array by the shared Records "Job Summary" display.
+function getShortageReasonsArray(prefix) {
+  var checks = document.querySelectorAll('#'+prefix+'-shortage-checks input:checked');
+  var reasons = Array.prototype.map.call(checks, function(c){ return c.value; });
+  var otherIdx = reasons.indexOf('Other');
+  if (otherIdx !== -1) {
+    var otherText = (document.getElementById(prefix+'-shortage-other')||{}).value || '';
+    if (otherText.trim()) reasons[otherIdx] = otherText.trim();
+  }
+  return reasons;
+}
+// Reads the "Who should be Notified?" picker rendered by the
+// 'packing-shortage' checklist item type.
+function getPackingShortageNotify(prefix) {
+  var checks = document.querySelectorAll('#'+prefix+'-pk-notify input:checked');
+  return Array.prototype.map.call(checks, function(c){ return c.value; });
 }
 
 function getChecklistValues(prefix) {
