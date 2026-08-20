@@ -92,6 +92,14 @@ The sidebar/bottom-nav were consolidated down to 6 top-level tabs: **QC Approval
 - The mobile bottom nav's old "More" overflow sheet (`#moreSheetOverlay`, `openMoreSheet()`/`closeMoreSheet()`) is gone entirely — replaced by making Help/FAQ and QA direct bottom-nav tabs, since 6 tabs fit a phone width fine without an overflow menu.
 - Only nav/routing changed — no screen's own rendering, data, or backend calls were touched.
 
+## Packing shortage "who to notify" (Veritiv QA release)
+
+The Long/Short Gluer QA release has always required picking a shortage reason AND who to notify before releasing a short/no-overs job (opens a pre-filled Gmail draft via `_sendGlrNotifyEmail`) — Packing's equivalent "Job is Short" checklist item never got the notify half, just reason checkboxes. Fixed for the **Veritiv Packing QA release** specifically (the one gated screen this actually applies to):
+
+- `CHECKLIST_PACKING_VERITIV_QA`'s `pk-shortage` item is now `type: 'packing-shortage'` (was `'shortage'`) — a new `buildChecklistItem()` case that renders the same reason checkboxes as plain `'shortage'` plus a `GLR_NOTIFY_OPTIONS` "Who should be Notified?" picker underneath (`#<prefix>-pk-notify`). `checkPackingQty()` resets both when the section hides. `getShortageReasonsArray()`/`getPackingShortageNotify()` read them back.
+- The plain ships-direct `CHECKLIST_PACKING` (regular Packing, `submitJob()`) keeps the original reason-only `'shortage'` type untouched — there's no release gate on that path to hang a requirement on, so it wasn't touched.
+- `approveStartProduction()`'s `isVeritiv` branch now computes reasons/notify/qtyShort/shortPct into the **same `glrReleaseNotes` variable/field** the Gluer path already uses (naming aside, it and its Records "Job Summary" display are fully generic — reused as-is, zero changes needed there) — blocks release with the same "pick a reason and who to notify" alert if either is empty, and the existing `_sendGlrNotifyEmail(appJob, glrReleaseNotes)` call at the bottom already fires for Packing too. That function was generalized to read `job.product` as a fallback (Veritiv Packing jobs use that field, not `job.productNumber` like Gluer jobs) so the email's Product line isn't blank.
+
 ## Workflow — who pushes what
 
 The user has granted standing permission for Claude to directly execute deploys in this project — push to GitHub, deploy/edit the Cloudflare Worker, edit the Apps Script backend — without asking each time. This has been the actual working pattern across multiple sessions: Claude runs `git add`/`commit`/`push` directly via PowerShell, and edits/deploys the Worker through a connected Cloudflare dashboard browser tab. **Permission is granted broadly; what actually blocks Claude is capability, not permission** — three distinct kinds of block have been confirmed, and none of them can be talked past by the user saying "you have permission":
