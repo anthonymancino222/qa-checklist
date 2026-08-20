@@ -265,6 +265,15 @@ body.sidebar-expanded .nav-status {
   color: var(--green); pointer-events: none;
 }
 select.input { cursor: pointer; -webkit-appearance: menulist; appearance: auto; }
+/* Station "other station…" dropdown — was visually identical whether a
+   real station was picked from it (e.g. Packing) or it was still on the
+   unselected placeholder, unlike the row of station buttons above it which
+   go solid pink when picked. This gives the dropdown the same unmistakable
+   "picked" signal once a value comes from it rather than from a button. */
+select.input.station-select-picked {
+  background: var(--pink-soft); border-color: var(--pink);
+  color: var(--pink-dark); font-weight: 700;
+}
 
 
 .input-row { display: flex; gap: 8px; }
@@ -11801,6 +11810,8 @@ function startNewJob() {
   _safeStyle('banner-sig-text', 'display', 'inline');
   _safeSet('setup-station', 'value', '');
   document.querySelectorAll('#setup-station-btns .tgl').forEach(function(b){ b.classList.remove('sel'); });
+  var stationSelEl = document.getElementById('setup-station');
+  if (stationSelEl) stationSelEl.classList.remove('station-select-picked');
   _safeSet('setup-customer', 'value', '');
   _safeSet('customer-search', 'value', '');
   _safeStyle('customer-other-wrap', 'display', 'none');
@@ -12480,9 +12491,17 @@ function _syncStationBtns(station) {
   // the English and Spanish spans concatenated (e.g. "New Die
   // CutterTroqueladora Nueva"), so text matching silently broke once the
   // buttons became bilingual.
+  var matchedBtn = false;
   group.querySelectorAll('.tgl').forEach(function(b){
-    b.classList.toggle('sel', b.dataset.station === station);
+    var isMatch = b.dataset.station === station;
+    if (isMatch) matchedBtn = true;
+    b.classList.toggle('sel', isMatch);
   });
+  // The dropdown only needs its own "picked" highlight when the current
+  // station came from IT, not from one of the buttons above (which already
+  // have their own unmistakable solid-pink selected state).
+  var sel = document.getElementById('setup-station');
+  if (sel) sel.classList.toggle('station-select-picked', !matchedBtn && !!station);
 }
 
 function onStationChange(station) {
