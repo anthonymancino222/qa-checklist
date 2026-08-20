@@ -1566,22 +1566,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     </div>
     <div class="header-group header-group-actions">
       <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
-      <!-- Hidden by default (the header sits outside the sign-in gate, so it's
-           visible even before anyone's signed in) — _applyDataEditVisibility(),
-           called from _onGoogleSignIn(), is what reveals this, and only for
-           an email in DATA_EDIT_ALLOWED_EMAILS. -->
-      <button id="header-data-edit-btn" class="header-pill-btn" onclick="toggleDataEditMode()" style="display:none;" title="Show edit pencils on job fields (passcode required)">DATA EDIT</button>
-      <!-- Same visibility gate as DATA EDIT, same reasoning — hidden by
-           default, _applyDataEditVisibility() reveals it only for an email in
-           DATA_EDIT_ALLOWED_EMAILS. Independent of _dataEditMode itself: this
-           isn't a per-field edit control, it's a standalone admin action. -->
-      <button id="header-deleted-items-btn" class="header-pill-btn" onclick="openDeletedItemsView()" style="display:none;" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
     </div>
   </div>
 </header>
 
-<!-- Deleted-items admin view — reachable only via header-deleted-items-btn,
-     itself hidden unless _isDataEditAllowedUser(). Lists soft-deleted
+<!-- Deleted-items admin view — reachable only via the QA Manager screen
+     (view-qamanager, itself only reachable via the QA dashboard's QA Manager
+     tile, both hidden unless _isDataEditAllowedUser()). Lists soft-deleted
      job/NCR records (still sitting in D1, just flagged) with a Restore
      button per item — the practical "undo a delete" this app was missing;
      until now the only way to actually flip deleted back off was someone
@@ -3140,6 +3131,29 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="qa-dash-icon-tile" style="background:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
           <span class="qa-dash-icon-label"><span data-en>Records</span><span data-es>Registros</span></span>
         </div>
+        <!-- Hidden by default — a blank grid slot for anyone not in
+             DATA_EDIT_ALLOWED_EMAILS. _applyDataEditVisibility() is the only
+             thing that ever reveals it, same gate as DATA EDIT/Deleted Items
+             always used (those two now LIVE inside this tile's screen,
+             relocated out of the header — see view-qamanager below). -->
+        <div class="qa-dash-icon" id="qa-dash-manager-tile" style="display:none;" onclick="switchView('qamanager')" title="QA Manager">
+          <div class="qa-dash-icon-tile" style="background:var(--black);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>QA Manager</span><span data-es>Gerente de Calidad</span></span>
+        </div>
+      </div>
+    </div>
+    <!-- QA Manager — the DATA EDIT and Deleted Items admin actions, relocated
+         here from the header. Reachable only via the qa-dash-manager-tile
+         above (itself hidden unless _isDataEditAllowedUser()), and the body
+         below re-checks that same gate on every visit — so navigating here
+         directly (e.g. via the console) as anyone else renders a blank
+         screen, not a bypass. toggleDataEditMode()/openDeletedItemsView()
+         each independently re-check it too, same as before the move. -->
+    <div id="view-qamanager" class="screen">
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>QA Manager</span><span data-es>Gerente de Calidad</span></div><div class="view-sub"><span data-en>Admin tools — only visible to Anthony and Mathias</span><span data-es>Herramientas de administración — solo visibles para Anthony y Mathias</span></div></div>
+      <div id="qamanager-body" style="display:none;padding:0 16px 24px;flex-direction:column;gap:12px;max-width:420px;">
+        <button id="qamgr-data-edit-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="toggleDataEditMode()" title="Show edit pencils on job fields (passcode required)">✏️ DATA EDIT</button>
+        <button id="qamgr-deleted-items-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openDeletedItemsView()" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
       </div>
     </div>
     <div id="view-ncr" class="screen">
@@ -4058,8 +4072,8 @@ function toggleDataEditMode(onToggled){
   });
 }
 function _updateHeaderDataEditBtn(){
-  var btn = document.getElementById('header-data-edit-btn');
-  if (btn) btn.textContent = _dataEditMode ? (isEsLang() ? '🔒 Salir de Edición' : '🔒 Exit Edit Mode') : 'DATA EDIT';
+  var btn = document.getElementById('qamgr-data-edit-btn');
+  if (btn) btn.textContent = _dataEditMode ? (isEsLang() ? '🔒 Salir de Edición' : '🔒 Exit Edit Mode') : '✏️ DATA EDIT';
   // Keeps every per-modal Delete Job button in sync with the header toggle,
   // regardless of which popup (if any) happens to be open when DATA EDIT
   // gets flipped on/off — so deletion is available from every process stage
@@ -4723,14 +4737,28 @@ function _isDataEditAllowedUser() {
   return !!(_signedInUser && DATA_EDIT_ALLOWED_EMAILS.indexOf(_signedInUser.email) !== -1);
 }
 // Shows/hides the header DATA EDIT button by identity — called once right
-// after sign-in. The button defaults to hidden in the HTML itself (the
-// header sits outside the sign-in gate, so it's visible even before anyone's
-// signed in), so this only ever needs to reveal it, never hide it further.
+// after sign-in. Everything it reveals defaults to hidden in the HTML itself
+// (the header/QA dashboard sit outside the sign-in gate, so they're present
+// in the DOM even before anyone's signed in), so this only ever needs to
+// reveal them, never hide further — except qamanager-body, which also needs
+// to go back to hidden if a *different*, non-allowed account signs in on the
+// same device without a full page reload in between.
 function _applyDataEditVisibility() {
-  var btn = document.getElementById('header-data-edit-btn');
-  if (btn) btn.style.display = _isDataEditAllowedUser() ? 'inline-block' : 'none';
-  var delBtn = document.getElementById('header-deleted-items-btn');
-  if (delBtn) delBtn.style.display = _isDataEditAllowedUser() ? 'inline-block' : 'none';
+  var allowed = _isDataEditAllowedUser();
+  var tile = document.getElementById('qa-dash-manager-tile');
+  if (tile) tile.style.display = allowed ? '' : 'none';
+  _renderQaManagerAccess();
+}
+// Shows/hides the actual DATA EDIT / Deleted Items buttons inside the QA
+// Manager screen — separate from the dashboard tile above so a non-allowed
+// account that reaches view-qamanager some other way (e.g. typing
+// switchView('qamanager') in the console) still just sees a blank screen
+// below the title, not the admin buttons. Called both from
+// _applyDataEditVisibility() (identity changes) and from switchView()
+// (every time the qamanager screen itself is opened).
+function _renderQaManagerAccess() {
+  var body = document.getElementById('qamanager-body');
+  if (body) body.style.display = _isDataEditAllowedUser() ? 'flex' : 'none';
 }
 
 // Every backend call merges this in. X-API-Key stays alongside the token
@@ -8091,7 +8119,7 @@ function filterFaq(){
 // NCR/RCA/Records live inside the "QA" dashboard screen (app-icon tiles) —
 // this maps each of those sub-screens back to the "qa" tab so the sidebar
 // and bottom nav highlight QA as active while one of them is open.
-var QA_DASH_SUBVIEWS = { ncr: 'qa', ncrprog: 'qa', ncrpie: 'qa', rca: 'qa', records: 'qa' };
+var QA_DASH_SUBVIEWS = { ncr: 'qa', ncrprog: 'qa', ncrpie: 'qa', rca: 'qa', records: 'qa', qamanager: 'qa' };
 
 function switchView(id) {
   var navId = QA_DASH_SUBVIEWS[id] || id;
@@ -8110,6 +8138,7 @@ function switchView(id) {
   if (id === 'rca')        rcaPopulatePrefill();
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    renderRecords();
+  if (id === 'qamanager')  _renderQaManagerAccess();
   document.querySelectorAll('.bnav-item').forEach(function(b){ b.classList.remove('active'); });
   var bni = document.getElementById('bnav-'+navId);
   if (bni) bni.classList.add('active');
