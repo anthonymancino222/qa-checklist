@@ -12736,6 +12736,24 @@ function _applyScheduleJobHint(jobNumber) {
 // since an explicit pick should win. With no chosenProduct (the typed-search
 // dropdown path), a single-product job still auto-fills, but never
 // overwrites a value someone already typed.
+//
+// The "Product ID" field is NOT the same element for every station —
+// Kama and Die Cutter each have their own single "Form ID" field, Gluer
+// builds its own numbered gluer-product-0/1/2… fields (via
+// renderGluerProductFields(), one per "count" — freshly reset to a single
+// field when the station is first picked, which is always the moment this
+// runs), and only the plain stations (Bindery Cutter, Pressroom Cutter,
+// Packing, Samples, Vendor) actually use the generic #setup-product field.
+// Missing this was the bug: every prefill was silently writing into
+// #setup-product even when picking a Gluer/DC/Kama job, where that field
+// exists in the DOM but is hidden and never read on submit.
+function _productFieldIdForStation(station) {
+  if (station === 'New Die Cutter' || station === 'Old Die Cutter') return 'dc-form-number';
+  if (station === 'Kama Foil Press') return 'kama-form-number';
+  if (station === 'Long Gluer' || station === 'Short Gluer') return 'gluer-product-0';
+  return 'setup-product';
+}
+
 function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
   var entry = _scheduleData && _scheduleData.jobs[jobNumber];
   if (!entry) return;
@@ -12747,7 +12765,8 @@ function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
   }
   var product = chosenProduct || (entry.products.length === 1 ? entry.products[0] : null);
   if (product) {
-    var productEl = document.getElementById('setup-product');
+    var station = document.getElementById('setup-station').value;
+    var productEl = document.getElementById(_productFieldIdForStation(station));
     if (productEl && (chosenProduct || !productEl.value)) productEl.value = product;
   }
 }
