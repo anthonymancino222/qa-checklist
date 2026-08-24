@@ -12757,15 +12757,18 @@ function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
    (see _maybeOpenJobPicker, wired into selectStationBtn/onStationDropdownChange
    below), so the common path never requires typing a job number at all. */
 var STATION_TO_SCHEDULE_SHEETS = {
-  'New Die Cutter': ['DieCutter'],
-  'Old Die Cutter': ['DieCutter'],
-  'Long Gluer':     ['FolderGluer'],
-  'Short Gluer':    ['FolderGluer'],
-  // Every other station (Bindery Cutter, Pressroom Cutter, Kama Foil Press,
-  // Packing, Samples, Vendor) has no entry here — this schedule export only
-  // covers Gluer/Die Cutter/Label Cutter machines, so there's no reliable
-  // way to filter those stations' jobs out of the list. Showing everything
-  // unfiltered beats hiding jobs that might actually belong to that station.
+  'New Die Cutter':   ['DieCutter'],
+  'Old Die Cutter':   ['DieCutter'],
+  'Long Gluer':       ['FolderGluer'],
+  'Short Gluer':      ['FolderGluer'],
+  'Bindery Cutter':   ['LabelCutter'],
+  'Pressroom Cutter': ['LabelCutter'],
+  // No distinction made between New/Old Die Cutter, Long/Short Gluer, or
+  // Bindery/Pressroom Cutter — confirmed with Anthony that showing every job
+  // for the shared machine type is fine; only Kama Foil Press, Packing,
+  // Samples, and Vendor have no entry here (this schedule export doesn't
+  // cover those stations at all), so those fall back to showing every
+  // pulled job unfiltered rather than hiding ones that might belong there.
 };
 
 var _jobPickerStation = null;
