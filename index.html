@@ -1700,9 +1700,10 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           </div>
           <div class="field">
             <div class="field-label"><span data-en>Job number</span><span data-es>Número de trabajo</span> <span class="req">*</span></div>
-            <div class="input-row">
+            <div class="input-row" style="position:relative;">
               <input id="setup-job" class="input" type="text" inputmode="numeric"
-                     placeholder="Type or scan" data-ph-en="Type or scan" data-ph-es="Escriba o escanee" autocomplete="off">
+                     placeholder="Type or scan" data-ph-en="Type or scan" data-ph-es="Escriba o escanee" autocomplete="off"
+                     oninput="filterJobSchedule()" onfocus="openJobDrop()" onblur="scheduleCloseJobDrop()">
               <button class="scan-btn" onclick="openScanner('setup-job','digits','Job number')" title="Scan printed number or barcode">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
@@ -1711,7 +1712,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
                   <line x1="13" y1="10" x2="13" y2="14"/><line x1="16" y1="8" x2="16" y2="16"/>
                 </svg>
               </button>
+              <div class="customer-drop" id="job-drop" style="display:none;"></div>
             </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+              <button type="button" class="header-pill-btn" onclick="pullScheduleNow()" id="pull-schedule-btn">
+                🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span>
+              </button>
+              <span id="schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
+            </div>
+            <div id="job-schedule-hint" style="font-size:13px;color:var(--text-secondary);margin-top:4px;display:none;"></div>
           </div>
           <div class="field">
             <div class="field-label"><span data-en>Station</span><span data-es>Estación</span> <span class="req">*</span></div>
@@ -12524,6 +12533,133 @@ function selectCustomerOther() {
   document.getElementById('customer-other-input').focus();
   customerDropOpen = false;
   if (document.getElementById('setup-station').value === 'Packing') onPackingCustomerChange('');
+}
+
+/* ══════════════════════════════════
+   SCHEDULE BRIDGE (job/customer/product/die autocomplete)
+   Anthony manually exports the CERM job schedule to Excel and drops it in a
+   Shared Drive folder — the app never talks to CERM directly (standing
+   rule). GET /admin/schedule-pull reads the newest file there and returns
+   { jobNumber: {customer, products, dieNumbers} }. Deliberately a manual
+   "Pull Schedule" button for now, not an automatic background fetch, per
+   how this was first scoped — see CLAUDE.md if that changes.
+   Cached in memory only (not localStorage) — it's a live snapshot of
+   in-progress jobs, not something that should look "current" after being
+   stale for days if the app was just reopened.
+══════════════════════════════════ */
+var _scheduleData = null; // { jobs: {...}, fetchedAt, sourceFile }
+var jobDropOpen = false;
+var closeJobDropTimer = null;
+
+function pullScheduleNow() {
+  var btn = document.getElementById('pull-schedule-btn');
+  var status = document.getElementById('schedule-pull-status');
+  if (btn) btn.disabled = true;
+  if (status) { status.textContent = 'Pulling…'; status.style.color = 'var(--text-tertiary)'; }
+
+  fetch(QA_BACKEND_URL + '/admin/schedule-pull', { headers: _authHeaders() })
+    .then(function(res) { if (!res.ok) return res.json().then(function(e){ throw new Error(e.error || ('HTTP ' + res.status)); }); return res.json(); })
+    .then(function(data) {
+      _scheduleData = data;
+      if (status) {
+        status.style.color = 'var(--text-tertiary)';
+        status.textContent = 'Loaded ' + data.jobCount + ' jobs from ' + data.sourceFile;
+      }
+      // Re-filter immediately in case they'd already typed something while it loaded
+      if (document.activeElement && document.activeElement.id === 'setup-job') filterJobSchedule();
+    })
+    .catch(function(err) {
+      if (status) { status.style.color = 'var(--red)'; status.textContent = 'Pull failed: ' + err.message; }
+    })
+    .finally(function() { if (btn) btn.disabled = false; });
+}
+
+function renderJobDrop(matches) {
+  var drop = document.getElementById('job-drop');
+  drop.innerHTML = '';
+  if (!matches.length) {
+    drop.innerHTML = '<div class="cust-no-results">No matches</div>';
+    drop.style.display = 'block';
+    return;
+  }
+  matches.forEach(function(m) {
+    var d = document.createElement('div');
+    d.className = 'cust-opt';
+    var sub = [m.entry.customer, m.entry.products.slice(0,2).join(', ')].filter(Boolean).join(' — ');
+    d.innerHTML = '<div>' + m.jobNumber + '</div>' + (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + sub + '</div>' : '');
+    d.onmousedown = function(e) { e.preventDefault(); selectScheduleJob(m.jobNumber); };
+    drop.appendChild(d);
+  });
+  drop.style.display = 'block';
+}
+
+function filterJobSchedule() {
+  var jobEl = document.getElementById('setup-job');
+  var q = jobEl.value.trim();
+  _applyScheduleJobHint(q); // keep the hint line in sync even without opening the dropdown
+  if (!_scheduleData || !q) { document.getElementById('job-drop').style.display = 'none'; return; }
+  var matches = [];
+  for (var jobNumber in _scheduleData.jobs) {
+    if (jobNumber.indexOf(q) === 0) matches.push({ jobNumber: jobNumber, entry: _scheduleData.jobs[jobNumber] });
+    if (matches.length >= 8) break;
+  }
+  renderJobDrop(matches);
+  jobDropOpen = true;
+}
+
+function openJobDrop() {
+  clearTimeout(closeJobDropTimer);
+  if (document.getElementById('setup-job').value.trim()) filterJobSchedule();
+}
+
+function scheduleCloseJobDrop() {
+  closeJobDropTimer = setTimeout(function() {
+    document.getElementById('job-drop').style.display = 'none';
+    jobDropOpen = false;
+  }, 200);
+}
+
+function selectScheduleJob(jobNumber) {
+  var jobEl = document.getElementById('setup-job');
+  jobEl.value = jobNumber;
+  jobEl.dispatchEvent(new Event('input', { bubbles: true }));
+  document.getElementById('job-drop').style.display = 'none';
+  jobDropOpen = false;
+  _applyScheduleJobPrefill(jobNumber);
+}
+
+// Shows what the schedule knows about a typed/selected job — always shown
+// (even mid-type, even if the customer/product fields aren't visible yet
+// because no station is picked) so the info isn't hidden from view.
+function _applyScheduleJobHint(jobNumber) {
+  var hint = document.getElementById('job-schedule-hint');
+  var entry = _scheduleData && _scheduleData.jobs[jobNumber];
+  if (!entry) { hint.style.display = 'none'; hint.textContent = ''; return; }
+  var parts = [];
+  if (entry.customer) parts.push('Customer: ' + entry.customer);
+  if (entry.products.length) parts.push('Product' + (entry.products.length > 1 ? 's' : '') + ': ' + entry.products.join(', '));
+  if (entry.dieNumbers.length) parts.push('Die' + (entry.dieNumbers.length > 1 ? 's' : '') + ': ' + entry.dieNumbers.join(', '));
+  if (!parts.length) { hint.style.display = 'none'; hint.textContent = ''; return; }
+  hint.textContent = 'From schedule — ' + parts.join(' · ');
+  hint.style.display = 'block';
+}
+
+// Actually fills the real form fields (customer combo, product) — separate
+// from the hint above because this should only happen on an explicit pick,
+// not on every keystroke (that would fight whatever the user is mid-typing).
+function _applyScheduleJobPrefill(jobNumber) {
+  var entry = _scheduleData && _scheduleData.jobs[jobNumber];
+  if (!entry) return;
+  _applyScheduleJobHint(jobNumber);
+
+  if (entry.customer && document.getElementById('customer-field').style.display !== 'none') {
+    addCustomerToList(entry.customer);
+    selectCustomer(entry.customer);
+  }
+  if (entry.products.length === 1) {
+    var productEl = document.getElementById('setup-product');
+    if (productEl && !productEl.value) productEl.value = entry.products[0];
+  }
 }
 
 function onPackingCustomerChange(name) {
