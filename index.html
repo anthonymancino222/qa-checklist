@@ -613,6 +613,16 @@ textarea.input {
 .cust-no-results { padding: 10px 13px; font-size: 15px; color: var(--text-tertiary); }
 .customer-other-wrap { margin-top: 7px; display: none; }
 
+/* ── Job picker (tap-only job/product selection) ── */
+.job-picker-row {
+  display: block; width: 100%; text-align: left; font-family: var(--font);
+  padding: 12px 14px; font-size: 15px; font-weight: 500; cursor: pointer;
+  color: var(--text-primary); background: var(--surface);
+  border: 1.5px solid var(--border-mid); border-radius: var(--radius);
+  transition: background .1s, border-color .1s;
+}
+.job-picker-row:hover, .job-picker-row:active { background: var(--pink-soft); border-color: var(--pink); color: var(--pink); }
+
 /* ── Signature pad ── */
 .sig-wrap {
   position: relative;
@@ -1599,6 +1609,39 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   </div>
 </div>
 
+<!-- Job picker — opens automatically right after a station is picked on the
+     New Job screen (see openJobPickerForStation()). Goal is tap-only entry:
+     browse a station-filtered list of scheduled jobs instead of typing a job
+     number, and if a job has more than one product line running, tap which
+     one instead of it being silently left blank. See "SCHEDULE BRIDGE" JS
+     section for _scheduleData itself. -->
+<div class="continue-overlay" id="jobPickerOverlay" onclick="if(event.target===this)closeJobPicker()">
+  <div class="continue-modal" style="max-width:560px;">
+    <div class="continue-modal-head">
+      <div style="font-size:17px;font-weight:800;" id="job-picker-title">📋 Select a Job</div>
+      <button class="continue-close" onclick="closeJobPicker()">✕</button>
+    </div>
+    <div class="continue-modal-body">
+      <div id="job-picker-job-panel">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <input id="job-picker-search" class="input" type="text" placeholder="Type to filter (optional)…" data-ph-en="Type to filter (optional)…" data-ph-es="Escriba para filtrar (opcional)…" oninput="renderJobPickerList()" autocomplete="off" style="flex:1;">
+          <button type="button" class="header-pill-btn" onclick="_jobPickerRefresh()" id="job-picker-refresh-btn">🔄</button>
+        </div>
+        <div id="job-picker-status" style="font-size:12.5px;color:var(--text-tertiary);margin-bottom:8px;"></div>
+        <div id="job-picker-list" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;"></div>
+        <button type="button" class="header-pill-btn" style="margin-top:12px;width:100%;" onclick="closeJobPicker(); _scrollToField(document.getElementById('setup-job'));">
+          <span data-en>Type job number instead</span><span data-es>Escribir número de trabajo</span>
+        </button>
+      </div>
+      <div id="job-picker-product-panel" style="display:none;">
+        <button type="button" class="header-pill-btn" style="margin-bottom:12px;" onclick="_showJobPickerJobPanel()">← <span data-en>Back</span><span data-es>Atrás</span></button>
+        <div style="font-size:14.5px;font-weight:700;margin-bottom:10px;" id="job-picker-product-heading"></div>
+        <div id="job-picker-product-list" style="display:flex;flex-direction:column;gap:6px;max-height:45vh;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Layout — hidden until Google Sign-In succeeds (see google-signin-overlay
      above); shown by _onGoogleSignIn(). Not just cosmetic: this is what stops
      a shared tablet from displaying whatever job data a previous person's
@@ -1699,30 +1742,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             <div id="loadtag-status" style="display:none;font-size:14px;margin-top:8px;padding:9px 12px;border-radius:9px;background:var(--surface-raised,rgba(0,0,0,.04));color:var(--text-secondary);line-height:1.5;"></div>
           </div>
           <div class="field">
-            <div class="field-label"><span data-en>Job number</span><span data-es>Número de trabajo</span> <span class="req">*</span></div>
-            <div class="input-row" style="position:relative;">
-              <input id="setup-job" class="input" type="text" inputmode="numeric"
-                     placeholder="Type or scan" data-ph-en="Type or scan" data-ph-es="Escriba o escanee" autocomplete="off"
-                     oninput="filterJobSchedule()" onfocus="openJobDrop()" onblur="scheduleCloseJobDrop()">
-              <button class="scan-btn" onclick="openScanner('setup-job','digits','Job number')" title="Scan printed number or barcode">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
-                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-                  <line x1="7" y1="12" x2="7" y2="12.01"/><line x1="10" y1="8" x2="10" y2="16"/>
-                  <line x1="13" y1="10" x2="13" y2="14"/><line x1="16" y1="8" x2="16" y2="16"/>
-                </svg>
-              </button>
-              <div class="customer-drop" id="job-drop" style="display:none;"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-              <button type="button" class="header-pill-btn" onclick="pullScheduleNow()" id="pull-schedule-btn">
-                🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span>
-              </button>
-              <span id="schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
-            </div>
-            <div id="job-schedule-hint" style="font-size:13px;color:var(--text-secondary);margin-top:4px;display:none;"></div>
-          </div>
-          <div class="field">
             <div class="field-label"><span data-en>Station</span><span data-es>Estación</span> <span class="req">*</span></div>
             <div class="toggle-group" id="setup-station-btns" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;">
               <button type="button" class="tgl" data-station="Bindery Cutter" style="flex:1;min-width:130px;" onclick="selectStationBtn('Bindery Cutter',this)"><span data-en>Bindery Cutter</span><span data-es>Estación de Corte de Encuadernación</span></button>
@@ -1745,6 +1764,30 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <option value="Samples">Samples</option>
               <option value="Vendor">Vendor</option>
             </select>
+          </div>
+          <div class="field">
+            <div class="field-label"><span data-en>Job number</span><span data-es>Número de trabajo</span> <span class="req">*</span></div>
+            <div class="input-row" style="position:relative;">
+              <input id="setup-job" class="input" type="text" inputmode="numeric"
+                     placeholder="Type or scan" data-ph-en="Type or scan" data-ph-es="Escriba o escanee" autocomplete="off"
+                     oninput="filterJobSchedule()" onfocus="openJobDrop()" onblur="scheduleCloseJobDrop()">
+              <button class="scan-btn" onclick="openScanner('setup-job','digits','Job number')" title="Scan printed number or barcode">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <line x1="7" y1="12" x2="7" y2="12.01"/><line x1="10" y1="8" x2="10" y2="16"/>
+                  <line x1="13" y1="10" x2="13" y2="14"/><line x1="16" y1="8" x2="16" y2="16"/>
+                </svg>
+              </button>
+              <div class="customer-drop" id="job-drop" style="display:none;"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+              <button type="button" class="header-pill-btn" onclick="pullScheduleNow()" id="pull-schedule-btn">
+                🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span>
+              </button>
+              <span id="schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
+            </div>
+            <div id="job-schedule-hint" style="font-size:13px;color:var(--text-secondary);margin-top:4px;display:none;"></div>
           </div>
           <div class="field" id="veritiv-job-field" style="display:none;">
             <div class="field-label"><span data-en>Is this a Veritiv job?</span><span data-es>¿Es este un trabajo de Veritiv?</span> <span class="req">*</span></div>
@@ -12573,13 +12616,17 @@ var _scheduleData = null; // { jobs: {...}, fetchedAt, sourceFile }
 var jobDropOpen = false;
 var closeJobDropTimer = null;
 
+// Returns the fetch promise (resolved after _scheduleData is updated, or
+// rejected on failure) so callers that need to act right after a fresh pull
+// — like the job picker's own 🔄 button — can chain onto it instead of
+// guessing when it's done.
 function pullScheduleNow() {
   var btn = document.getElementById('pull-schedule-btn');
   var status = document.getElementById('schedule-pull-status');
   if (btn) btn.disabled = true;
   if (status) { status.textContent = 'Pulling…'; status.style.color = 'var(--text-tertiary)'; }
 
-  fetch(QA_BACKEND_URL + '/admin/schedule-pull', { headers: _authHeaders() })
+  return fetch(QA_BACKEND_URL + '/admin/schedule-pull', { headers: _authHeaders() })
     .then(function(res) { if (!res.ok) return res.json().then(function(e){ throw new Error(e.error || ('HTTP ' + res.status)); }); return res.json(); })
     .then(function(data) {
       _scheduleData = data;
@@ -12589,9 +12636,11 @@ function pullScheduleNow() {
       }
       // Re-filter immediately in case they'd already typed something while it loaded
       if (document.activeElement && document.activeElement.id === 'setup-job') filterJobSchedule();
+      return data;
     })
     .catch(function(err) {
       if (status) { status.style.color = 'var(--red)'; status.textContent = 'Pull failed: ' + err.message; }
+      throw err;
     })
     .finally(function() { if (btn) btn.disabled = false; });
 }
@@ -12681,7 +12730,13 @@ function _applyScheduleJobHint(jobNumber) {
 // Actually fills the real form fields (customer combo, product) — separate
 // from the hint above because this should only happen on an explicit pick,
 // not on every keystroke (that would fight whatever the user is mid-typing).
-function _applyScheduleJobPrefill(jobNumber) {
+// chosenProduct is set when the person explicitly tapped one product out of
+// several in the job picker (see _finalizeJobPick below) — in that case it's
+// fine to overwrite the Product field even if something's already there,
+// since an explicit pick should win. With no chosenProduct (the typed-search
+// dropdown path), a single-product job still auto-fills, but never
+// overwrites a value someone already typed.
+function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
   var entry = _scheduleData && _scheduleData.jobs[jobNumber];
   if (!entry) return;
   _applyScheduleJobHint(jobNumber);
@@ -12690,10 +12745,152 @@ function _applyScheduleJobPrefill(jobNumber) {
     addCustomerToList(entry.customer);
     selectCustomer(entry.customer);
   }
-  if (entry.products.length === 1) {
+  var product = chosenProduct || (entry.products.length === 1 ? entry.products[0] : null);
+  if (product) {
     var productEl = document.getElementById('setup-product');
-    if (productEl && !productEl.value) productEl.value = entry.products[0];
+    if (productEl && (chosenProduct || !productEl.value)) productEl.value = product;
   }
+}
+
+/* ── Job picker (tap-only station-filtered job/product selection) ──
+   Opens automatically right after a station is picked on the New Job screen
+   (see _maybeOpenJobPicker, wired into selectStationBtn/onStationDropdownChange
+   below), so the common path never requires typing a job number at all. */
+var STATION_TO_SCHEDULE_SHEETS = {
+  'New Die Cutter': ['DieCutter'],
+  'Old Die Cutter': ['DieCutter'],
+  'Long Gluer':     ['FolderGluer'],
+  'Short Gluer':    ['FolderGluer'],
+  // Every other station (Bindery Cutter, Pressroom Cutter, Kama Foil Press,
+  // Packing, Samples, Vendor) has no entry here — this schedule export only
+  // covers Gluer/Die Cutter/Label Cutter machines, so there's no reliable
+  // way to filter those stations' jobs out of the list. Showing everything
+  // unfiltered beats hiding jobs that might actually belong to that station.
+};
+
+var _jobPickerStation = null;
+
+function _maybeOpenJobPicker(station) {
+  if (!station) return;
+  var jobEl = document.getElementById('setup-job');
+  if (jobEl && jobEl.value.trim()) return; // already has a job number — don't interrupt
+  openJobPickerForStation(station);
+}
+
+function openJobPickerForStation(station) {
+  _jobPickerStation = station;
+  var isEs = isEsLang();
+  document.getElementById('job-picker-title').textContent = (isEs ? '📋 Seleccionar Trabajo — ' : '📋 Select a Job — ') + station;
+  document.getElementById('job-picker-search').value = '';
+  _showJobPickerJobPanel();
+  document.getElementById('jobPickerOverlay').classList.add('open');
+  if (!_scheduleData) {
+    _jobPickerRefresh();
+  } else {
+    renderJobPickerList();
+  }
+}
+
+function closeJobPicker() {
+  document.getElementById('jobPickerOverlay').classList.remove('open');
+}
+
+function _showJobPickerJobPanel() {
+  document.getElementById('job-picker-job-panel').style.display = 'block';
+  document.getElementById('job-picker-product-panel').style.display = 'none';
+}
+
+function _jobPickerRefresh() {
+  var btn = document.getElementById('job-picker-refresh-btn');
+  var status = document.getElementById('job-picker-status');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = isEsLang() ? 'Actualizando…' : 'Pulling…';
+  pullScheduleNow()
+    .then(function() { renderJobPickerList(); })
+    .catch(function() { if (status) status.textContent = isEsLang() ? 'Error al actualizar' : 'Pull failed'; })
+    .finally(function() { if (btn) btn.disabled = false; });
+}
+
+function renderJobPickerList() {
+  var isEs = isEsLang();
+  var listEl = document.getElementById('job-picker-list');
+  var statusEl = document.getElementById('job-picker-status');
+  listEl.innerHTML = '';
+
+  if (!_scheduleData) {
+    statusEl.textContent = isEs ? 'Nada cargado aún — toque 🔄 para actualizar.' : 'Nothing loaded yet — tap 🔄 to pull it.';
+    return;
+  }
+
+  var q = document.getElementById('job-picker-search').value.trim().toLowerCase();
+  var sheets = STATION_TO_SCHEDULE_SHEETS[_jobPickerStation]; // undefined = show every job, no station filter available
+  var entries = [];
+  for (var jobNumber in _scheduleData.jobs) {
+    var entry = _scheduleData.jobs[jobNumber];
+    if (sheets && !(entry.sheets || []).some(function(s){ return sheets.indexOf(s) !== -1; })) continue;
+    if (q) {
+      var hay = (jobNumber + ' ' + (entry.customer || '') + ' ' + entry.products.join(' ')).toLowerCase();
+      if (hay.indexOf(q) === -1) continue;
+    }
+    entries.push({ jobNumber: jobNumber, entry: entry });
+  }
+  entries.sort(function(a, b){ return a.jobNumber.localeCompare(b.jobNumber); });
+
+  statusEl.textContent = entries.length + (isEs ? ' trabajo(s)' : ' job' + (entries.length === 1 ? '' : 's')) +
+    (sheets ? (isEs ? ' programado(s) para esta estación' : ' scheduled for this station')
+            : (isEs ? ' en el programa (sin filtro por estación disponible aquí)' : ' in the pulled schedule (no station filter available here)')) +
+    ' — ' + _scheduleData.sourceFile;
+
+  if (!entries.length) {
+    listEl.innerHTML = '<div class="cust-no-results">' + (isEs ? 'Sin coincidencias' : 'No matching jobs') + '</div>';
+    return;
+  }
+  entries.forEach(function(e) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'job-picker-row';
+    var subParts = [e.entry.customer];
+    subParts.push(e.entry.products.length ? (e.entry.products.length + (isEs ? ' producto' : ' product') + (e.entry.products.length > 1 ? 's' : '')) : '');
+    var sub = subParts.filter(Boolean).join(' — ');
+    b.innerHTML = '<div style="font-weight:700;">' + e.jobNumber + '</div>' + (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + sub + '</div>' : '');
+    b.onclick = function(){ _pickJobFromPicker(e.jobNumber, e.entry); };
+    listEl.appendChild(b);
+  });
+}
+
+function _pickJobFromPicker(jobNumber, entry) {
+  if (entry.products && entry.products.length > 1) {
+    _showJobPickerProductPanel(jobNumber, entry);
+    return;
+  }
+  _finalizeJobPick(jobNumber, entry, entry.products && entry.products[0]);
+}
+
+function _showJobPickerProductPanel(jobNumber, entry) {
+  var isEs = isEsLang();
+  document.getElementById('job-picker-job-panel').style.display = 'none';
+  document.getElementById('job-picker-product-panel').style.display = 'block';
+  document.getElementById('job-picker-product-heading').textContent =
+    (isEs ? 'Trabajo ' : 'Job ') + jobNumber + (entry.customer ? ' — ' + entry.customer : '') +
+    (isEs ? ' — elija el producto:' : ' — pick the product:');
+  var listEl = document.getElementById('job-picker-product-list');
+  listEl.innerHTML = '';
+  entry.products.forEach(function(p) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'job-picker-row';
+    b.textContent = p;
+    b.onclick = function(){ _finalizeJobPick(jobNumber, entry, p); };
+    listEl.appendChild(b);
+  });
+}
+
+function _finalizeJobPick(jobNumber, entry, product) {
+  var jobEl = document.getElementById('setup-job');
+  jobEl.value = jobNumber;
+  jobEl.dispatchEvent(new Event('input', { bubbles: true }));
+  _applyScheduleJobPrefill(jobNumber, product);
+  closeJobPicker();
 }
 
 function onPackingCustomerChange(name) {
@@ -12740,12 +12937,14 @@ function selectStationBtn(station, btn) {
   var sel = document.getElementById('setup-station');
   if (sel) sel.value = station;
   onStationChange(station);
+  _maybeOpenJobPicker(station);
 }
 
 function onStationDropdownChange(station) {
   var group = document.getElementById('setup-station-btns');
   if (group) group.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('sel'); });
   onStationChange(station);
+  _maybeOpenJobPicker(station);
 }
 
 // Keeps the visible station buttons in sync no matter how onStationChange
