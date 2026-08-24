@@ -4385,6 +4385,7 @@ var CHECKLIST_KAMA = [
 
 var CHECKLIST_DIECUTTER = [
   { id:'dc-clean-area',   name:['Clean Area from the previous job','Área limpia del trabajo anterior'],                                            type:'toggle', req:true },
+  { id:'dc-die-number',   name:['Die Number','Número de Troquel'],                                                                       type:'textinput' },
   { id:'dc-qty',          name:['Quantity to execute the Material is correct?','¿La cantidad a ejecutar del material es correcta?'],                                type:'qty',    req:true },
   { id:'dc-cad-sample',   name:['CAD Sample approved by customer or CSR? (Critical Fail)','¿Muestra CAD aprobada por el cliente o CSR? (Falla Crítica)'],                     type:'toggle', req:true },
   { id:'dc-cad-design',   name:['CAD Design Document approved by customer or CSR? (Critical Fail)','¿Documento de diseño CAD aprobado por el cliente o CSR? (Falla Crítica)'],            type:'toggle', req:true },
@@ -5939,7 +5940,7 @@ function openContinueModal(id) {
     // isn't visible yet, so every item would read as offsetParent===null
     // (looks identical to "excluded/hidden") and the count comes back 0/0.
     setTimeout(function(){ _refreshChecklistProgressLabel('cm-op-checklist'); }, 0);
-    if (job.station === 'New Die Cutter' || job.station === 'Old Die Cutter') applyDCDefaults('cm');
+    if (job.station === 'New Die Cutter' || job.station === 'Old Die Cutter') applyDCDefaults('cm', job.jobNumber);
     if (job.station === 'Kama Foil Press') applyKamaDefaults('cm');
     if (job.station === 'Long Gluer' || job.station === 'Short Gluer') {
       applyGluerDefaults('cm');
@@ -9709,7 +9710,7 @@ function applyGluerDefaults(prefix) {
   onGluerMoreOptionsChange(prefix);
 }
 
-function applyDCDefaults(prefix) {
+function applyDCDefaults(prefix, jobNumber) {
   CHECKLIST_DIECUTTER.forEach(function(item) {
     if (item.type !== 'toggle') return;
     var container = document.getElementById(prefix + '-ci-' + item.id);
@@ -9722,6 +9723,27 @@ function applyDCDefaults(prefix) {
       if (btns[1]) btns[1].classList.add('pass'); // Yes = index 1 (N/A, Yes, No)
     }
   });
+  _prefillDcDieNumber(prefix, jobNumber);
+}
+
+// Fills the Die Number field from the schedule bridge (_scheduleData — see
+// "SCHEDULE BRIDGE" above) if it's known and the field is still empty. Never
+// overwrites a value someone already typed/scanned. jobNumber is optional —
+// falls back to whatever job the current screen is actually showing, since
+// applyDCDefaults is called from three different screens (new job setup,
+// continue-modal, make-ready inspection) each tracking the job differently.
+function _prefillDcDieNumber(prefix, jobNumber) {
+  var el = document.getElementById(prefix + '-val-dc-die-number');
+  if (!el || el.value) return;
+  if (!jobNumber) {
+    var setupJobEl = document.getElementById('setup-job');
+    jobNumber = (setupJobEl && setupJobEl.value.trim()) ||
+      (typeof jobState !== 'undefined' && jobState ? jobState.jobNumber : '');
+  }
+  var entry = jobNumber && _scheduleData && _scheduleData.jobs[jobNumber];
+  if (entry && entry.dieNumbers && entry.dieNumbers.length) {
+    el.value = entry.dieNumbers.join(', ');
+  }
 }
 
 function toggleVeritivFirst25(val, btn) {
