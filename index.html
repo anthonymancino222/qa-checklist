@@ -220,6 +220,37 @@ body.sidebar-expanded .nav-status {
 .view-title { font-size: 24px; font-weight: 800; color: var(--text-primary); }
 .view-sub { font-size: 15px; color: var(--text-secondary); margin-top: 2px; }
 
+/* Keeps the Tile/List toggle (and the title it sits next to) visible while
+   scrolling a long list, instead of it scrolling away with row 1 — used on
+   the views that actually have that toggle (Job in Progress, QA Release,
+   Shipping Approval). #mainContent is the real scroll container (see its
+   own comment), so "sticky" pins relative to that, not the page. Solid
+   background is required — sticky elements are otherwise transparent and
+   list rows would visibly scroll up underneath the title/toggle row. */
+.view-header-sticky {
+  position: sticky; top: 0; z-index: 15;
+  background: var(--bg); margin: 0 -24px 20px; padding: 24px 24px 14px;
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 680px) {
+  .view-header-sticky { margin: 0 -12px 16px; padding: 12px 12px 12px; }
+}
+
+/* ── Back to top ── */
+.back-to-top-btn {
+  position: fixed; right: 24px; bottom: 24px; z-index: 60;
+  width: 46px; height: 46px; border-radius: 50%; border: none;
+  background: var(--pink); color: #fff; font-size: 20px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.22);
+  display: none; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.back-to-top-btn.visible { display: flex; }
+@media (max-width: 680px) {
+  /* Clear the bottom nav bar (see .bottom-nav) instead of sitting on top of it */
+  .back-to-top-btn { bottom: calc(66px + env(safe-area-inset-bottom, 0px) + 12px); right: 16px; }
+}
+
 /* ── Cards ── */
 .card {
   background: var(--surface); border: 0.5px solid var(--border);
@@ -999,6 +1030,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    below, since a 232px sidebar would leave too little width for forms. */
 @media (min-width: 681px) and (max-width: 1023px) {
   .main { padding: 18px; }
+  .view-header-sticky { margin: 0 -18px 20px; padding: 18px 18px 14px; }
 }
 
 /* ── Mobile (≤ 680 px): bottom nav, no sidebar ── */
@@ -2363,7 +2395,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
     <!-- ══ STUB VIEWS ══ -->
     <div id="view-inprogress" class="screen">
-      <div class="view-header" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div class="view-header view-header-sticky" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div>
           <div class="view-title"><span data-en>Job in Progress</span><span data-es>Trabajo en Progreso</span></div>
           <div class="view-sub"><span data-en>Tap a job to update its status or add production details.</span><span data-es>Toque un trabajo para actualizar su estado o agregar detalles de producción.</span></div>
@@ -3174,7 +3206,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     </div>
 
     <div id="view-qarelease" class="screen">
-      <div class="view-header" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div class="view-header view-header-sticky" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div>
           <div class="view-title"><span data-en>QA Release</span><span data-es>Liberación de Calidad</span></div>
           <div class="view-sub"><span data-en>Tap a job to complete the QA release.</span><span data-es>Toque un trabajo para completar la liberación de calidad.</span></div>
@@ -3187,7 +3219,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <div id="qa-release-list" style="padding:0 16px 24px;"></div>
     </div>
     <div id="view-shipping" class="screen">
-      <div class="view-header" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div class="view-header view-header-sticky" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div>
           <div class="view-title"><span data-en>Shipping Approval</span><span data-es>Aprobación de Envío</span></div>
           <div class="view-sub"><span data-en>Final gate before shipping.</span><span data-es>Última revisión antes del envío.</span></div>
@@ -3841,6 +3873,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   </main>
 </div>
 
+<!-- Back to top — #mainContent (not the page) is the real scroll container,
+     so this jumps that element back to 0 rather than window.scrollTo. Shown/
+     hidden by a scroll listener on #mainContent (see DOMContentLoaded block)
+     once it's been scrolled down a bit, for quickly getting back to the top
+     of a long list without repeated swipes/flicks. -->
+<button id="backToTopBtn" class="back-to-top-btn" onclick="document.getElementById('mainContent').scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Back to top">↑</button>
+
 <!-- RCA PDF export target — a plain body child (not nested under #view-rca)
      so body.rca-printing can hide everything else during window.print().
      Populated on demand by rcaExportPDF() right before printing. -->
@@ -4416,6 +4455,18 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   window._dictToggle = _dictToggle;
   _dictReposition();
+});
+
+document.addEventListener('DOMContentLoaded', function(){
+  var mainEl = document.getElementById('mainContent');
+  var btn = document.getElementById('backToTopBtn');
+  if (!mainEl || !btn) return;
+  // #mainContent, not window, is what actually scrolls — see its own CSS
+  // comment ("children's own overflow-y:auto is what scrolls, not the
+  // page"). Threshold matches roughly "scrolled past the header."
+  mainEl.addEventListener('scroll', function(){
+    btn.classList.toggle('visible', mainEl.scrollTop > 240);
+  });
 });
 
 /* ══════════════════════════════════
@@ -12013,6 +12064,15 @@ function startNewJob() {
   document.querySelectorAll('#setup-station-btns .tgl').forEach(function(b){ b.classList.remove('sel'); });
   var stationSelEl = document.getElementById('setup-station');
   if (stationSelEl) stationSelEl.classList.remove('station-select-picked');
+  // Job number (and everything that depends on a station being picked) only
+  // reveals itself from inside onStationChange() — clearing setup-station's
+  // value above doesn't call that, so without this the field stayed visible
+  // (with the previous job's stale schedule hint still showing) after a
+  // cancel, even though Station itself visibly went back to unpicked.
+  _safeStyle('setup-job-field', 'display', 'none');
+  _safeStyle('job-schedule-hint', 'display', 'none');
+  _safeSet('job-schedule-hint', 'textContent', '');
+  _safeStyle('job-drop', 'display', 'none');
   _safeSet('setup-customer', 'value', '');
   _safeSet('customer-search', 'value', '');
   _safeStyle('customer-other-wrap', 'display', 'none');
