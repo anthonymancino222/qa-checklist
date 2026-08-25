@@ -226,6 +226,18 @@ body.sidebar-expanded .nav-status {
    flex-computed width when a scrollbar or side panel is involved). */
 .main.main-wide { max-width: none; }
 
+/* Job/Product/Form ID highlight — wraps just the VALUE (never the label)
+   anywhere one is displayed as read-only text, so it jumps out while
+   scanning a card/list/summary. Never applied inside <input> fields — an
+   editable value being actively typed into doesn't need this, and a yellow
+   background clashes with input styling/cursor. Use the hlId() JS helper
+   (near escHtml) to wrap a value consistently instead of hand-writing this
+   span everywhere. */
+.id-hl {
+  background: #fef08a; color: #713f12; font-weight: 700;
+  padding: 1px 6px; border-radius: 5px; white-space: nowrap;
+}
+
 /* ── View header ── */
 .view-header { margin-bottom: 20px; }
 .view-title { font-size: 24px; font-weight: 800; color: var(--text-primary); }
@@ -5441,7 +5453,7 @@ function _renderDeletedItemsList() {
   list.innerHTML = _deletedItemsCache.map(function(item, idx){
     var d = item.data || {};
     var isJob = item.type === 'job';
-    var title = isJob ? ((isEs?'Trabajo ':'Job ') + escHtml(d.jobNumber||'—')) : ((isEs?'NCR ' : 'NCR ') + escHtml(d.ncrId||item.id));
+    var title = isJob ? ((isEs?'Trabajo ':'Job ') + hlId(d.jobNumber)) : ((isEs?'NCR ' : 'NCR ') + escHtml(d.ncrId||item.id));
     var sub = [d.station ? stationLabel(d.station) : null, d.customer || null].filter(Boolean).map(escHtml).join(' · ');
     var when = item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '—';
     return '<div class="card" style="margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
@@ -5565,10 +5577,10 @@ function _buildJPListRow(job, opts) {
   var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
   var isGluerJob = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
   var subLine = isVeritivJob
-    ? job.station + ' · ' + jp('product') + ': ' + escHtml(job.product || '—')
+    ? job.station + ' · ' + jp('product') + ': ' + hlId(job.product)
     : isGluerJob
-    ? job.station + ' · ' + jp('product') + ': ' + escHtml(job.productNumber || '—')
-    : job.station + ' · ' + jp('form') + ': ' + escHtml(job.formNumber || job.productNumber || job.product || '—');
+    ? job.station + ' · ' + jp('product') + ': ' + hlId(job.productNumber)
+    : job.station + ' · ' + jp('form') + ': ' + hlId(job.formNumber || job.productNumber || job.product);
   var badge = opts.badgeHTML || '';
   var btnsHTML = '';
   if (opts.showProdBtns) {
@@ -5585,7 +5597,7 @@ function _buildJPListRow(job, opts) {
   row.innerHTML =
     thumbHTML +
     '<div class="jp-list-info">' +
-      '<div class="jp-list-job">' + escHtml(job.jobNumber) + '</div>' +
+      '<div class="jp-list-job">' + hlId(job.jobNumber) + '</div>' +
       '<div class="jp-list-sub">' + subLine + '</div>' +
     '</div>' +
     '<div class="jp-list-badges">' + badge + '</div>' +
@@ -5668,7 +5680,7 @@ function renderQARelease() {
           '<div class="jp-card-body">' +
             '<div class="jp-card-ts">' + batchJobs[0].timestamp + '</div>' +
             '<div class="jp-card-station">' + stationLabel(batchJobs[0].station) + '</div>' +
-            '<div class="jp-card-job">' + escHtml(batchJobs[0].jobNumber) + '</div>' +
+            '<div class="jp-card-job">' + hlId(batchJobs[0].jobNumber) + '</div>' +
             '<div class="jp-card-form">' + batchJobs.length + ' ' + jp('productsReadyForRelease') + '</div>' +
             '<div class="jp-card-badges"><span class="jp-badge" style="background:var(--pink);color:#fff;">' + jp('qaReleaseReq') + '</span></div>' +
           '</div>' +
@@ -5685,14 +5697,14 @@ function renderQARelease() {
       ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
       : '<div class="jp-card-photo-empty">📷</div>';
     var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
-    var pfVal = job.formNumber || job.productNumber || job.product || '—';
-    var subLine = jp('product') + ': ' + escHtml(pfVal);
+    var pfVal = job.formNumber || job.productNumber || job.product;
+    var subLine = jp('product') + ': ' + hlId(pfVal);
     var _stationDisp = isVeritivJob ? (stationLabel('Packing') + ' · Veritiv') : stationLabel(job.station);
     card.innerHTML = photoHTML +
       '<div class="jp-card-body">' +
         '<div class="jp-card-ts">' + job.timestamp + '</div>' +
         '<div class="jp-card-station">' + _stationDisp + '</div>' +
-        '<div class="jp-card-job">' + escHtml(job.jobNumber) + '</div>' +
+        '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
         '<div class="jp-card-form">' + subLine + '</div>' +
         '<div class="jp-card-badges"><span class="jp-badge" style="background:var(--pink);color:#fff;">' + jp('qaReleaseReq') + '</span></div>' +
       '</div>';
@@ -5733,16 +5745,16 @@ function openColJobsSheet(phase, label) {
       var prodWord = isEs ? 'Producto' : 'Product';
       var formWord = isEs ? 'Forma' : 'Form';
       var subLine = isVeritivJob
-        ? stationLabel(j.station) + ' · ' + prodWord + ': ' + escHtml(j.product || '—')
+        ? stationLabel(j.station) + ' · ' + prodWord + ': ' + hlId(j.product)
         : isGluerJob
-        ? stationLabel(j.station) + ' · ' + prodWord + ': ' + escHtml(j.productNumber || '—')
-        : stationLabel(j.station) + ' · ' + formWord + ': ' + escHtml(j.formNumber || '—');
+        ? stationLabel(j.station) + ' · ' + prodWord + ': ' + hlId(j.productNumber)
+        : stationLabel(j.station) + ' · ' + formWord + ': ' + hlId(j.formNumber);
       var thumbHTML = j.mrPhoto ? '<img src="' + j.mrPhoto + '">' : '📷';
       var jobWordSing = isEs ? 'Trabajo' : 'Job';
       return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeColJobsSheet();">' +
         '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
         '<div class="batch-sheet-info">' +
-          '<div class="batch-sheet-pn">' + jobWordSing + ' ' + escHtml(j.jobNumber) + '</div>' +
+          '<div class="batch-sheet-pn">' + jobWordSing + ' ' + hlId(j.jobNumber) + '</div>' +
           '<div class="batch-sheet-sub">' + subLine + '</div>' +
         '</div>' +
       '</div>';
@@ -5864,7 +5876,7 @@ function renderInProgress() {
             '<div class="jp-card-body">' +
               '<div class="jp-card-ts">' + first.timestamp + '</div>' +
               '<div class="jp-card-station">' + stationLabel(first.station) + '</div>' +
-              '<div class="jp-card-job">' + escHtml(first.jobNumber) + '</div>' +
+              '<div class="jp-card-job">' + hlId(first.jobNumber) + '</div>' +
               '<div class="jp-card-form">' + batchJobs.length + ' ' + jp('products') + '</div>' +
               '<div class="jp-card-badges">' + badge + '</div>' +
             '</div>' +
@@ -5887,10 +5899,10 @@ function renderInProgress() {
         else if (job.process === 'production') badge = '<span class="jp-badge jp-badge-prod">' + jp('inProduction') + '</span>';
         var isGluerJob = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
         var subLine = isVeritivJob
-          ? jp('product') + ': '  + escHtml(job.product||'—')
+          ? jp('product') + ': '  + hlId(job.product)
           : isGluerJob
-          ? jp('product') + ': '  + escHtml(job.productNumber||'—')
-          : jp('form') + ': '     + escHtml(job.formNumber||'—');
+          ? jp('product') + ': '  + hlId(job.productNumber)
+          : jp('form') + ': '     + hlId(job.formNumber);
 
         if (isProductionCard) {
           var wrap = document.createElement('div');
@@ -5902,7 +5914,7 @@ function renderInProgress() {
             '<div class="jp-card-body">' +
               '<div class="jp-card-ts">' + job.timestamp + '</div>' +
               '<div class="jp-card-station">' + stationLabel(job.station) + (isVeritivJob ? ' · Veritiv' : '') + '</div>' +
-              '<div class="jp-card-job">' + escHtml(job.jobNumber) + '</div>' +
+              '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
               '<div class="jp-card-form">' + subLine + '</div>' +
               '<div class="jp-card-badges">' + badge + '</div>' +
             '</div>' +
@@ -5920,7 +5932,7 @@ function renderInProgress() {
             '<div class="jp-card-body">' +
               '<div class="jp-card-ts">' + job.timestamp + '</div>' +
               '<div class="jp-card-station">' + stationLabel(job.station) + (isVeritivJob ? ' · Veritiv' : '') + '</div>' +
-              '<div class="jp-card-job">' + escHtml(job.jobNumber) + '</div>' +
+              '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
               '<div class="jp-card-form">' + subLine + '</div>' +
               '<div class="jp-card-badges">' + badge + '</div>' +
             '</div>' +
@@ -6192,7 +6204,7 @@ function openContinueModal(id) {
       packerInfo.innerHTML =
         '<div class="card-label">' + (_piEs ? 'Información del Empacador' : 'Packer Info') + '</div>' +
         '<div style="font-size:14px;line-height:2.1;">' +
-        '<div><strong>' + (_piEs ? 'Producto:' : 'Product:') + '</strong> '         + escHtml(job.product||'—')            + '</div>' +
+        '<div><strong>' + (_piEs ? 'Producto:' : 'Product:') + '</strong> '         + hlId(job.product)            + '</div>' +
         '<div><strong>' + (_piEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> '  + escHtml(String(job.qtyToExecute||0)) + '</div>' +
         (job.finalQty ? '<div><strong>' + (_piEs ? 'Cantidad Final Producida:' : 'Final Qty Produced:') + '</strong> ' + escHtml(job.finalQty) + '</div>' : '') +
         '<div><strong>' + (_piEs ? 'Problema en 1eras 25:' : '1st 25 Issue:') + '</strong> '    + piBadge(job.first25Issue||'—','No')  + '</div>' +
@@ -6459,7 +6471,7 @@ function openContinueModal(id) {
       if (_qaRevSummaryCard) {
         _qaRevSummaryCard.style.display = 'block';
         document.getElementById('cm-qa-review-summary').innerHTML =
-          '<div><strong>' + (_qaRevEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber||'—') + '</div>' +
+          '<div><strong>' + (_qaRevEs?'Trabajo:':'Job:') + '</strong> ' + hlId(job.jobNumber) + '</div>' +
           '<div><strong>' + (_qaRevEs?'Producto:':'Product:') + '</strong> ' + escHtml(_qaRevPF) + '</div>' +
           (opResults['gl-cad-style'] ? '<div><strong>' + (_qaRevEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(opResults['gl-cad-style']) + '</div>' : '') +
           '<div><strong>' + (_qaRevEs?'Estación:':'Station:') + '</strong> ' + escHtml(job.station ? stationLabel(job.station) : '—') + '</div>' +
@@ -6664,8 +6676,8 @@ function openContinueModal(id) {
         '<div class="card" style="margin:0;background:#eff6ff;border-color:#3b82f6;">' +
           '<div style="font-size:15px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">Split Ship ' + (job.splitShipNum||2) + '</div>' +
           '<div style="font-size:15px;line-height:1.9;">' +
-            '<div><strong>Job:</strong> ' + escHtml(job.jobNumber) + '</div>' +
-            '<div><strong>Product:</strong> ' + escHtml(job.productNumber||'—') + '</div>' +
+            '<div><strong>Job:</strong> ' + hlId(job.jobNumber) + '</div>' +
+            '<div><strong>Product:</strong> ' + hlId(job.productNumber) + '</div>' +
             '<div><strong>Planned Qty:</strong> ' + (job.splitQty||0) + ' pcs</div>' +
           '</div>' +
         '</div>' +
@@ -6693,10 +6705,10 @@ function openContinueModal(id) {
       var phSummary = _prodStatusSummaryTarget();
       phSummary.innerHTML =
         '<div style="font-size:14px;line-height:1.9;margin-bottom:12px;">' +
-          '<div><strong>' + (_phEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber) + '</div>' +
+          '<div><strong>' + (_phEs?'Trabajo:':'Job:') + '</strong> ' + hlId(job.jobNumber) + '</div>' +
           '<div><strong>' + (_phEs?'Estación:':'Station:') + '</strong> ' + escHtml(stationLabel(job.station)) + (isPkHold ? ' · Veritiv' : '') + '</div>' +
-          (isPkHold ? (job.product ? '<div><strong>' + (_phEs?'Producto:':'Product:') + '</strong> ' + escHtml(job.product) + '</div>' : '')
-                    : (job.productNumber ? '<div><strong>' + (_phEs?'Producto:':'Product:') + '</strong> ' + escHtml(job.productNumber) + '</div>' : '')) +
+          (isPkHold ? (job.product ? '<div><strong>' + (_phEs?'Producto:':'Product:') + '</strong> ' + hlId(job.product) + '</div>' : '')
+                    : (job.productNumber ? '<div><strong>' + (_phEs?'Producto:':'Product:') + '</strong> ' + hlId(job.productNumber) + '</div>' : '')) +
           '<div><strong>' + (_phEs ? ('Cantidad Restante por ' + (isPkHold?'Empacar':'Correr')) : ('Remaining Qty to ' + (isPkHold ? 'Pack' : 'Run'))) + ':</strong> <span style="font-family:var(--mono);font-weight:800;color:#1d4ed8;">' + (job.remainingQty||'?') + (_phEs?' piezas':' pcs') + '</span></div>' +
           '<div><strong>' + (_phEs?'Corrida #:':'Run #:') + '</strong> ' + (job.partialShipNum||2) + '</div>' +
         '</div>' +
@@ -6767,9 +6779,9 @@ function openContinueModal(id) {
     var spSummary = _prodStatusSummaryTarget();
     spSummary.innerHTML =
       '<div style="font-size:14px;line-height:1.9;margin-bottom:12px;">' +
-        '<div><strong>' + (_spEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber) + '</div>' +
+        '<div><strong>' + (_spEs?'Trabajo:':'Job:') + '</strong> ' + hlId(job.jobNumber) + '</div>' +
         '<div><strong>' + (_spEs?'Estación:':'Station:') + '</strong> ' + escHtml(job.station ? stationLabel(job.station) : '—') + '</div>' +
-        (job.productNumber ? '<div><strong>' + (_spEs?'Producto:':'Product:') + '</strong> ' + escHtml(job.productNumber) + '</div>' : '') +
+        (job.productNumber ? '<div><strong>' + (_spEs?'Producto:':'Product:') + '</strong> ' + hlId(job.productNumber) + '</div>' : '') +
         (job.operatorName ? '<div><strong>' + (_spEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName) + '</div>' : '') +
       '</div>' +
       '<div style="padding:12px 14px;background:#e0e7ff;border:1.5px solid #6366f1;border-radius:8px;font-size:15px;font-weight:600;color:#3730a3;line-height:1.6;">' +
@@ -9565,7 +9577,7 @@ function _renderQaJobSummary(job) {
     '</div>';
   document.getElementById('cm-qa-job-summary').innerHTML =
     '<div style="font-size:14px;line-height:1.8;">' +
-    '<div><strong>' + (_qaEs ? 'Trabajo:' : 'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
+    '<div><strong>' + (_qaEs ? 'Trabajo:' : 'Job:') + '</strong> '      + hlId(job.jobNumber)        + '</div>' +
     '<div id="cm-qa-station-row"><strong>' + (_qaEs ? 'Estación:' : 'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—') +
       (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-station-row\',\'cm-qa-station-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
     '</div>' +
@@ -9576,7 +9588,7 @@ function _renderQaJobSummary(job) {
         '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-station-row\',\'cm-qa-station-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
       '</div>' +
     '</div>' : '') +
-    '<div><strong>' + (_qaEs ? 'Producto:' : 'Product:') + '</strong> '  + escHtml(job.productNumber||'—') + '</div>' +
+    '<div><strong>' + (_qaEs ? 'Producto:' : 'Product:') + '</strong> '  + hlId(job.productNumber) + '</div>' +
     '<div id="cm-qa-operator-row"><strong>' + (_qaEs ? 'Operador:' : 'Operator:') + '</strong> ' + escHtml(job.operatorName||'—') +
       (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-operator-row\',\'cm-qa-operator-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
     '</div>' +
@@ -9668,9 +9680,9 @@ function _renderProdSummary(job) {
     var _pkQtyLines = _jobQtySummaryLines(job);
     var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
-      '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '         + escHtml(job.jobNumber)           + '</div>' +
+      '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '         + hlId(job.jobNumber)           + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> Veritiv</div>' +
-      '<div><strong>' + (_prodSumEs?'Producto:':'Product:') + '</strong> '     + escHtml(job.product||'—')        + '</div>' +
+      '<div><strong>' + (_prodSumEs?'Producto:':'Product:') + '</strong> '     + hlId(job.product)        + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + escHtml(_pkQtyLines.qtyExec) + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cantidad Final Producida:':'Final Qty Produced:') + '</strong> ' + escHtml(_pkQtyLines.finalQty) + '</div>' +
       '<div><strong>' + (_prodSumEs?'Problema en 1eras 25:':'1st 25 Issue:') + '</strong> '+ escHtml(job.first25Issue||'—')   + '</div>' +
@@ -9695,7 +9707,7 @@ function _renderProdSummary(job) {
     var _prodSumHtml =
       (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
-      '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + escHtml(job.jobNumber)        + '</div>' +
+      '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + hlId(job.jobNumber)        + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer||'—')     + '</div>' +
       '<div id="cm-prod-station-row"><strong>' + (_prodSumEs?'Estación:':'Station:') + '</strong> '  + escHtml(job.station ? stationLabel(job.station) : '—') +
         (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-prod-station-row\',\'cm-prod-station-edit\')" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
@@ -9707,7 +9719,7 @@ function _renderProdSummary(job) {
           '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-prod-station-row\',\'cm-prod-station-edit\')">✕ ' + (_prodSumEs?'Cancelar':'Cancel') + '</button>' +
         '</div>' +
       '</div>' : '') +
-      '<div><strong>' + (cmIsGluer ? (_prodSumEs?'Producto':'Product') : (_prodSumEs?'Forma':'Form')) + ':</strong> ' + escHtml((cmIsGluer ? job.productNumber : job.formNumber)||'—') + '</div>' +
+      '<div><strong>' + (cmIsGluer ? (_prodSumEs?'Producto':'Product') : (_prodSumEs?'Forma':'Form')) + ':</strong> ' + hlId((cmIsGluer ? job.productNumber : job.formNumber)) + '</div>' +
       '<div id="cm-prod-operator-row"><strong>' + (_prodSumEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName||'—') +
         (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-prod-operator-row\',\'cm-prod-operator-edit\')" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
       '</div>' +
@@ -11578,6 +11590,27 @@ function row(label, value, raw) {
 }
 function escHtml(s) { if (s === null || s === undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// Wraps a Job/Product/Form ID value in the .id-hl yellow-highlight span (see
+// its own CSS comment) — use this instead of a bare escHtml() wherever one
+// of those specific values is rendered as read-only display text. Falls
+// back to a plain em dash (unhighlighted — there's nothing to highlight)
+// when there's no real value, matching every call site's existing "||'—'"
+// pattern.
+function hlId(s) {
+  if (s === null || s === undefined || s === '') return '—';
+  return '<span class="id-hl">' + escHtml(s) + '</span>';
+}
+
+// Several [label, value] "rows" renderers (Records' job/NCR/RCA summary
+// cards) escHtml() every value identically regardless of which field it is
+// — most rows are plain text, but a couple (Job #, Product/Form ID) need to
+// carry hlId()'s already-safe HTML instead. Wrapping just those values as
+// {html: hlId(...)} when building the row lets this one helper tell the
+// difference at render time without changing how every other row works.
+function _rowVal(v) {
+  return (v && typeof v === 'object' && 'html' in v) ? v.html : escHtml(v);
+}
+
 /* ══════════════════════════════════
    DRAFT SAVE / RESUME (multi-slot)
 ══════════════════════════════════ */
@@ -11707,12 +11740,12 @@ function checkDraftBanner() {
   // Per-draft list (shown when there are multiple drafts)
   info.innerHTML = drafts.length > 1 ? drafts.map(function(d) {
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid rgba(220,38,127,.15);">' +
-      '<span style="font-size:14px;color:var(--text-secondary);flex:1;"><b style="color:var(--pink);">' + escHtml(d.station || '—') + '</b> · Job ' + escHtml(d.jobNumber || '—') + ' · ' + escHtml(d.ts || '') + (d.shared ? ' · <b style="color:var(--pink);">' + (isEsLang() ? 'compartido' : 'shared') + '</b>' : '') + '</span>' +
+      '<span style="font-size:14px;color:var(--text-secondary);flex:1;"><b style="color:var(--pink);">' + escHtml(d.station || '—') + '</b> · Job ' + hlId(d.jobNumber) + ' · ' + escHtml(d.ts || '') + (d.shared ? ' · <b style="color:var(--pink);">' + (isEsLang() ? 'compartido' : 'shared') + '</b>' : '') + '</span>' +
       '<button onclick="shareDraft(\'' + d.id + '\')" title="' + (isEsLang() ? 'Sincronizar a otro dispositivo' : 'Sync to other device') + '" style="padding:5px 10px;background:transparent;color:var(--pink);border:1px solid var(--pink);border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;">' + (d.shared ? '✓ 📤' : '📤') + '</button>' +
       '<button onclick="resumeDraft(\'' + d.id + '\')" style="padding:5px 12px;background:var(--pink);color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;">Resume</button>' +
       '<button onclick="discardDraft(\'' + d.id + '\')" style="padding:5px 10px;background:transparent;color:var(--text-tertiary);border:1px solid var(--border);border-radius:6px;font-size:14px;cursor:pointer;white-space:nowrap;">✕</button>' +
     '</div>';
-  }).join('') : '<div style="font-size:14px;color:var(--text-secondary);"><b style="color:var(--pink);">' + escHtml(drafts[0].station || '—') + '</b> · Job ' + escHtml(drafts[0].jobNumber || '—') + ' · ' + escHtml(drafts[0].ts || '') + (drafts[0].shared ? ' · <b style="color:var(--pink);">' + (isEsLang() ? 'compartido' : 'shared') + '</b>' : '') + '</div>';
+  }).join('') : '<div style="font-size:14px;color:var(--text-secondary);"><b style="color:var(--pink);">' + escHtml(drafts[0].station || '—') + '</b> · Job ' + hlId(drafts[0].jobNumber) + ' · ' + escHtml(drafts[0].ts || '') + (drafts[0].shared ? ' · <b style="color:var(--pink);">' + (isEsLang() ? 'compartido' : 'shared') + '</b>' : '') + '</div>';
 }
 
 function _draftShareLabel(draft) {
@@ -13392,7 +13425,7 @@ function openGluerBatchSheet(batchId, context) {
     return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeGluerBatchSheet();">' +
       '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
       '<div class="batch-sheet-info">' +
-        '<div class="batch-sheet-pn">' + escHtml(j.productNumber||'—') + '</div>' +
+        '<div class="batch-sheet-pn">' + hlId(j.productNumber) + '</div>' +
         '<div class="batch-sheet-sub">' + jp('product') + ' ' + (idx + 1) + ' ' + jp('of') + ' ' + batchJobs.length + (j.operatorName ? '  ·  ' + escHtml(j.operatorName) : '') + '</div>' +
       '</div>' +
       '<span class="batch-sheet-status" style="background:' + statusBg + ';color:' + statusColor + ';">' + statusLabel + '</span>' +
@@ -15218,9 +15251,9 @@ function ncrSummaryRows(d){
     [isEs?'Tipo':'Type', ncrPathTitle(d.path)],
     [isEs?'Cliente':'Customer', d.customerFinal],
     [isEs?'Fecha':'Date', d.date],
-    [isEs?'Trabajo #':'Job #', d.jobNumber||'—'],
+    [isEs?'Trabajo #':'Job #', {html: hlId(d.jobNumber)}],
     [isEs?'Estación':'Station', d.station ? stationLabel(d.station) : '—'],
-    [isEs?'Producto(s)':'Product(s)', d.product||'—']
+    [isEs?'Producto(s)':'Product(s)', {html: hlId(d.product)}]
   ];
   if (d.path==='ncr') rows.push([isEs?'Problema de calidad':'Quality issue',d.issueCategory||'—'],[isEs?'Causa raíz':'Root cause',d.rootCause||'—'],[isEs?'Acción correctiva':'Corrective action',d.correctiveAction||'—'],[isEs?'Disposición':'Disposition',d.disposition||'—']);
   if (d.path==='sales') rows.push([isEs?'Problema de calidad':'Quality issue',d.issueCategory||'—'],[isEs?'Resumen':'Summary',d.salesSummary||'—'],[isEs?'Resolución propuesta':'Proposed resolution',d.proposedResolution||'—'],[isEs?'Contacto de ventas':'Sales contact',d.salesContact||'—'],[isEs?'Urgencia':'Urgency',d.urgency||'—'],[isEs?'Causa raíz':'Root cause',d.rootCause||'—'],[isEs?'Acción correctiva':'Corrective action',d.correctiveAction||'—']);
@@ -15233,7 +15266,7 @@ function ncrSummaryHTML(d, isNew){
   var isEs = isEsLang();
   var h = (isNew ? '<button class="ncr-back" onclick="ncrState.mode=\'form\';renderNCRView()">← ' + (isEs?'Volver a editar':'Back to edit') + '</button>' : '') +
     '<div class="card"><div class="card-label">'+(d.ncrId||(isEs?'Resumen':'Summary'))+ (d.status? ' <span class="ncr-status '+(d.status==='Closed'?'closed':d.status==='In Progress'?'inprog':'open')+'">'+ncrStatusLabel(d.status)+'</span>':'') +'</div>' +
-    ncrSummaryRows(d).map(function(r){ return '<div class="ncr-sumrow"><b>'+_ncrEsc(r[0])+'</b><span>'+_ncrEsc(r[1])+'</span></div>'; }).join('') +
+    ncrSummaryRows(d).map(function(r){ return '<div class="ncr-sumrow"><b>'+_ncrEsc(r[0])+'</b><span>'+_rowVal(r[1])+'</span></div>'; }).join('') +
     ((d.photos&&d.photos.length) ? '<div class="ncr-photo-grid" style="margin-top:12px;">'+d.photos.map(function(p){ return '<div class="ncr-thumb"><img src="'+p.src+'"></div>'; }).join('')+'</div>' : '') +
     (d.collage ? '<div style="margin-top:10px"><img src="'+d.collage+'" style="width:100%;border-radius:10px;border:1px solid var(--border)"></div>' : '') +
     (d.dispositionNote ? '<div class="ncr-sumrow"><b>' + (isEs?'Nota de cierre':'Closing note') + '</b><span>'+_ncrEsc(d.dispositionNote)+'</span></div>' : '') +
@@ -16503,8 +16536,8 @@ function renderShipping(){
       var pf = job.formNumber || job.productNumber || job.product || '—';
       row.innerHTML = thumbHTML +
         '<div class="jp-list-info">' +
-          '<div class="jp-list-job">' + escHtml(job.jobNumber) + '</div>' +
-          '<div class="jp-list-sub">' + escHtml(stationLabel(job.station)) + ' · ' + escHtml(pf) + '</div>' +
+          '<div class="jp-list-job">' + hlId(job.jobNumber) + '</div>' +
+          '<div class="jp-list-sub">' + escHtml(stationLabel(job.station)) + ' · ' + hlId(job.formNumber || job.productNumber || job.product) + '</div>' +
         '</div>' +
         '<div class="jp-list-badges"><span class="jp-badge" style="background:#dc2626;color:#fff;">' + jp('shippingApproval') + '</span></div>';
       el.appendChild(row);
@@ -16525,8 +16558,8 @@ function renderShipping(){
       '<div class="jp-card-body">' +
         '<div class="jp-card-ts">' + escHtml(job.timestamp||'') + '</div>' +
         '<div class="jp-card-station">' + stationLabel(job.station) + '</div>' +
-        '<div class="jp-card-job">' + escHtml(job.jobNumber) + '</div>' +
-        '<div class="jp-card-form">' + escHtml(pf) + '</div>' +
+        '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
+        '<div class="jp-card-form">' + hlId(job.formNumber || job.productNumber || job.product) + '</div>' +
         '<div class="jp-card-badges"><span class="jp-badge" style="background:#dc2626;color:#fff;">' + jp('shippingApproval') + '</span></div>' +
       '</div>';
     el.appendChild(card);
@@ -16573,9 +16606,9 @@ function _shipRenderJobHeader(job){
   var _shipCad = _gluerCadSummaryLine(job);
   document.getElementById('ship-job-summary').innerHTML =
     '<div style="font-size:14px;line-height:1.8;">' +
-    '<div><strong>' + (_shipSumEs?'Trabajo:':'Job:') + '</strong> ' + escHtml(job.jobNumber||'—') + '</div>' +
+    '<div><strong>' + (_shipSumEs?'Trabajo:':'Job:') + '</strong> ' + hlId(job.jobNumber) + '</div>' +
     '<div><strong>' + (_shipSumEs?'Estación:':'Station:') + '</strong> ' + escHtml(job.station ? stationLabel(job.station) : '—') + '</div>' +
-    '<div><strong>' + (_shipSumEs?'Producto:':'Product:') + '</strong> ' + escHtml(pf) + '</div>' +
+    '<div><strong>' + (_shipSumEs?'Producto:':'Product:') + '</strong> ' + hlId(job.formNumber || job.productNumber || job.product) + '</div>' +
     (job.customer ? '<div><strong>' + (_shipSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer) + '</div>' : '') +
     (job.operatorName ? '<div><strong>' + (_shipSumEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName) + '</div>' : '') +
     (_shipCad ? '<div><strong>' + (_shipSumEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(_shipCad) + '</div>' : '') +
@@ -17044,14 +17077,16 @@ function renderRecords(){
 
   el.innerHTML = all.map(function(r){
     var m = typeMeta[r.type];
-    var subline = [stationLabel(r.station), r.customer, r.product].filter(Boolean).join(' · ') || '—';
+    var sublineParts = [stationLabel(r.station), r.customer].filter(Boolean).map(escHtml);
+    if (r.product) sublineParts.push(hlId(r.product));
+    var subline = sublineParts.join(' · ') || '—';
     return '<div class="jp-list-row" onclick="openRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')">' +
       '<div class="jp-list-info">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">' +
           '<span style="font-size:15px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:10px;background:' + m.color + '22;color:' + m.color + ';">' + m.label + '</span>' +
-          '<span class="jp-list-job">' + escHtml(r.jobNumber || '—') + '</span>' +
+          '<span class="jp-list-job">' + hlId(r.jobNumber) + '</span>' +
         '</div>' +
-        '<div class="jp-list-sub">' + escHtml(subline) + '</div>' +
+        '<div class="jp-list-sub">' + subline + '</div>' +
       '</div>' +
       '<div class="jp-list-badges" style="text-align:right;">' +
         '<span class="jp-badge" style="background:var(--surface-raised);color:var(--text-secondary);">' + escHtml(r.status || '—') + '</span>' +
@@ -17114,10 +17149,10 @@ function openRecordJob(jobId){
 
   var rows = [
     [_rvjEs?'Estado':'Status', job.shippingApproved ? jp('shippingApproved') : (processLabel(job.process) || job.process || '—')],
-    [_rvjEs?'Trabajo #':'Job #', job.jobNumber || '—'],
+    [_rvjEs?'Trabajo #':'Job #', {html: hlId(job.jobNumber)}],
     [_rvjEs?'Estación':'Station', job.station || '—'],
     [_rvjEs?'Cliente':'Customer', job.customer || '—'],
-    [_rvjEs?'ID de Producto / ID de Forma':'Product ID / Form ID', pf]
+    [_rvjEs?'ID de Producto / ID de Forma':'Product ID / Form ID', {html: hlId(job.formNumber || job.productNumber || job.product)}]
   ];
   if (job.operatorName) rows.push([_rvjEs?'Operador':'Operator', job.operatorName]);
   var _recCad = (job.station === 'Long Gluer' || job.station === 'Short Gluer') ? _gluerCadSummaryLine(job) : '';
@@ -17158,7 +17193,7 @@ function openRecordJob(jobId){
   rows.push([_rvjEs?'Terminado':'Finished', job.finishedAt || job.packerFinishedAt || '—']);
 
   var h = '<div class="card"><div class="card-label">' + (_rvjEs?'Resumen del Trabajo':'Job Summary') + '</div>' + rows.map(function(r){
-    return '<div class="ncr-sumrow"><b>'+escHtml(r[0])+'</b><span>'+escHtml(r[1])+'</span></div>';
+    return '<div class="ncr-sumrow"><b>'+escHtml(r[0])+'</b><span>'+_rowVal(r[1])+'</span></div>';
   }).join('') + '</div>';
 
   if (job.shipmentType === 'split' && job.splitQtys && job.splitQtys.length){
@@ -17334,8 +17369,8 @@ function openRecordRCA(idxKey){
   var rows = [
     [_rvrEs?'Estado':'Status', r.status ? rcaStatusLabel(r.status) : '—'],
     [_rvrEs?'Ruta':'Path', r.path ? rcaPathLabel(r.path) : '—'],
-    [_rvrEs?'Trabajo #':'Job #', r.jobNumber || '—'],
-    [_rvrEs?'Producto #':'Product #', r.productNumber || '—'],
+    [_rvrEs?'Trabajo #':'Job #', {html: hlId(r.jobNumber)}],
+    [_rvrEs?'Producto #':'Product #', {html: hlId(r.productNumber)}],
     [_rvrEs?'Estación':'Station', r.station || '—'],
     [_rvrEs?'Cliente':'Customer', r.customer || '—'],
     [_rvrEs?'Técnico de Calidad':'QA Tech', r.qaTech || '—'],
@@ -17346,7 +17381,7 @@ function openRecordRCA(idxKey){
     [_rvrEs?'Guardado':'Saved', r.savedAt || '—']
   ];
   document.getElementById('rv-body').innerHTML = '<div class="card">' + rows.map(function(x){
-    return '<div class="ncr-sumrow"><b>'+escHtml(x[0])+'</b><span>'+escHtml(x[1])+'</span></div>';
+    return '<div class="ncr-sumrow"><b>'+escHtml(x[0])+'</b><span>'+_rowVal(x[1])+'</span></div>';
   }).join('') + '</div><div style="font-size:14px;color:var(--text-tertiary);padding:0 4px;">' + (_rvrEs ? 'Editar registros de ACR existentes aún no está disponible — esto es solo de visualización por ahora.' : 'Editing existing RCA records isn\'t wired up yet — this is view-only for now.') + '</div>';
   document.getElementById('recordViewOverlay').classList.add('open');
 }
