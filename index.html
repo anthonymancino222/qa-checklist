@@ -214,6 +214,17 @@ body.sidebar-expanded .nav-status {
   max-width: min(860px, calc(100vw - var(--sidebar-w)));
   transition: max-width .15s;
 }
+/* Views whose content actually benefits from more room (the Job in Progress
+   kanban board — the 860px cap was leaving a large dead strip of unused
+   background on any screen wider than ~1100px) opt out of the 860px cap via
+   this class, toggled in switchView(). Everything else keeps the narrower
+   cap — most forms/checklists genuinely read worse stretched edge to edge. */
+/* No calc() needed here — .main already has flex:1, so it naturally fills
+   whatever space the sidebar leaves; the only thing the 860px rule above
+   was doing was capping that below its natural size. Removing the cap is
+   enough, and avoids relying on 100vw (which can disagree with the actual
+   flex-computed width when a scrollbar or side panel is involved). */
+.main.main-wide { max-width: none; }
 
 /* ── View header ── */
 .view-header { margin-bottom: 20px; }
@@ -1164,21 +1175,22 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 }
 
 /* ── Job in Progress kanban ── */
+/* Wraps onto additional rows instead of scrolling sideways — a fixed-width
+   horizontal scroller is what let a column sit at the container's edge
+   only half visible (scroll-snap alone only fixed where a column could
+   REST, not that a too-narrow view still can't show one at all). Columns
+   flex-grow to fill whatever row they're on, so the board always uses the
+   full width available (paired with .main-wide, above, actually giving it
+   that width instead of the old 860px cap) rather than leaving dead space
+   next to a scrollbar. */
 .kanban-wrap {
-  display: flex; gap: 14px; overflow-x: auto; padding-bottom: 16px;
+  display: flex; flex-wrap: wrap; gap: 14px; padding-bottom: 16px;
   align-items: flex-start;
-  /* Scroll-snap: whatever column the view settles on after a scroll/resize
-     is always a WHOLE column, never sliced in half at the container's edge
-     (the original complaint — a narrowed browser window, e.g. with DevTools
-     docked, left the last column visibly cut off mid-card). "mandatory"
-     rather than "proximity" so this is a hard guarantee, not a suggestion. */
-  scroll-snap-type: x mandatory;
 }
 .kanban-col {
-  flex: 0 0 320px; min-height: 200px;
+  flex: 1 1 260px; max-width: 380px; min-height: 200px;
   background: var(--surface-raised); border: 1px solid var(--border);
   border-radius: var(--radius-lg); overflow: hidden;
-  scroll-snap-align: start;
 }
 .kanban-col-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -2405,10 +2417,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button class="vmt-btn" id="ip-view-list-btn" onclick="setInProgressViewMode('list')">☰ <span data-en>List</span><span data-es>Lista</span></button>
         </div>
       </div>
-      <!-- Mirrors ip-kanban-wrap's horizontal scrollbar up here too — with
-           several tall columns, the native scrollbar sits at the bottom of
-           the tallest one, which can be a long way down the page. -->
-      <div id="ip-kanban-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:16px;margin-bottom:2px;" onscroll="_syncKanbanScroll(this, document.getElementById('ip-kanban-wrap'))">
+      <!-- Was a mirrored horizontal scrollbar for ip-kanban-wrap — obsolete
+           now that the board wraps columns onto new rows instead of
+           scrolling sideways (see .kanban-wrap), so there's nothing left to
+           mirror. Left in the DOM (just hidden) rather than torn out, since
+           _syncKanbanScroll's calls elsewhere are harmless no-ops against a
+           hidden, non-scrolling element. -->
+      <div id="ip-kanban-scroll-top" style="display:none;overflow-x:auto;overflow-y:hidden;height:16px;margin-bottom:2px;" onscroll="_syncKanbanScroll(this, document.getElementById('ip-kanban-wrap'))">
         <div id="ip-kanban-scroll-top-spacer" style="height:1px;"></div>
       </div>
       <!-- openColJobsSheet's 2nd argument becomes a sheet title elsewhere in
@@ -8306,6 +8321,10 @@ function switchView(id) {
   document.querySelectorAll('#mainContent > .screen').forEach(function(s){ s.classList.remove('active'); });
   var v = document.getElementById('view-'+id);
   if (v) v.classList.add('active');
+  // The kanban board is the one view that actually benefits from more than
+  // .main's usual 860px cap — see .main-wide's own comment.
+  var mainEl = document.getElementById('mainContent');
+  if (mainEl) mainEl.classList.toggle('main-wide', id === 'inprogress');
   if (id === 'inprogress') renderInProgress();
   if (id === 'qarelease')  renderQARelease();
   if (id === 'qc')         { checkDraftBanner(); checkQcLanding(); }
