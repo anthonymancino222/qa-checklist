@@ -1135,11 +1135,18 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .kanban-wrap {
   display: flex; gap: 14px; overflow-x: auto; padding-bottom: 16px;
   align-items: flex-start;
+  /* Scroll-snap: whatever column the view settles on after a scroll/resize
+     is always a WHOLE column, never sliced in half at the container's edge
+     (the original complaint — a narrowed browser window, e.g. with DevTools
+     docked, left the last column visibly cut off mid-card). "mandatory"
+     rather than "proximity" so this is a hard guarantee, not a suggestion. */
+  scroll-snap-type: x mandatory;
 }
 .kanban-col {
   flex: 0 0 320px; min-height: 200px;
   background: var(--surface-raised); border: 1px solid var(--border);
   border-radius: var(--radius-lg); overflow: hidden;
+  scroll-snap-align: start;
 }
 .kanban-col-head {
   display: flex; align-items: center; justify-content: space-between;
