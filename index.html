@@ -431,6 +431,15 @@ select.input.station-select-picked {
   -webkit-tap-highlight-color: transparent; white-space: nowrap;
   min-height: 48px;
 }
+/* Station buttons (#setup-station-btns) carry the longest labels of any
+   .tgl group ("Pressroom Cutter", "New Die Cutter"...) and, unlike the
+   short Yes/No/Pass/Fail toggles elsewhere, need to wrap onto a second line
+   at ANY viewport width, not just the mobile breakpoint below — nowrap was
+   letting text spill out past the button's own border at in-between widths. */
+#setup-station-btns .tgl {
+  white-space: normal; text-align: center; line-height: 1.25;
+  display: flex; align-items: center; justify-content: center;
+}
 .tgl.pass { background: #16a34a; border-color: #15803d; color: #fff; }
 .tgl.fail { background: #dc2626; border-color: #b91c1c; color: #fff; }
 .tgl.na   { background: var(--amber-soft); border-color: #f0d090; color: var(--amber-ink); }
@@ -622,6 +631,11 @@ textarea.input {
   transition: background .1s, border-color .1s;
 }
 .job-picker-row:hover, .job-picker-row:active { background: var(--pink-soft); border-color: var(--pink); color: var(--pink); }
+.job-tag {
+  display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .03em;
+  padding: 2px 6px; border-radius: 5px; background: var(--pink-soft); color: var(--pink);
+  margin-left: 4px; vertical-align: middle;
+}
 
 /* ── Signature pad ── */
 .sig-wrap {
@@ -12657,7 +12671,7 @@ function renderJobDrop(matches, totalMatches) {
     var d = document.createElement('div');
     d.className = 'cust-opt';
     var sub = [m.entry.customer, m.entry.products.slice(0,2).join(', ')].filter(Boolean).join(' — ');
-    d.innerHTML = '<div>' + m.jobNumber + '</div>' + (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + sub + '</div>' : '');
+    d.innerHTML = '<div>' + m.jobNumber + ' ' + _jobSheetTagsHtml(m.entry) + '</div>' + (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + sub + '</div>' : '');
     d.onmousedown = function(e) { e.preventDefault(); selectScheduleJob(m.jobNumber); };
     drop.appendChild(d);
   });
@@ -12708,7 +12722,26 @@ function selectScheduleJob(jobNumber) {
   jobEl.dispatchEvent(new Event('input', { bubbles: true }));
   document.getElementById('job-drop').style.display = 'none';
   jobDropOpen = false;
-  _applyScheduleJobPrefill(jobNumber);
+  var entry = _scheduleData && _scheduleData.jobs[jobNumber];
+  // A job with more than one product/form needs an actual pick, same as the
+  // tap-picker's product panel — silently leaving Product/Form ID blank here
+  // was the bug: typing a job number bypassed that choice entirely.
+  if (entry && entry.products && entry.products.length > 1) {
+    _openProductPickerOnly(jobNumber, entry);
+  } else {
+    _applyScheduleJobPrefill(jobNumber);
+  }
+}
+
+// Opens the job-picker overlay straight to its product-choice panel, for
+// when a multi-product job was reached by typing (selectScheduleJob above)
+// rather than by tapping through the station-filtered list. Re-renders the
+// job list underneath first so hitting "← Back" doesn't land on a blank
+// panel from a picker session that was never actually opened.
+function _openProductPickerOnly(jobNumber, entry) {
+  document.getElementById('jobPickerOverlay').classList.add('open');
+  if (_scheduleData) renderJobPickerList();
+  _showJobPickerProductPanel(jobNumber, entry);
 }
 
 // Shows what the schedule knows about a typed/selected job — always shown
@@ -12775,6 +12808,27 @@ function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
    Opens automatically right after a station is picked on the New Job screen
    (see _maybeOpenJobPicker, wired into selectStationBtn/onStationDropdownChange
    below), so the common path never requires typing a job number at all. */
+// Small letter-tag shown next to a job number in both the tap-picker and the
+// typed dropdown, so it's visible at a glance which schedule tab(s) a job
+// came from — independent of STATION_TO_SCHEDULE_SHEETS below (that map
+// controls filtering; this one is purely a display label, and a job can
+// legitimately carry more than one tag if it appears on multiple tabs).
+var SCHEDULE_SHEET_TAGS = {
+  'LabelCutter': 'LC',
+  'PMC':         'LC', // same group as LabelCutter, per Anthony
+  'DieCutter':   'DC',
+  'FolderGluer': 'FG',
+  'Kama':        'K',
+};
+
+function _jobSheetTagsHtml(entry) {
+  var seen = {};
+  var tags = (entry.sheets || [])
+    .map(function(s){ return SCHEDULE_SHEET_TAGS[s]; })
+    .filter(function(t){ return t && !seen[t] && (seen[t] = true); });
+  return tags.map(function(t){ return '<span class="job-tag">' + t + '</span>'; }).join('');
+}
+
 var STATION_TO_SCHEDULE_SHEETS = {
   'New Die Cutter':   ['DieCutter'],
   'Old Die Cutter':   ['DieCutter'],
@@ -12874,7 +12928,7 @@ function renderJobPickerList() {
     var subParts = [e.entry.customer];
     subParts.push(e.entry.products.length ? (e.entry.products.length + (isEs ? ' producto' : ' product') + (e.entry.products.length > 1 ? 's' : '')) : '');
     var sub = subParts.filter(Boolean).join(' — ');
-    b.innerHTML = '<div style="font-weight:700;">' + e.jobNumber + '</div>' + (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + sub + '</div>' : '');
+    b.innerHTML = '<div style="font-weight:700;">' + e.jobNumber + ' ' + _jobSheetTagsHtml(e.entry) + '</div>' + (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + sub + '</div>' : '');
     b.onclick = function(){ _pickJobFromPicker(e.jobNumber, e.entry); };
     listEl.appendChild(b);
   });
