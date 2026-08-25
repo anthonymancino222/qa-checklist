@@ -1756,7 +1756,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             <div id="loadtag-status" style="display:none;font-size:14px;margin-top:8px;padding:9px 12px;border-radius:9px;background:var(--surface-raised,rgba(0,0,0,.04));color:var(--text-secondary);line-height:1.5;"></div>
           </div>
           <div class="field">
-            <div class="field-label"><span data-en>Station</span><span data-es>Estación</span> <span class="req">*</span></div>
+            <div class="field-label"><span class="ncr-stepnum">1</span><span data-en>Station</span><span data-es>Estación</span> <span class="req">*</span></div>
             <div class="toggle-group" id="setup-station-btns" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;">
               <button type="button" class="tgl" data-station="Bindery Cutter" style="flex:1;min-width:130px;" onclick="selectStationBtn('Bindery Cutter',this)"><span data-en>Bindery Cutter</span><span data-es>Estación de Corte de Encuadernación</span></button>
               <button type="button" class="tgl" data-station="Pressroom Cutter" style="flex:1;min-width:130px;" onclick="selectStationBtn('Pressroom Cutter',this)"><span data-en>Pressroom Cutter</span><span data-es>Cortadora de Prensa</span></button>
@@ -1779,8 +1779,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <option value="Vendor">Vendor</option>
             </select>
           </div>
-          <div class="field">
-            <div class="field-label"><span data-en>Job number</span><span data-es>Número de trabajo</span> <span class="req">*</span></div>
+          <div class="field" id="setup-job-field" style="display:none;">
+            <div class="field-label"><span class="ncr-stepnum">2</span><span data-en>Job number</span><span data-es>Número de trabajo</span> <span class="req">*</span></div>
             <div class="input-row" style="position:relative;">
               <input id="setup-job" class="input" type="text" inputmode="numeric"
                      placeholder="Type or scan" data-ph-en="Type or scan" data-ph-es="Escriba o escanee" autocomplete="off"
@@ -1811,7 +1811,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             </div>
           </div>
           <div class="field" id="customer-field" style="display:none;">
-            <div class="field-label"><span data-en>Customer</span><span data-es>Cliente</span></div>
+            <div class="field-label"><span class="ncr-stepnum">3</span><span data-en>Customer</span><span data-es>Cliente</span></div>
             <div class="customer-combo" id="customer-combo">
               <div class="customer-input-wrap">
                 <input id="customer-search" class="input" type="text" placeholder="Search or select customer…" data-ph-en="Search or select customer…" data-ph-es="Busque o seleccione cliente…" autocomplete="off" autocorrect="off" spellcheck="false" oninput="filterCustomers()" onfocus="openCustomerDrop()" onblur="scheduleCloseCustomerDrop()">
@@ -13048,6 +13048,12 @@ function _syncStationBtns(station) {
 
 function onStationChange(station) {
   _syncStationBtns(station);
+  // Job number stays hidden until a station is actually picked — for every
+  // station, not just some — so the order the form asks things in matches
+  // the order they're actually usable in (the job picker it opens depends
+  // on knowing the station already, to filter the list correctly).
+  var jobFieldEl = document.getElementById('setup-job-field');
+  if (jobFieldEl) jobFieldEl.style.display = station ? '' : 'none';
   var productNumberStations = ['Bindery Cutter', 'Pressroom Cutter', 'Long Gluer', 'Short Gluer', 'Packing', 'Vendor'];
   var mgrStations = ['Bindery Cutter', 'Pressroom Cutter'];
   var isKama   = (station === 'Kama Foil Press');
