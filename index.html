@@ -1728,6 +1728,24 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   </div>
 </div>
 
+<!-- Gluer sequential multi-product picker — opens when "Start Next Product"
+     is tapped on a QA-Release-stage gluer job that's part of a multi-product
+     batch (job.batchSize > 1) with more product numbers left in
+     job.scheduleProductPool than have been used yet (job.scheduleProductsUsed).
+     See openGluerNextProductPicker() / _startGluerNextProduct(). -->
+<div class="continue-overlay" id="gluerNextProductOverlay" onclick="if(event.target===this)closeGluerNextProductPicker()">
+  <div class="continue-modal" style="max-width:420px;">
+    <div class="continue-modal-head">
+      <div style="font-size:17px;font-weight:800;">▶ <span data-en>Start Next Product</span><span data-es>Iniciar Siguiente Producto</span></div>
+      <button class="continue-close" onclick="closeGluerNextProductPicker()">✕</button>
+    </div>
+    <div class="continue-modal-body">
+      <div style="font-size:14.5px;color:var(--text-secondary);margin-bottom:12px;" id="gluer-next-product-heading"></div>
+      <div id="gluer-next-product-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Layout — hidden until Google Sign-In succeeds (see google-signin-overlay
      above); shown by _onGoogleSignIn(). Not just cosmetic: this is what stops
      a shared tablet from displaying whatever job data a previous person's
@@ -1811,22 +1829,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         <div id="qc-setup-form" style="display:none;">
         <div class="card">
           <div class="card-label"><span data-en>Job info</span><span data-es>Información del Trabajo</span></div>
-          <!-- Load-tag photo scan (OCR) — re-enabled: printed tags now carry a
-               barcode the OCR pipeline can read reliably. -->
-          <div style="margin-bottom:14px;">
-            <div style="display:flex;gap:8px;">
-              <label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-color:var(--pink);color:var(--pink);font-size:14px;padding:12px;">
-                📷 <span data-en>Take Photo</span><span data-es>Tomar Foto</span>
-                <input type="file" accept="image/*" capture="environment" onchange="handleLoadTagPhoto(this)">
-              </label>
-              <label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-color:var(--pink);color:var(--pink);font-size:14px;padding:12px;">
-                🖼️ <span data-en>Upload</span><span data-es>Subir</span>
-                <input type="file" accept="image/*" onchange="handleLoadTagPhoto(this)">
-              </label>
-            </div>
-            <div style="font-size:13px;color:var(--text-tertiary);margin-top:6px;"><span data-en>Load tag scan (optional)</span><span data-es>Escaneo de etiqueta de carga (opcional)</span></div>
-            <div id="loadtag-status" style="display:none;font-size:14px;margin-top:8px;padding:9px 12px;border-radius:9px;background:var(--surface-raised,rgba(0,0,0,.04));color:var(--text-secondary);line-height:1.5;"></div>
-          </div>
           <div class="field">
             <div class="field-label"><span class="field-attn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span data-en>Station</span><span data-es>Estación</span> <span class="req">*</span></div>
             <div class="toggle-group" id="setup-station-btns" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;">
@@ -2039,19 +2041,35 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         <!-- ══ GLUER FIELDS (Long Gluer / Short Gluer) ══ -->
         <div id="gluer-fields" style="display:none;">
 
+          <!-- Gates the "how many products" chooser below — most gluer jobs
+               are a single product, so this stays collapsed until someone
+               actually has a multi-product-same-CAD run. Answering "No" (or
+               never answering) leaves gluerProductCount at its default of 1,
+               same as before this question existed. -->
           <div class="card">
+            <div class="card-label"><span data-en>More than 1 product</span><span data-es>Más de 1 producto</span> <span data-en> AND <u><strong>same CAD</strong></u>?</span><span data-es> Y <u><strong>mismo CAD</strong></u>?</span> <span class="req">*</span></div>
+            <div class="toggle-group" id="gluer-multi-cad-group">
+              <button class="tgl" onclick="setGluerMultiSameCad('no',this)"><span data-en>No</span><span data-es>No</span></button>
+              <button class="tgl" onclick="setGluerMultiSameCad('yes',this)"><span data-en>Yes</span><span data-es>Sí</span></button>
+            </div>
+          </div>
+
+          <div class="card" id="gluer-count-card" style="display:none;">
             <div class="card-label"><span data-en>Number of Products in this Run</span><span data-es>Número de Productos en esta Corrida</span> <span class="req">*</span></div>
             <div class="toggle-group" id="gluer-count-group" style="flex-wrap:wrap;gap:8px;">
-              <button class="tgl pass" style="flex:1;min-width:55px;" onclick="setGluerCount(1,this)">1</button>
               <button class="tgl"      style="flex:1;min-width:55px;" onclick="setGluerCount(2,this)">2</button>
               <button class="tgl"      style="flex:1;min-width:55px;" onclick="setGluerCount(3,this)">3</button>
               <button class="tgl"      style="flex:1;min-width:55px;" onclick="setGluerCount(4,this)">4</button>
               <button class="tgl"      style="flex:1;min-width:55px;" onclick="setGluerCount('other',this)"><span data-en>Other</span><span data-es>Otro</span></button>
             </div>
-            <input id="gluer-count-other-input" class="input" type="number" min="1" max="50" placeholder="Enter count…" data-ph-en="Enter count…" data-ph-es="Ingrese cantidad…" style="margin-top:7px;display:none;" oninput="renderGluerProductFields()">
+            <input id="gluer-count-other-input" class="input" type="number" min="2" max="50" placeholder="Enter count…" data-ph-en="Enter count…" data-ph-es="Ingrese cantidad…" style="margin-top:7px;display:none;" oninput="renderGluerProductFields()">
+            <div style="font-size:13px;color:var(--text-tertiary);margin-top:7px;"><span data-en>Only Product 1's info is needed now — you'll be prompted to start each next product once the one before it reaches QA Release.</span><span data-es>Solo se necesita la información del Producto 1 ahora — se le pedirá iniciar cada producto siguiente una vez que el anterior llegue a Liberación de Calidad.</span></div>
           </div>
 
-          <!-- Dynamic product number inputs rendered by renderGluerProductFields() -->
+          <!-- Dynamic product number input rendered by renderGluerProductFields() —
+               always just Product 1's own field now, even when count > 1 (see
+               the note above): products 2+ get their own field later, on their
+               own screen, when "Start Next Product" is used. -->
           <div id="gluer-product-fields"></div>
 
           <div class="card">
@@ -3378,24 +3396,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <select id="rca-prefill-select" onchange="rcaPrefill(this.value)">
             <option value="">— select an NCR or QC job to pre-fill —</option>
           </select>
-        </div>
-      </div>
-      <!-- Load-tag photo scan (OCR) — re-enabled: printed tags now carry a
-           barcode the OCR pipeline can read reliably. -->
-      <div class="field-row single" style="margin-bottom:12px;">
-        <div class="field-group">
-          <div style="display:flex;gap:8px;">
-            <label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid #1d4ed8;color:#1d4ed8;background:#fff;border-radius:8px;font-size:15px;padding:10px;">
-              📷 <span data-en>Take Photo</span><span data-es>Tomar Foto</span>
-              <input type="file" accept="image/*" capture="environment" onchange="handleRcaLoadTagPhoto(this)">
-            </label>
-            <label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid #1d4ed8;color:#1d4ed8;background:#fff;border-radius:8px;font-size:15px;padding:10px;">
-              🖼️ <span data-en>Upload</span><span data-es>Subir</span>
-              <input type="file" accept="image/*" onchange="handleRcaLoadTagPhoto(this)">
-            </label>
-          </div>
-          <div style="font-size:13px;color:#888;margin-top:6px;"><span data-en>Load tag scan (optional)</span><span data-es>Escaneo de etiqueta de carga (opcional)</span></div>
-          <div id="rca-loadtag-status" style="display:none;font-size:14px;margin-top:8px;padding:8px 10px;border-radius:8px;background:#f3f4f6;color:#555;line-height:1.5;"></div>
         </div>
       </div>
       <div class="field-row">
@@ -5700,6 +5700,15 @@ function renderQARelease() {
     var pfVal = job.formNumber || job.productNumber || job.product;
     var subLine = jp('product') + ': ' + hlId(pfVal);
     var _stationDisp = isVeritivJob ? (stationLabel('Packing') + ' · Veritiv') : stationLabel(job.station);
+    // Gluer multi-product batch (see "GLUER SEQUENTIAL MULTI-PRODUCT BATCH")
+    // still has schedule numbers left unassigned — offer to kick off the
+    // next one right from here instead of waiting for someone to remember.
+    var _needsNextGluerProduct = job.batchSize > 1 &&
+      (job.scheduleProductPool || []).length > (job.scheduleProductsUsed || []).length;
+    var _nextProductBtnHTML = _needsNextGluerProduct
+      ? '<button type="button" class="header-pill-btn" style="width:100%;margin-top:8px;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
+        (isEsLang() ? 'Iniciar Siguiente Producto' : 'Start Next Product') + ' (' + ((job.scheduleProductsUsed||[]).length + 1) + ' ' + (isEsLang()?'de':'of') + ' ' + job.batchSize + ')</button>'
+      : '';
     card.innerHTML = photoHTML +
       '<div class="jp-card-body">' +
         '<div class="jp-card-ts">' + job.timestamp + '</div>' +
@@ -5707,6 +5716,7 @@ function renderQARelease() {
         '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
         '<div class="jp-card-form">' + subLine + '</div>' +
         '<div class="jp-card-badges"><span class="jp-badge" style="background:var(--pink);color:#fff;">' + jp('qaReleaseReq') + '</span></div>' +
+        _nextProductBtnHTML +
       '</div>';
     el.appendChild(card);
   });
@@ -9228,6 +9238,24 @@ function getDCOperatorName() {
 var gluerCurrentProcess = 'makeready';
 var gluerProductCount = 1;
 
+// Gates gluer-count-card: most gluer jobs are one product, so the "how many
+// products" chooser (and the sequential multi-product batch behavior it
+// turns on) stays hidden until this is answered "Yes". "No" forces the
+// count back to 1 — same single-product behavior as before this question
+// existed.
+function setGluerMultiSameCad(val, btn) {
+  var group = document.getElementById('gluer-multi-cad-group');
+  group.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+  btn.classList.add(val === 'yes' ? 'pass' : 'fail');
+  document.getElementById('gluer-count-card').style.display = (val === 'yes') ? 'block' : 'none';
+  if (val === 'no') {
+    document.getElementById('gluer-count-group').querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+    document.getElementById('gluer-count-other-input').style.display = 'none';
+    gluerProductCount = 1;
+    renderGluerProductFields();
+  }
+}
+
 function setGluerCount(n, btn) {
   var group = document.getElementById('gluer-count-group');
   group.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
@@ -9244,6 +9272,17 @@ function setGluerCount(n, btn) {
   renderGluerProductFields();
 }
 
+// Always renders just Product 1's own field+photo, regardless of
+// gluerProductCount — a "3 products" run no longer means "fill in 3 sets of
+// fields right now." Only Product 1 gets submitted from this screen; 2 and
+// 3 get their own screen later via the "Start Next Product" flow (see
+// _renderStartNextProductButton / openGluerNextProductPicker), once the
+// product before them reaches QA Release. The old N-row accordion UI below
+// this function (gluer-prod-row / toggleGluerProd / updateGluerProdLabel)
+// is now unreachable but left in place rather than torn out, since ripping
+// it out cleanly means also removing those two helper functions and the
+// .gluer-stack-card/.gluer-prod-* CSS they depend on — a larger, riskier
+// diff than this feature actually calls for.
 function renderGluerProductFields() {
   var otherInput = document.getElementById('gluer-count-other-input');
   if (otherInput && otherInput.style.display !== 'none') {
@@ -9255,7 +9294,7 @@ function renderGluerProductFields() {
   if (n === 0) { wrap.innerHTML = ''; return; }
   var isEs = isEsLang();
 
-  if (n === 1) {
+  if (true) {
     // Single product: show fields directly, no stack needed
     wrap.innerHTML =
       '<div class="card">' +
@@ -10129,39 +10168,47 @@ async function beginInspection() {
       var _gOpName = getGluerOperatorName();
       var _gTs = formatTS();
       var _gNow = Date.now();
-      var _gBatchId = gluerProductCount > 1 ? ('batch-' + _gNow) : null;
+      var _gBatchId = _gluerContinueBatch ? _gluerContinueBatch.batchId : (gluerProductCount > 1 ? ('batch-' + _gNow) : null);
       var _gChecks = getChecklistValues('setup');
       var _gSig = getSignatureDataURL();
+      // Only Product 1 is ever submitted from this screen now, even when
+      // gluerProductCount > 1 — see the SCHEDULE BRIDGE / batch-sequencing
+      // comment above renderGluerProductFields(). Products 2+ get created
+      // later, one at a time, via "Start Next Product" once the one before
+      // them reaches QA Release (openGluerNextProductPicker).
+      var _gPInput = document.getElementById('gluer-product-0');
+      var _gPNum = _gPInput ? _gPInput.value.trim() : '';
+      if (!_gPNum) { showAlert('Enter Product ID for product 1.'); _scrollToField(_gPInput); return; }
+      var _gPhotoEl = document.getElementById('gluer-prod-photo-prev-0');
+      // Checked by .src, not display state — unlike the other stations'
+      // single make-ready photo, this field is never reset by
+      // startNewJob() (it's rebuilt per product count instead), so a
+      // display:none set once by CSS and never toggled inline made the
+      // old style.display check always read as "has a photo."
+      if (!_gPhotoEl || !_gPhotoEl.src) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('gluer-prod-photo-area-0')); return; }
       try {
-      for (var _gi = 0; _gi < gluerProductCount; _gi++) {
-        var _gPInput = document.getElementById('gluer-product-' + _gi);
-        var _gPNum = _gPInput ? _gPInput.value.trim() : '';
-        if (!_gPNum) { showAlert('Enter Product ID for product ' + (_gi + 1) + '.'); _scrollToField(_gPInput); return; }
-        var _gPhotoEl = document.getElementById('gluer-prod-photo-prev-' + _gi);
-        // Checked by .src, not display state — unlike the other stations'
-        // single make-ready photo, this field is never reset by
-        // startNewJob() (it's rebuilt per product count instead), so a
-        // display:none set once by CSS and never toggled inline made the
-        // old style.display check always read as "has a photo."
-        if (!_gPhotoEl || !_gPhotoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (_gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + _gi)); return; }
-        _qcShowUploadOverlay((isEsLang() ? 'Subiendo foto ' : 'Uploading photo ') + (_gi + 1) + (isEsLang() ? ' de ' : ' of ') + gluerProductCount + '…');
+        _qcShowUploadOverlay(isEsLang() ? 'Subiendo foto…' : 'Uploading photo…');
         var _gPhotoSrc = await _uploadPhotoToDrive(_gPhotoEl.src);
+        var _gSchedEntry = _scheduleData && _scheduleData.jobs[job];
+        var _gPool = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductPool : ((_gSchedEntry && _gSchedEntry.products) || []);
+        var _gUsedSoFar = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductsUsed : [];
         ipAdd({
-          id: 'gluer-' + (_gNow + _gi),
+          id: 'gluer-' + _gNow,
           jobNumber: job, station: station, productNumber: _gPNum,
           customer: document.getElementById('setup-customer').value.trim(),
           operatorName: _gOpName, process: 'production',
           mrPhoto: _gPhotoSrc, opSignature: getOpSignatureDataURL(), qaSignature: _gSig,
           checklist: _gChecks, timestamp: _gTs,
-          batchId: _gBatchId, batchSize: gluerProductCount, batchIndex: _gi,
+          batchId: _gBatchId, batchSize: gluerProductCount, batchIndex: _gUsedSoFar.length,
+          scheduleProductPool: _gPool,
+          scheduleProductsUsed: _gUsedSoFar.concat([_gPNum]),
           stageHistory: _stageSnapshot(null, 'make_ready', 'Operator Entry — Make Ready & Production', {
             operatorName: _gOpName, productId: _gPNum, photo: _gPhotoSrc,
             opSignature: getOpSignatureDataURL(), qaSignature: _gSig, checklist: _gChecks
           })
         });
-      }
       } finally { _qcHideUploadOverlay(); }
-      showToast(gluerProductCount + ' product' + (gluerProductCount > 1 ? 's' : '') + ' → In Production', 'pass');
+      showToast((gluerProductCount > 1 ? 'Product 1 of ' + gluerProductCount : 'Product') + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
     }
@@ -10181,34 +10228,39 @@ async function beginInspection() {
     var opName = getGluerOperatorName();
     var ts = formatTS();
     var now = Date.now();
-    var batchId = gluerProductCount > 1 ? ('batch-' + now) : null;
+    var batchId = _gluerContinueBatch ? _gluerContinueBatch.batchId : (gluerProductCount > 1 ? ('batch-' + now) : null);
     var mrChecks = getChecklistValues('setup'); // operator's make-ready answers — QA's review screen prefills from this
+    // Only Product 1 submitted here even when gluerProductCount > 1 — see
+    // the matching comment in the production branch above.
+    var pInput = document.getElementById('gluer-product-0');
+    var pNum = pInput ? pInput.value.trim() : '';
+    if (!pNum) { showAlert('Enter Product ID for product 1.'); _scrollToField(pInput); return; }
+    var photoEl = document.getElementById('gluer-prod-photo-prev-0');
+    // Checked by .src — see the matching comment in the production branch
+    // above for why style.display isn't a reliable signal for this field.
+    if (!photoEl || !photoEl.src) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('gluer-prod-photo-area-0')); return; }
     try {
-    for (var gi = 0; gi < gluerProductCount; gi++) {
-      var pInput = document.getElementById('gluer-product-' + gi);
-      var pNum = pInput ? pInput.value.trim() : '';
-      if (!pNum) { showAlert('Enter Product ID for product ' + (gi + 1) + '.'); _scrollToField(pInput); return; }
-      var photoEl = document.getElementById('gluer-prod-photo-prev-' + gi);
-      // Checked by .src — see the matching comment in the production branch
-      // above for why style.display isn't a reliable signal for this field.
-      if (!photoEl || !photoEl.src) { showAlert((isEsLang() ? 'Se requiere una foto de preparación para el producto ' : 'Make ready photo is required for product ') + (gi + 1) + '.'); _scrollToField(document.getElementById('gluer-prod-photo-area-' + gi)); return; }
-      _qcShowUploadOverlay((isEsLang() ? 'Subiendo foto ' : 'Uploading photo ') + (gi + 1) + (isEsLang() ? ' de ' : ' of ') + gluerProductCount + '…');
+      _qcShowUploadOverlay(isEsLang() ? 'Subiendo foto…' : 'Uploading photo…');
       var photoSrc = await _uploadPhotoToDrive(photoEl.src);
+      var _schedEntry = _scheduleData && _scheduleData.jobs[job];
+      var _pool = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductPool : ((_schedEntry && _schedEntry.products) || []);
+      var _usedSoFar = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductsUsed : [];
       ipAdd({
-        id: 'gluer-' + (now + gi),
+        id: 'gluer-' + now,
         jobNumber: job, station: station, productNumber: pNum,
         customer: document.getElementById('setup-customer').value.trim(),
         operatorName: opName, process: gluerCurrentProcess,
         mrPhoto: photoSrc, mrComments: mrComments, timestamp: ts,
         checklist: mrChecks,
-        batchId: batchId, batchSize: gluerProductCount, batchIndex: gi,
+        batchId: batchId, batchSize: gluerProductCount, batchIndex: _usedSoFar.length,
+        scheduleProductPool: _pool,
+        scheduleProductsUsed: _usedSoFar.concat([pNum]),
         stageHistory: _stageSnapshot(null, 'make_ready', 'Operator Entry — Make Ready', {
           operatorName: opName, productId: pNum, photo: photoSrc, comments: mrComments, checklist: mrChecks
         })
       });
-    }
     } finally { _qcHideUploadOverlay(); }
-    showToast(gluerProductCount + ' product' + (gluerProductCount > 1 ? 's' : '') + ' → In Make Ready', 'pass');
+    showToast((gluerProductCount > 1 ? 'Product 1 of ' + gluerProductCount : 'Product') + ' → In Make Ready', 'pass');
     startNewJob();
     switchView('inprogress');
     renderInProgress();
@@ -11970,6 +12022,16 @@ function resumeDraft(id) {
       }
     }
     if (draft.gluerProductCount && draft.gluerProductCount > 0) {
+      if (draft.gluerProductCount > 1) {
+        // Restore the multi-CAD gate to "Yes" too, so gluer-count-card (and
+        // the count actually chosen) is visible — same as if they'd just
+        // answered the question fresh.
+        var gcadG = document.getElementById('gluer-multi-cad-group');
+        if (gcadG) {
+          var gcadYesB = gcadG.querySelector('[onclick*="\'yes\'"]');
+          if (gcadYesB) setGluerMultiSameCad('yes', gcadYesB);
+        }
+      }
       var gcG = document.getElementById('gluer-count-group');
       if (gcG) {
         var gcB = Array.prototype.find.call(gcG.querySelectorAll('.tgl'), function(b){ return (b.getAttribute('onclick')||'').indexOf(draft.gluerProductCount+',') !== -1; });
@@ -12088,11 +12150,6 @@ function _safeStyle(id, prop, val) {
 }
 
 function startNewJob() {
-  // Scan data belongs only to the entry that took the photo. Whenever an
-  // entry ends — submitted, saved as a draft, or cancelled — this clears
-  // the remembered scan so it can't auto-fill an unrelated job that
-  // happens to get the same station picked next.
-  if (typeof _ltClearLast === 'function') _ltClearLast();
   _safeSet('setup-job', 'value', '');
   _safeStyle('setup-single-fields', 'display', 'block');
   _safeStyle('setup-notes-card', 'display', 'block');
@@ -12183,13 +12240,15 @@ function startNewJob() {
     if (gluerFirst) gluerFirst.classList.add('fail');
   }
   gluerCurrentProcess = 'makeready';
+  _gluerContinueBatch = null;
   gluerProductCount = 1;
+  // Multi-CAD gate resets to unanswered, hiding the count chooser again —
+  // matches the default state before anyone's touched it, not "No" or "Yes".
+  var gluerMultiCadGroup = document.getElementById('gluer-multi-cad-group');
+  if (gluerMultiCadGroup) gluerMultiCadGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+  _safeStyle('gluer-count-card', 'display', 'none');
   var gluerCountGroup = document.getElementById('gluer-count-group');
-  if (gluerCountGroup) {
-    gluerCountGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
-    var gcFirst = gluerCountGroup.querySelector('.tgl');
-    if (gcFirst) gcFirst.classList.add('pass');
-  }
+  if (gluerCountGroup) gluerCountGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
   var gluerCountOther = document.getElementById('gluer-count-other-input');
   if (gluerCountOther) { gluerCountOther.style.display = 'none'; gluerCountOther.value = ''; }
   _safeSet('gluer-mr-comments', 'value', '');
@@ -13097,6 +13156,98 @@ function _finalizeJobPick(jobNumber, entry, product) {
   closeJobPicker();
 }
 
+/* ══════════════════════════════════
+   GLUER SEQUENTIAL MULTI-PRODUCT BATCH
+   A multi-product gluer run ("More than 1 product AND same CAD?" → Yes) only
+   ever submits Product 1 up front (see the Gluer path in the submit
+   handler) — Products 2..N each get their own full make-ready→production→
+   QA-release cycle, started one at a time via the "Start Next Product"
+   button that appears on a QA-Release-stage card once job.batchSize > 1 and
+   there are still unused numbers in job.scheduleProductPool (the full list
+   pulled from the schedule bridge when Product 1's job was picked) versus
+   job.scheduleProductsUsed (numbers already assigned). _gluerContinueBatch
+   carries that state across to the next submit so it reuses the same
+   batchId/pool instead of starting a fresh batch of 1.
+══════════════════════════════════ */
+var _gluerContinueBatch = null; // { batchId, batchSize, scheduleProductPool, scheduleProductsUsed } while continuing an existing batch, else null
+
+function openGluerNextProductPicker(jobId) {
+  var job = null;
+  ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
+  if (!job) return;
+  var used = job.scheduleProductsUsed || [];
+  var pool = job.scheduleProductPool || [];
+  var remaining = pool.filter(function(p){ return used.indexOf(p) === -1; });
+
+  // 0 or 1 candidates left — nothing to actually choose, so skip the popup
+  // entirely (0 means this job's schedule pull didn't have enough numbers,
+  // or wasn't pulled from the schedule at all; the next screen just asks
+  // for it manually, same as any single-product job would).
+  if (remaining.length <= 1) {
+    _startGluerNextProduct(job, remaining[0] || null);
+    return;
+  }
+
+  var isEs = isEsLang();
+  document.getElementById('gluer-next-product-heading').textContent =
+    (isEs ? 'Trabajo ' : 'Job ') + job.jobNumber + (isEs ? ' — elija el número para el Producto ' : ' — pick the number for Product ') +
+    (used.length + 1) + ' ' + (isEs ? 'de ' : 'of ') + job.batchSize + ':';
+  var listEl = document.getElementById('gluer-next-product-list');
+  listEl.innerHTML = '';
+  remaining.forEach(function(p) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'job-picker-row';
+    b.textContent = p;
+    b.onclick = function(){ closeGluerNextProductPicker(); _startGluerNextProduct(job, p); };
+    listEl.appendChild(b);
+  });
+  document.getElementById('gluerNextProductOverlay').classList.add('open');
+}
+
+function closeGluerNextProductPicker() {
+  document.getElementById('gluerNextProductOverlay').classList.remove('open');
+}
+
+// Opens a fresh New Job screen pre-seeded to continue product N+1 of an
+// existing batch. productNumber is null when the schedule didn't have
+// enough numbers to auto-decide — the operator just types it in as normal.
+function _startGluerNextProduct(job, productNumber) {
+  var used = job.scheduleProductsUsed || [];
+  switchView('qc');
+  startNewJob(); // clean slate — also clears _gluerContinueBatch, so set it after
+  _gluerContinueBatch = {
+    batchId: job.batchId,
+    batchSize: job.batchSize,
+    scheduleProductPool: job.scheduleProductPool || [],
+    scheduleProductsUsed: used
+  };
+  document.getElementById('qc-setup-form').style.display = 'block';
+  document.getElementById('setup-station').value = job.station;
+  onStationChange(job.station);
+  var stationBtn = document.querySelector('#setup-station-btns [data-station="' + job.station + '"]');
+  if (stationBtn) stationBtn.classList.add('sel');
+  var jobEl = document.getElementById('setup-job');
+  jobEl.value = job.jobNumber;
+  jobEl.dispatchEvent(new Event('input', { bubbles: true }));
+  document.getElementById('setup-customer').value = job.customer || '';
+  // Count is fixed for the life of this batch — re-answer "Yes" so the
+  // count card (and gluer-product-fields) render, but the count itself
+  // isn't re-choosable here (no button click sets it — restore each field
+  // manually, since the count-card only exists to CHOOSE a fresh count).
+  var yesBtn = document.querySelector('#gluer-multi-cad-group [onclick*="\'yes\'"]');
+  if (yesBtn) yesBtn.classList.add('pass');
+  gluerProductCount = job.batchSize;
+  renderGluerProductFields();
+  if (productNumber) {
+    var prodEl = document.getElementById('gluer-product-0');
+    if (prodEl) prodEl.value = productNumber;
+  }
+  var isEs = isEsLang();
+  showToast((isEs ? 'Iniciando producto ' : 'Starting product ') + (used.length + 1) + (isEs ? ' de ' : ' of ') + job.batchSize, 'pass');
+  _scrollMainToTop();
+}
+
 function onPackingCustomerChange(name) {
   var isVeritiv = (name === 'Veritiv');
   document.getElementById('post-station-body').style.display = isVeritiv ? 'none' : 'block';
@@ -13362,28 +13513,6 @@ function onStationChange(station) {
     }
   }
 
-  // Re-apply the last load-tag scan to the fields this station just revealed.
-  // Only fills empty fields, so it never clobbers anything typed or resumed
-  // from a draft. Short delay lets gluer field rendering settle first.
-  if (station && typeof _ltRestoreLast === 'function' && _ltRestoreLast()) {
-    setTimeout(function(){
-      var last = _ltRestoreLast();
-      if (!last) return;
-      var filled = _ltFill(last.p, true);
-      // Generic + kanban stations keep their ID in setup-product too
-      var idStations = ['Bindery Cutter','Pressroom Cutter','Long Gluer','Short Gluer','Packing','Vendor','Kama Foil Press','New Die Cutter','Old Die Cutter'];
-      var sp = document.getElementById('setup-product');
-      if (last.p.productId && sp && !sp.value && idStations.indexOf(station) !== -1) {
-        sp.value = last.p.productId;
-        sp.dispatchEvent(new Event('input', { bubbles: true }));
-        if (filled.indexOf('ID ' + last.p.productId) === -1) filled.push('ID ' + last.p.productId);
-      }
-      if (filled.length) {
-        _ltStatus('✅ Scan data applied to <b>' + station + '</b> fields: <b>' + filled.join(' · ') + '</b>');
-        showToast('Load tag data applied', 'pass');
-      }
-    }, 80);
-  }
 }
 
 /* ── Gluer batch picker sheet ── */
@@ -13467,9 +13596,6 @@ updateQAReleaseBadge();
 // unconditionally here (there's nothing to sign into yet at this point in
 // page load).
 
-// Surface a recent load-tag scan (within the shift) so it can be
-// re-applied after a page reload or accidental form reset
-if (typeof _ltRestoreLast === 'function' && _ltRestoreLast()) _ltStatusReapply();
 
 // Warm up the text reader in the background so the first scan is instant.
 // Library + language data cache locally after the first load.
@@ -13519,7 +13645,6 @@ function ncrSaveForLater(){
     }
   }
   ncrState.mode = 'home'; ncrState.d = {}; ncrState.path = null;
-  ncrLtMsg = '';
   renderNCRView();
 }
 function ncrResumeDraft(id){
@@ -14557,7 +14682,6 @@ function qualityIssueCategoriesFor(station){
 }
 
 var ncrState = { mode:'home', path:null, d:{}, detailId:null };
-var ncrLtMsg = ''; // transient "scan result" status shown above the NCR form; survives re-renders
 var _ncrPhotoSeq = 1;
 
 function _ncrEsc(s){ return (s===undefined||s===null)?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -14596,12 +14720,10 @@ function ncrStart(path) {
   ncrState.mode = 'form';
   ncrState.path = path;
   ncrState.d = { path: path, date: new Date().toISOString().slice(0,10), products: [''], photos: [] };
-  ncrLtMsg = '';
   renderNCRView();
 }
 function ncrCancel() {
   ncrState.mode = 'home'; ncrState.d = {}; ncrState.path = null;
-  ncrLtMsg = '';
   renderNCRView();
 }
 
@@ -14851,20 +14973,6 @@ function ncrFormHTML() {
   var h = '<button class="ncr-back" onclick="ncrCancel()">← ' + (isEs?'Atrás':'Back') + '</button>' +
     '<div class="card">' + stepTitle(1, ncrPathTitle(ncrState.path) + (isEs?' — Información del Trabajo':' — Job Info')) +
     prefillHTML +
-    /* Load-tag photo scan (OCR) — re-enabled: printed tags now carry a
-       barcode the OCR pipeline can read reliably. */
-    '<div style="margin-bottom:14px;">' +
-    '<div style="display:flex;gap:8px;">' +
-    '<label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-color:var(--pink);color:var(--pink);font-size:14px;padding:12px;">' +
-    '📷 ' + (isEs?'Tomar Foto':'Take Photo') +
-    '<input type="file" accept="image/*" capture="environment" onchange="handleNcrLoadTagPhoto(this)"></label>' +
-    '<label class="photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-color:var(--pink);color:var(--pink);font-size:14px;padding:12px;">' +
-    '🖼️ ' + (isEs?'Subir':'Upload') +
-    '<input type="file" accept="image/*" onchange="handleNcrLoadTagPhoto(this)"></label>' +
-    '</div>' +
-    '<div style="font-size:13px;color:var(--text-tertiary);margin-top:6px;">' + (isEs?'Escaneo de etiqueta de carga (opcional)':'Load tag scan (optional)') + '</div>' +
-    '<div id="ncr-loadtag-status" style="display:'+(ncrLtMsg?'block':'none')+';font-size:14px;margin-top:8px;padding:9px 12px;border-radius:9px;background:var(--surface-raised,rgba(0,0,0,.04));color:var(--text-secondary);line-height:1.5;">'+ncrLtMsg+'</div>' +
-    '</div>' +
     '<div class="field"><div class="field-label">' + (isEs?'Cliente':'Customer') + ' <span class="req">*</span></div>' +
     '<select id="ncr-customer" class="input" onchange="ncrCustomerChange(this.value)">' +
     '<option value="">' + (isEs?'Seleccionar cliente':'Select customer') + '</option>' +
@@ -14996,68 +15104,6 @@ function ncrCustomerChange(v){
   if (v === '__other') { d.customerIsOther = true; d.customer = ''; other.style.display='block'; other.focus(); }
   else { d.customerIsOther = false; d.customer = v; other.style.display='none'; }
 }
-
-/* Load-tag photo scan for the NCR form — same OCR pipeline as the QC
-   checklist (_ltParse/_ltLoadTesseract/_ltRecognize). A fresh scan always
-   overwrites, so a re-shot tag can correct a bad first read; the NCR form
-   re-renders fully after every fill since it's built from ncrState.d. */
-function _ltFillNcr(p){
-  var d = ncrState.d;
-  var isEs = isEsLang();
-  var filled = [];
-  if (p.job){ d.jobNumber = p.job; filled.push((isEs?'Trabajo ':'Job ') + p.job); }
-  if (p.productId){
-    if (!d.products || !d.products.length) d.products = [''];
-    d.products[0] = p.productId;
-    filled.push('ID ' + p.productId);
-  }
-  if (p.customer){
-    var match = null;
-    for (var i = 0; i < CUSTOMERS.length; i++){
-      if (CUSTOMERS[i].toLowerCase() === p.customer.toLowerCase()){ match = CUSTOMERS[i]; break; }
-    }
-    if (!match){
-      for (var k = 0; k < CUSTOMERS.length; k++){
-        if (CUSTOMERS[k].toLowerCase().indexOf(p.customer.toLowerCase()) === 0 ||
-            p.customer.toLowerCase().indexOf(CUSTOMERS[k].toLowerCase()) === 0){ match = CUSTOMERS[k]; break; }
-      }
-    }
-    if (match){ d.customer = match; d.customerIsOther = false; filled.push(match); }
-    else { d.customerIsOther = true; d.customer = ''; d.customerManual = p.customer; filled.push((isEs?'⚠ cliente "':'⚠ customer "') + p.customer + (isEs?'" no está en la lista':'" not in list')); }
-  }
-  return filled;
-}
-
-function handleNcrLoadTagPhoto(input){
-  var file = input.files && input.files[0];
-  input.value = '';
-  if (!file) return;
-  var isEs = isEsLang();
-  _ltStatus(isEs ? '⏳ Cargando lector de texto…' : '⏳ Loading text reader…', true, 'ncr-loadtag-status');
-  var reader = new FileReader();
-  reader.onload = function(e){
-    _ltLoadTesseract(function(loaded){
-      if (!loaded){
-        _ltStatus(isEs ? '❌ No se pudo cargar el lector de texto — esto necesita internet la primera vez que se usa. Consejo: iOS Live Text también funciona — toque un campo, luego toque el botón de escanear texto en el teclado.' : '❌ Couldn\'t load the text reader — this needs internet the first time it\'s used. Tip: iOS Live Text also works — tap into a field, then tap the scan-text button on the keyboard.', true, 'ncr-loadtag-status');
-        return;
-      }
-      _ltStatus(isEs ? '⏳ Leyendo etiqueta… esto toma unos segundos' : '⏳ Reading tag… this takes a few seconds', true, 'ncr-loadtag-status');
-      _ltRecognize(e.target.result, function(parsed){
-        if (!parsed){
-          ncrLtMsg = isEs ? '❌ No se pudo leer la etiqueta — intente de nuevo con la etiqueta plana, llenando el encuadre, con buena luz.' : '❌ Couldn\'t read the tag — try again with the tag flat, filling the frame, in good light.';
-          _ltStatus(ncrLtMsg, true, 'ncr-loadtag-status');
-          return;
-        }
-        var filled = _ltFillNcr(parsed);
-        ncrLtMsg = (isEs ? '✅ Rellenado desde la etiqueta: <b>' : '✅ Filled from tag: <b>') + filled.join(' · ') + '</b>';
-        renderNCRView();
-        showToast(isEs ? 'Etiqueta de carga escaneada' : 'Load tag scanned', 'pass');
-      });
-    });
-  };
-  reader.readAsDataURL(file);
-}
-
 /* Pre-fill the NCR form from a QC approval entry */
 function ncrPrefillFromQC(jobId){
   if (!jobId) return;
@@ -15291,7 +15337,6 @@ function ncrFinalize(){
   ncrSave(list);
   updateNCRBadges();
   ncrState.mode = 'home'; ncrState.d = {}; ncrState.path = null;
-  ncrLtMsg = '';
   switchView('ncrprog');
 }
 
@@ -15537,63 +15582,6 @@ function _rcaSetCustomer(cust){
     hidden.value = cust;
   }
 }
-
-/* Load-tag photo scan for the RCA form — same OCR pipeline as the QC
-   checklist and NCR form (_ltParse/_ltLoadTesseract/_ltRecognize). Fields
-   are static DOM elements here, so a fresh scan just overwrites them
-   directly — no re-render needed, and a re-shot tag corrects a bad read. */
-function _ltFillRca(p){
-  var isEs = isEsLang();
-  var filled = [];
-  var jobEl = document.getElementById('rca-job-num');
-  if (p.job && jobEl){ jobEl.value = p.job; filled.push((isEs?'Trabajo ':'Job ') + p.job); }
-  var prodEl = document.getElementById('rca-prod-num');
-  if (p.productId && prodEl){ prodEl.value = p.productId; filled.push('ID ' + p.productId); }
-  if (p.customer){
-    var match = null;
-    for (var i = 0; i < CUSTOMERS.length; i++){
-      if (CUSTOMERS[i].toLowerCase() === p.customer.toLowerCase()){ match = CUSTOMERS[i]; break; }
-    }
-    if (!match){
-      for (var k = 0; k < CUSTOMERS.length; k++){
-        if (CUSTOMERS[k].toLowerCase().indexOf(p.customer.toLowerCase()) === 0 ||
-            p.customer.toLowerCase().indexOf(CUSTOMERS[k].toLowerCase()) === 0){ match = CUSTOMERS[k]; break; }
-      }
-    }
-    if (match){ _rcaSetCustomer(match); filled.push(match); }
-    else { _rcaSetCustomer(p.customer); filled.push((isEs?'⚠ cliente "':'⚠ customer "') + p.customer + (isEs?'" no está en la lista':'" not in list')); }
-  }
-  return filled;
-}
-
-function handleRcaLoadTagPhoto(input){
-  var file = input.files && input.files[0];
-  input.value = '';
-  if (!file) return;
-  var isEs = isEsLang();
-  _ltStatus(isEs ? '⏳ Cargando lector de texto…' : '⏳ Loading text reader…', true, 'rca-loadtag-status');
-  var reader = new FileReader();
-  reader.onload = function(e){
-    _ltLoadTesseract(function(loaded){
-      if (!loaded){
-        _ltStatus(isEs ? '❌ No se pudo cargar el lector de texto — esto necesita internet la primera vez que se usa. Consejo: iOS Live Text también funciona — toque un campo, luego toque el botón de escanear texto en el teclado.' : '❌ Couldn\'t load the text reader — this needs internet the first time it\'s used. Tip: iOS Live Text also works — tap into a field, then tap the scan-text button on the keyboard.', true, 'rca-loadtag-status');
-        return;
-      }
-      _ltStatus(isEs ? '⏳ Leyendo etiqueta… esto toma unos segundos' : '⏳ Reading tag… this takes a few seconds', true, 'rca-loadtag-status');
-      _ltRecognize(e.target.result, function(parsed){
-        if (!parsed){
-          _ltStatus(isEs ? '❌ No se pudo leer la etiqueta — intente de nuevo con la etiqueta plana, llenando el encuadre, con buena luz.' : '❌ Couldn\'t read the tag — try again with the tag flat, filling the frame, in good light.', true, 'rca-loadtag-status');
-          return;
-        }
-        var filled = _ltFillRca(parsed);
-        _ltStatus((isEs ? '✅ Rellenado desde la etiqueta: <b>' : '✅ Filled from tag: <b>') + filled.join(' · ') + '</b>', true, 'rca-loadtag-status');
-        showToast(isEs ? 'Etiqueta de carga escaneada' : 'Load tag scanned', 'pass');
-      });
-    });
-  };
-  reader.readAsDataURL(file);
-}
-
 function rcaPrefill(v){
   if (!v) return;
   var kind = v.split(':')[0], key = v.slice(v.indexOf(':')+1);
@@ -17394,563 +17382,6 @@ window.addEventListener('storage', function(e){
     if (document.getElementById('records-list')) renderRecords();
   }
 });
-
-
-/* ══════════════════════════════════
-   LOAD TAG SCANNER (photo → OCR → auto-fill)
-   Photographs the pallet/box load tag and extracts Customer, Job Number,
-   Product ID / Form ID, and Total Quantity, filling the QC setup fields —
-   same spirit as dictation: capture once, skip the typing.
-   OCR runs in-browser via Tesseract.js, lazy-loaded from a CDN on first
-   use (needs internet that one time; cached by the browser afterwards).
-══════════════════════════════════ */
-function _ltStatus(msg, show, elId){
-  var el = document.getElementById(elId || 'loadtag-status');
-  if (!el) return;
-  el.style.display = (show === false) ? 'none' : 'block';
-  el.innerHTML = msg || '';
-}
-
-/* ── Last-scan memory ──
-   The parsed tag is kept (in memory + localStorage, 8h shelf life) so the
-   data survives picking a station later, an accidental form reset, or even
-   a page reload. It auto-reapplies on station change and can be manually
-   reapplied from the "Apply last scan" button in the status strip. */
-var _ltLast = null;
-var LT_LAST_KEY = 'moquin_qa_last_loadtag';
-var LT_MAX_AGE = 8 * 60 * 60 * 1000; // 8 hours ≈ one shift
-
-function _ltSaveLast(parsed){
-  _ltLast = { p: parsed, t: Date.now() };
-  try { localStorage.setItem(LT_LAST_KEY, JSON.stringify(_ltLast)); } catch(e) {}
-}
-
-function _ltClearLast(){
-  _ltLast = null;
-  try { localStorage.removeItem(LT_LAST_KEY); } catch(e) {}
-  _ltStatus('', false);
-}
-
-function _ltRestoreLast(){
-  if (_ltLast) return _ltLast;
-  try {
-    var raw = localStorage.getItem(LT_LAST_KEY);
-    if (raw){
-      var obj = JSON.parse(raw);
-      if (obj && obj.p && obj.t && (Date.now() - obj.t) < LT_MAX_AGE) _ltLast = obj;
-      else localStorage.removeItem(LT_LAST_KEY);
-    }
-  } catch(e) {}
-  return _ltLast;
-}
-
-function _ltSummary(p){
-  var bits = [];
-  if (p.job) bits.push('Job ' + p.job);
-  if (p.customer) bits.push(p.customer);
-  if (p.productId) bits.push('ID ' + p.productId);
-  if (p.totalQty) bits.push('Qty ' + parseInt(p.totalQty,10).toLocaleString());
-  return bits.join(' · ');
-}
-
-/* Status line with a built-in "Apply last scan" button */
-function _ltStatusReapply(prefix){
-  var last = _ltRestoreLast();
-  if (!last) return;
-  var mins = Math.round((Date.now() - last.t) / 60000);
-  var age = mins < 1 ? 'just now' : (mins < 60 ? mins + ' min ago' : Math.round(mins/60) + ' hr ago');
-  _ltStatus(
-    (prefix ? prefix + '<br>' : '') +
-    '📌 Last scan (' + age + '): <b>' + _ltSummary(last.p) + '</b><br>' +
-    '<button onclick="reapplyLoadTag()" style="margin-top:6px;padding:7px 12px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">↻ Apply last scan to fields</button>'
-  );
-}
-
-/* Manual re-apply — fills whatever fields exist now (incl. ones the
-   station selection just revealed) without clobbering typed values */
-function reapplyLoadTag(){
-  var last = _ltRestoreLast();
-  if (!last){ _ltStatus('No saved scan yet — scan a load tag first.'); return; }
-  var filled = _ltFill(last.p, true);
-  if (filled.length){
-    _ltStatus('✅ Applied last scan: <b>' + filled.join(' · ') + '</b>');
-    showToast('Load tag data applied', 'pass');
-  } else {
-    _ltStatus('ℹ️ Nothing new to fill — fields already have values.<br><span style="color:var(--text-tertiary);">Scanned: ' + _ltSummary(last.p) + '</span>');
-  }
-}
-
-function _ltLoadTesseract(cb){
-  if (window.Tesseract) return cb(true);
-  var s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
-  s.onload = function(){ cb(true); };
-  s.onerror = function(){ cb(false); };
-  document.head.appendChild(s);
-}
-
-/* ── Barcode reader (zxing-wasm) ──
-   Newer load tags carry a Code 128 barcode beside each value. A barcode
-   read is categorically better than OCR: Code 128 carries its own checksum,
-   so a damaged scan yields NOTHING rather than a plausible wrong number —
-   which matters because a QA release filed against the wrong product ID
-   crosses a customer boundary on a gang run. Measured on real tag photos:
-   ~30ms, correct at every rotation, and 0 wrong reads.
-   Lazy-loaded from CDN on first use, same as Tesseract; if it can't load
-   (offline), we silently fall through to OCR. */
-var _ltZXRead = null, _ltZXState = 'idle';
-function _ltLoadZXing(cb){
-  if (_ltZXState === 'ready')  return cb(_ltZXRead);
-  if (_ltZXState === 'failed') return cb(null);
-  if (_ltZXState === 'loading'){ setTimeout(function(){ _ltLoadZXing(cb); }, 150); return; }
-  _ltZXState = 'loading';
-  import('https://cdn.jsdelivr.net/npm/zxing-wasm/dist/reader/index.js')
-    .then(function(m){
-      _ltZXRead = m.readBarcodes || m.readBarcodesFromImageData || null;
-      _ltZXState = _ltZXRead ? 'ready' : 'failed';
-      cb(_ltZXRead);
-    })
-    .catch(function(){ _ltZXState = 'failed'; cb(null); });
-}
-
-/* Decode every barcode in the photo. 1200px is plenty — full resolution
-   measured no better and 2-4x slower. tryHarder is not optional: without it
-   only 1-2 of the 3-4 codes on a tag come back. */
-function _ltDecodeBarcodes(dataUrl, cb){
-  _ltLoadZXing(function(read){
-    if (!read) return cb(null);
-    var img = new Image();
-    img.onload = function(){
-      var w = img.width, h = img.height;
-      var s = Math.min(1, 1200 / Math.max(w, h));
-      var cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
-      var cv = document.createElement('canvas');
-      cv.width = cw; cv.height = ch;
-      var ctx = cv.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(img, 0, 0, cw, ch);
-      var id;
-      try { id = ctx.getImageData(0, 0, cw, ch); } catch(e){ return cb(null); }
-      read(id, { tryHarder: true, tryRotate: true, tryInvert: false, tryDownscale: true,
-                 maxNumberOfSymbols: 20, formats: ['Code128','Code39'] })
-        .then(function(res){ cb(res || []); })
-        .catch(function(){ cb(null); });
-    };
-    img.onerror = function(){ cb(null); };
-    img.src = dataUrl;
-  });
-}
-
-/* Map decoded codes onto fields. The tag prints Job, Product, Qty/Box,
-   Total top-to-bottom, so vertical order is the primary signal; the digit
-   prefixes (job 0xxxxx, product 11xxxx) are used only to CONFIRM or to
-   disambiguate — never to reject, since job numbers are a counter that will
-   roll past 05xxxx one day. Anything ambiguous is left null so OCR and the
-   operator resolve it, rather than guessing. */
-function _ltMapBarcodes(codes){
-  var out = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
-  if (!codes || !codes.length) return out;
-
-  var list = [], seen = {};
-  for (var i = 0; i < codes.length; i++){
-    var c = codes[i];
-    var t = String(c && c.text != null ? c.text : '').trim();
-    if (!t) continue;
-    // The same physical symbol can be reported twice a few pixels apart
-    // (seen in the field: "105877" returned at y=588 and again at y=615).
-    if (seen[t]) continue;
-    seen[t] = 1;
-    var y = (c.position && c.position.topLeft && typeof c.position.topLeft.y === 'number')
-            ? c.position.topLeft.y : 0;
-    list.push({ text: t, y: y });
-  }
-  list.sort(function(a, b){ return a.y - b.y; });
-
-  var ids  = list.filter(function(c){ return /^\d{6}$/.test(c.text); });
-  var qtys = list.filter(function(c){ return /^\d{1,3}(,\d{3})+$/.test(c.text) || (/^\d{1,5}$/.test(c.text)); });
-
-  /* A barcode payload carries no field name, so the digits themselves are
-     the ONLY signal for which field a code belongs to. Job numbers begin 0
-     (046850, 047587, 047589...), product IDs begin 1 (105000, 108514,
-     109934, 118043...). Verified across every tag seen so far.
-
-     There is deliberately NO fallback that assigns an unmatched code to a
-     field by position. An earlier version did, and it was actively harmful:
-     on tags where only the product barcode decoded, the leftover product ID
-     was dropped into the Job field and reported as barcode-verified. A
-     wrong job number that looks checksum-confirmed is the worst output this
-     code can produce. A code matching neither pattern is now left alone. */
-  var jobHit  = ids.filter(function(c){ return /^0\d{5}$/.test(c.text); });
-  var prodHit = ids.filter(function(c){ return /^1\d{5}$/.test(c.text); });
-  // Ties break by vertical position: the tag prints Job above Product ID.
-  if (jobHit.length)  out.job       = jobHit[0].text;
-  if (prodHit.length) out.productId = prodHit[0].text;
-
-  if (out.job)       out.src.job = 'barcode';
-  if (out.productId) out.src.productId = 'barcode';
-
-  if (qtys.length){
-    var q0 = qtys[0].text.replace(/,/g, '');
-    if (/^\d+$/.test(q0)){ out.qtyPerBox = q0; out.src.qtyPerBox = 'barcode'; }
-    if (qtys.length > 1){
-      var q1 = qtys[1].text.replace(/,/g, '');
-      if (/^\d+$/.test(q1)){ out.totalQty = q1; out.src.totalQty = 'barcode'; }
-    }
-  }
-  return out;
-}
-
-/* Downscale, rotate, and boost contrast in grayscale, returning a JPEG data
-   URL. Measured, not assumed: handing Tesseract the raw canvas instead reads
-   WORSE than handing it the re-encoded JPEG (IMG_0167's job number reads
-   047562 from the JPEG and comes back empty from the canvas) — the encode
-   appears to smooth sensor noise in a way the recognizer likes. Note this is
-   ONE encode from the original photo; encoding a second time on top of that
-   is what destroys text, so callers must always start from the source image. */
-function _ltPreprocess(img, maxDim, rotateDeg){
-  var w = img.width, h = img.height;
-  var scale = Math.min(1, maxDim / Math.max(w, h));
-  var sw = Math.round(w * scale), sh = Math.round(h * scale);
-  var rotated = (rotateDeg === 90 || rotateDeg === 270);
-  var cv = document.createElement('canvas');
-  cv.width = rotated ? sh : sw; cv.height = rotated ? sw : sh;
-  /* Deliberately NOT willReadFrequently: that flag drops Chrome onto a
-     software canvas whose downscaling rasterizes differently, and it
-     measurably costs accuracy — on a real tag photo the job number read
-     047562 with the default context and came back empty with the flag on.
-     The one getImageData call here is not worth that trade. */
-  var ctx = cv.getContext('2d');
-  ctx.translate(cv.width / 2, cv.height / 2);
-  ctx.rotate(rotateDeg * Math.PI / 180);
-  ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
-  var id = ctx.getImageData(0, 0, cv.width, cv.height);
-  var d = id.data, contrast = 1.35, mid = 128;
-  /* Plain luminance, deliberately — no colour filtering.
-     Dropping the green "Approved For Release" stamp before OCR was tried and
-     measured, twice, and neither version earned its place:
-       - by saturation (remove anything coloured): job 1/12, product 3/12,
-         against 7/12 and 8/12 for plain luminance. It was eating the text.
-         JPEG chroma subsampling puts coloured fringes on every sharp black
-         edge, so "remove coloured pixels" removes the stroke edges.
-       - green-targeted (remove only green-dominant, light pixels): exactly
-         neutral, 6/6 both ways, identical output on every photo.
-     The reason it buys nothing is that on these tags the stamp sits over the
-     customer name, not over the job or product digits — so there is nothing
-     for it to fix. Left as plain luminance until a tag turns up where the
-     stamp actually lands on a number. */
-  for (var i = 0; i < d.length; i += 4){
-    var g = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-    g = (g - mid) * contrast + mid;
-    d[i] = d[i+1] = d[i+2] = g < 0 ? 0 : (g > 255 ? 255 : g);
-  }
-  ctx.putImageData(id, 0, 0);
-  return cv.toDataURL('image/jpeg', 0.92);
-}
-
-/* Hard format gate. OCR failure on these tags shows up as extra or dropped
-   digits — a real read came back as "1047368" for job 047368 and "1114122"
-   for product 114122. Those must become NOTHING, not a filled field: a QA
-   release is a controlled record, and a plausible wrong number that an
-   operator tabs past is far more dangerous than a blank one they have to
-   type. Job and Product are always exactly 6 digits on these tags. */
-function _ltClean(p){
-  if (!p) return p;
-  if (p.job && !/^\d{6}$/.test(p.job)) p.job = null;
-  if (p.productId && !/^\d{6}$/.test(p.productId)) p.productId = null;
-  /* Quantities never have a leading zero. OCR returned "0004" for a total
-     of 54,000 on a real tag; the old \d{1,9} gate let it through. */
-  if (p.totalQty && !/^[1-9]\d{0,8}$/.test(p.totalQty)) p.totalQty = null;
-  if (p.qtyPerBox && !/^[1-9]\d{0,8}$/.test(p.qtyPerBox)) p.qtyPerBox = null;
-  return p;
-}
-
-function _ltHasFields(p){
-  return !!(p && (p.job || p.customer || p.productId || p.totalQty));
-}
-
-/* How good is this read? Used to CHOOSE between orientations rather than
-   accepting the first one that returned anything at all — the old code
-   stopped on the first non-empty parse, so an upside-down tag that happened
-   to scrape one plausible number out of noise returned that single wrong
-   field and never tried 180°. Roughly 3 in 8 real photos are inverted, so
-   that alone was close to a coin flip. */
-function _ltScore(p){
-  if (!p) return 0;
-  var s = 0;
-  if (/^\d{6}$/.test(p.job || ''))       s += 3;
-  if (/^\d{6}$/.test(p.productId || '')) s += 3;
-  if (p.totalQty  && /^\d{2,9}$/.test(p.totalQty))  s += 2;
-  if (p.qtyPerBox && /^\d{2,9}$/.test(p.qtyPerBox)) s += 1;
-  if (p.customer && p.customer.length > 2) s += 1;
-  return s;
-}
-
-/* Persistent OCR worker for the load tag. The old code called
-   Tesseract.recognize(), which spins up a worker and reloads the language
-   data on EVERY call, then throws it away — paid once per orientation. */
-var _ltWorker = null, _ltWorkerState = 'idle';
-function _ltGetWorker(cb){
-  if (_ltWorkerState === 'ready')  return cb(_ltWorker);
-  if (_ltWorkerState === 'failed') return cb(null);
-  // No OCR engine (offline / CDN blocked) — barcodes can still carry the scan.
-  if (!window.Tesseract){ _ltWorkerState = 'failed'; return cb(null); }
-  if (_ltWorkerState === 'loading'){ setTimeout(function(){ _ltGetWorker(cb); }, 150); return; }
-  _ltWorkerState = 'loading';
-  Tesseract.createWorker('eng', 1)
-    .then(function(w){ _ltWorker = w; _ltWorkerState = 'ready'; cb(w); })
-    .catch(function(){ _ltWorkerState = 'failed'; cb(null); });
-}
-
-/* Barcode first, OCR second, best-of-orientations rather than first-hit.
-   cb(parsed) — parsed.src marks where each field came from — or cb(null). */
-function _ltRecognize(rawDataUrl, cb){
-  _ltDecodeBarcodes(rawDataUrl, function(codes){
-    var bc = _ltMapBarcodes(codes);
-    // Both IDs off checksummed barcodes: done, no OCR needed.
-    if (bc.job && bc.productId){ cb(bc); return; }
-    /* If ANY barcode decoded, the photo is demonstrably upright enough for a
-       decoder to work, so the 90°/270° OCR retry cannot be what saves us —
-       it is pure dead time. Measured in the field: tags where the job
-       barcode failed spent 4.0–4.7s in OCR and scored 0 at every single
-       orientation. Skipping the sideways passes cuts roughly 2.5s off the
-       worst case without giving up anything that has ever worked. */
-    var uprightProven = !!(codes && codes.length);
-    _ltOcrRecognize(rawDataUrl, uprightProven, function(ocr){
-      if (!ocr && !_ltHasFields(bc)){ cb(null); return; }
-      var merged = { customer:null, job:null, productId:null, qtyPerBox:null, totalQty:null, src:{} };
-      ['customer','job','productId','qtyPerBox','totalQty'].forEach(function(k){
-        if (bc[k]){ merged[k] = bc[k]; merged.src[k] = 'barcode'; }
-        else if (ocr && ocr[k]){ merged[k] = ocr[k]; merged.src[k] = 'text'; }
-      });
-      cb(_ltHasFields(merged) ? merged : null);
-    });
-  });
-}
-
-/* OCR pass. Decodes the photo ONCE, then tries orientations against that
-   same decoded bitmap and keeps the best-scoring parse. 0/180 first (a
-   tag is stuck on the box one way up or the other); 90/270 only if neither
-   produced anything usable. */
-function _ltOcrRecognize(rawDataUrl, uprightProven, cb){
-  _ltGetWorker(function(worker){
-    if (!worker){ cb(null); return; }
-    var img = new Image();
-    img.onerror = function(){ cb(null); };
-    img.onload = function(){
-      var best = null, bestScore = 0;
-      var angles = [0, 180];
-      var i = 0, triedSideways = false;
-      function next(){
-        if (i >= angles.length){
-          /* Retry sideways when we still have no ID at all. Gate on the IDs
-             themselves, not on the score — a parse that picked up only a
-             customer name and the quantities scores 4, which was enough to
-             suppress the retry on a genuinely sideways label. */
-          var haveId = best && (best.job || best.productId);
-          if (!haveId && !triedSideways && !uprightProven){ triedSideways = true; angles = [90, 270]; i = 0; }
-          else { cb(bestScore > 0 ? best : null); return; }
-        }
-        var angle = angles[i++];
-        var prepped;
-        try { prepped = _ltPreprocess(img, 2000, angle); }
-        catch(e){ next(); return; }
-        worker.recognize(prepped).then(function(res){
-          var text = (res && res.data && res.data.text) || '';
-          var parsed = _ltClean(_ltParse(text));
-          var sc = _ltScore(parsed);
-          if (sc > bestScore){ bestScore = sc; best = parsed; }
-          // A complete read (job + product + a quantity) is as good as it gets.
-          if (bestScore >= 8){ cb(best); return; }
-          next();
-        }).catch(function(){ next(); });
-      }
-      next();
-    };
-    img.src = rawDataUrl;
-  });
-}
-
-/* Parse the known tag layout: label line, value on the next line.
-   Regex fallbacks catch label+value on one line and OCR line-merge noise. */
-function _ltParse(text){
-  var out = { customer: null, job: null, productId: null, totalQty: null, qtyPerBox: null };
-  var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
-  function isJunkLine(s){
-    // Green stamp overprints: "Approved For Release", codes like L0004A
-    if (/approved|release/i.test(s)) return true;
-    if (/^[A-Za-z]{0,2}\d{3,}[A-Za-z]{0,2}$/.test(s.replace(/\s+/g,''))) return true;
-    return false;
-  }
-  function nextVal(i, skipJunk){
-    for (var j = i + 1; j < Math.min(i + 5, lines.length); j++){
-      if (!lines[j]) continue;
-      if (skipJunk && isJunkLine(lines[j])) continue;
-      return lines[j];
-    }
-    return '';
-  }
-  function digitsOf(s){
-    // OCR habitually reads 0 as O and 1 as l/I — normalize inside number-ish tokens
-    var norm = String(s).replace(/[OoIl|]/g, function(ch, pos, str){
-      // only substitute when the character neighbors a digit
-      var prev = str[pos-1] || '', next = str[pos+1] || '';
-      if (/\d/.test(prev) || /\d/.test(next)) return (ch === 'O' || ch === 'o') ? '0' : '1';
-      return ch;
-    });
-    var m = norm.replace(/[,\.]/g, '').match(/\d{2,}/);
-    return m ? m[0] : null;
-  }
-  for (var i = 0; i < lines.length; i++){
-    var low = lines[i].toLowerCase();
-    if (!out.customer && low.indexOf('customer') >= 0 && low.indexOf('name') >= 0){
-      var cand = nextVal(i, true).replace(/[^A-Za-z0-9 &().\/'-]/g, '').trim();
-      if (cand && !/^(job|number|product|form|qty|total)/i.test(cand)) out.customer = cand;
-    }
-    if (!out.job && low.indexOf('job') >= 0 && low.indexOf('number') >= 0){
-      out.job = digitsOf(lines[i]) || digitsOf(nextVal(i));
-    }
-    if (!out.productId && (low.indexOf('product id') >= 0 || low.indexOf('form id') >= 0 || (low.indexOf('product') >= 0 && low.indexOf('form') >= 0))){
-      out.productId = digitsOf(lines[i].replace(/id/ig,'')) || digitsOf(nextVal(i));
-    }
-    if (!out.qtyPerBox && low.indexOf('per box') >= 0){
-      out.qtyPerBox = digitsOf(lines[i]) || digitsOf(nextVal(i));
-    }
-    if (!out.totalQty && low.indexOf('total') >= 0 && (low.indexOf('quantity') >= 0 || low.indexOf('qty') >= 0)){
-      out.totalQty = digitsOf(lines[i]) || digitsOf(nextVal(i));
-    }
-  }
-  // Whole-text regex fallbacks for anything the line pass missed
-  var flat = text.replace(/\n/g, ' ');
-  if (!out.job){ var m1 = flat.match(/job\s*number\D{0,6}(\d{4,7})/i); if (m1) out.job = m1[1]; }
-  if (!out.productId){ var m2 = flat.match(/(?:product|form)\s*id\D{0,20}(\d{4,7})/i); if (m2) out.productId = m2[1]; }
-  if (!out.totalQty){ var m3 = flat.match(/total\s*quantity\D{0,6}([\d,]{3,9})/i); if (m3) out.totalQty = m3[1].replace(/,/g,''); }
-  return out;
-}
-
-function _ltFill(p, onlyEmpty){
-  var filled = [];
-  if (p.job){
-    var jobEl = document.getElementById('setup-job');
-    if (jobEl && !(onlyEmpty && jobEl.value && jobEl.value !== p.job)){
-      var jobWasEmpty = !jobEl.value;
-      jobEl.value = p.job; jobEl.dispatchEvent(new Event('input', { bubbles: true }));
-      if (!onlyEmpty || jobWasEmpty) filled.push('Job ' + p.job);
-    }
-  }
-  if (p.customer){
-    // Case-insensitive match against the canonical customer list
-    var match = null;
-    for (var i = 0; i < CUSTOMERS.length; i++){
-      if (CUSTOMERS[i].toLowerCase() === p.customer.toLowerCase()){ match = CUSTOMERS[i]; break; }
-    }
-    if (!match){
-      // Loose match: OCR often drops/garbles a character
-      for (var k = 0; k < CUSTOMERS.length; k++){
-        if (CUSTOMERS[k].toLowerCase().indexOf(p.customer.toLowerCase()) === 0 ||
-            p.customer.toLowerCase().indexOf(CUSTOMERS[k].toLowerCase()) === 0){ match = CUSTOMERS[k]; break; }
-      }
-    }
-    var custEl = document.getElementById('setup-customer');
-    var custAlreadySet = custEl && custEl.value;
-    if (match && typeof selectCustomer === 'function' && !(onlyEmpty && custAlreadySet)){
-      selectCustomer(match);
-      if (!onlyEmpty || !custAlreadySet) filled.push(match);
-    } else if (!onlyEmpty){
-      filled.push('⚠ customer "' + p.customer + '" not in list');
-    }
-  }
-  if (p.productId){
-    // Fresh photo scan (onlyEmpty falsy): overwrite, so a re-shot tag can
-    // correct a bad first read. Station-change/manual-reapply (onlyEmpty
-    // true): only fill empty fields, so it never clobbers a typed value.
-    var idFilled = false;
-    ['veritiv-product','kama-form-number','dc-form-number','gluer-product-0','product-id','setup-product'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el && (!onlyEmpty || !el.value)){ el.value = p.productId; el.dispatchEvent(new Event('input', { bubbles: true })); idFilled = true; }
-    });
-    if (idFilled) filled.push('ID ' + p.productId);
-  }
-  if (p.totalQty){
-    var qn = parseInt(p.totalQty, 10);
-    if (qn > 0){
-      var qtyFilled = false;
-      [['veritiv-qty','updateVeritivAQL'],['setup-val-kama-qty',null],['setup-val-dc-qty',null],['setup-val-pk-qty',null],['setup-val-gl-qty','checkGluerQty']].forEach(function(pair){
-        var el = document.getElementById(pair[0]);
-        if (el && (!onlyEmpty || !el.value || el.value === '0')){
-          el.value = qn;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          if (pair[1] && typeof window[pair[1]] === 'function') window[pair[1]]();
-          qtyFilled = true;
-        }
-      });
-      if (qtyFilled || !onlyEmpty) filled.push('Qty ' + qn.toLocaleString());
-    }
-  }
-  return filled;
-}
-
-/* Shooting advice, shown whenever a read is incomplete. Flash is listed
-   first because it is what the floor actually reports helping — most likely
-   because it forces a fast shutter and kills the motion blur you can't see
-   on the preview, not because of brightness as such. The tilt matters
-   because the LED sits about a centimetre from the lens, so straight-on at
-   a taped label the flash reflects right back into the shot. */
-var LT_TIP = 'Tip: turn the camera <b>flash on</b> and tilt the phone slightly '
-           + '(about 15°) so the light doesn\'t bounce straight back off the tape. '
-           + 'Fill the frame with the tag and hold still.';
-
-/* Per-field provenance. A barcode read is checksum-protected — it is either
-   right or it returns nothing — so it deserves to look different from a
-   text read, which is a best guess and should be eyeballed. */
-function _ltReadout(p){
-  var rows = [];
-  function row(label, val, key){
-    if (!val) return;
-    var viaBarcode = p.src && p.src[key] === 'barcode';
-    rows.push('<b>' + label + ' ' + val + '</b> ' +
-      (viaBarcode ? '<span style="color:var(--pass,#1a7f37);">⚡ barcode</span>'
-                  : '<span style="color:var(--text-tertiary);">🔤 text — check it</span>'));
-  }
-  row('Job', p.job, 'job');
-  row('Product', p.productId, 'productId');
-  var missing = [];
-  if (!p.job) missing.push('Job number');
-  if (!p.productId) missing.push('Product ID');
-  var html = rows.join('<br>');
-  if (missing.length){
-    html += (rows.length ? '<br>' : '') +
-      '<span style="color:var(--warn,#9a6700);">⚠️ ' + missing.join(' and ') +
-      ' couldn\'t be read — type ' + (missing.length > 1 ? 'them' : 'it') + ' in.</span>' +
-      '<br><span style="color:var(--text-tertiary);font-size:13px;">' + LT_TIP + '</span>';
-  }
-  return html;
-}
-
-function handleLoadTagPhoto(input){
-  var file = input.files && input.files[0];
-  input.value = '';
-  if (!file) return;
-  _ltStatus('⏳ Reading tag…');
-  var reader = new FileReader();
-  reader.onload = function(e){
-    // Load Tesseract in the background, but don't block on it — a barcoded
-    // tag is decoded without OCR, so a slow or failed CDN fetch shouldn't
-    // hold up (or sink) a scan that never needed the text reader.
-    _ltLoadTesseract(function(){});
-    _ltRecognize(e.target.result, function(parsed){
-      if (!parsed){
-        _ltStatus('❌ Couldn\'t read the tag.<br><span style="color:var(--text-tertiary);font-size:13px;">' + LT_TIP + '</span>');
-        return;
-      }
-      _ltSaveLast(parsed);
-      _ltFill(parsed);
-      _ltStatus(_ltReadout(parsed) +
-        '<br><span style="color:var(--text-tertiary);">Pick the station next — the scan data fills the station fields automatically (or tap ↻ below).</span><br>' +
-        '<button onclick="reapplyLoadTag()" style="margin-top:6px;padding:7px 12px;background:transparent;color:var(--pink);border:1.5px solid var(--pink);border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">↻ Apply last scan to fields</button>');
-      showToast('Load tag scanned', 'pass');
-    });
-  };
-  reader.readAsDataURL(file);
-}
 
 /* ══════════════════════════════════════════════════════════════════
    PALLET ISSUE TAG MODULE — ported from the standalone
