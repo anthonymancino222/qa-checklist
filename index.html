@@ -6075,10 +6075,10 @@ function openContinueModal(id) {
   if (!job) return;
   continueJobId = id;
 
-  document.getElementById('cm-title').textContent = jp('jobLabel') + ' ' + job.jobNumber;
+  document.getElementById('cm-title').innerHTML = escHtml(jp('jobLabel')) + ' ' + hlId(job.jobNumber);
   var cmIsGluer = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
-  var cmCustomer = (job.customer && job.customer !== '') ? ' · ' + job.customer : '';
-  document.getElementById('cm-sub').textContent   = stationLabel(job.station) + cmCustomer + (cmIsGluer ? (job.productNumber ? ' · ' + jp('product') + ' ' + job.productNumber : '') : (job.formNumber ? ' · ' + jp('form') + ' ' + job.formNumber : ''));
+  var cmCustomer = (job.customer && job.customer !== '') ? ' · ' + escHtml(job.customer) : '';
+  document.getElementById('cm-sub').innerHTML   = escHtml(stationLabel(job.station)) + cmCustomer + (cmIsGluer ? (job.productNumber ? ' · ' + escHtml(jp('product')) + ' ' + hlId(job.productNumber) : '') : (job.formNumber ? ' · ' + escHtml(jp('form')) + ' ' + hlId(job.formNumber) : ''));
   // Show edit button only before QA release — and never when this job was
   // opened from Records, which should stay a read-only look-up even for a
   // job that's technically still in flight.
@@ -7917,9 +7917,9 @@ function saveJobEdit() {
   else updates.formNumber = newProd;
   ipUpdate(continueJobId, updates);
   // Refresh header
-  document.getElementById('cm-title').textContent = jp('jobLabel') + ' ' + newJob;
-  var cmCustomer = (job.customer && job.customer !== '') ? ' · ' + job.customer : '';
-  document.getElementById('cm-sub').textContent = stationLabel(job.station) + cmCustomer + (cmIsGluer ? (newProd ? ' · ' + jp('product') + ' ' + newProd : '') : (newProd ? ' · ' + jp('form') + ' ' + newProd : ''));
+  document.getElementById('cm-title').innerHTML = escHtml(jp('jobLabel')) + ' ' + hlId(newJob);
+  var cmCustomer = (job.customer && job.customer !== '') ? ' · ' + escHtml(job.customer) : '';
+  document.getElementById('cm-sub').innerHTML = escHtml(stationLabel(job.station)) + cmCustomer + (cmIsGluer ? (newProd ? ' · ' + escHtml(jp('product')) + ' ' + hlId(newProd) : '') : (newProd ? ' · ' + escHtml(jp('form')) + ' ' + hlId(newProd) : ''));
   cancelJobEdit();
   renderInProgress();
   if (typeof renderQARelease === 'function') renderQARelease();
@@ -16668,9 +16668,9 @@ function _shipSelectByValue(groupId, key, val){
 // correcting job #/product ID) so fixing a typo doesn't need to re-run the
 // whole modal-open flow and blow away toggles/photo/signature already filled in.
 function _shipRenderJobHeader(job){
-  document.getElementById('ship-title').textContent = 'Job ' + (job.jobNumber||'—');
-  var pf = job.formNumber || job.productNumber || job.product || '—';
-  document.getElementById('ship-sub').textContent = stationLabel(job.station) + ' · ' + (job.customer?job.customer+' · ':'') + pf;
+  document.getElementById('ship-title').innerHTML = 'Job ' + hlId(job.jobNumber);
+  var pf = job.formNumber || job.productNumber || job.product;
+  document.getElementById('ship-sub').innerHTML = escHtml(stationLabel(job.station)) + ' · ' + (job.customer?escHtml(job.customer)+' · ':'') + hlId(pf);
   var shipDelBtn = document.getElementById('ship-delete-job-btn');
   if (shipDelBtn) shipDelBtn.style.display = _dataEditMode ? 'inline-block' : 'none';
   var shipEditBtn = document.getElementById('ship-edit-btn');
@@ -17220,9 +17220,9 @@ function openRecordJob(jobId){
 
   rvContext = { type: 'job', id: jobId };
   var _rvjEs = isEsLang();
-  var pf = job.formNumber || job.productNumber || job.product || '—';
-  document.getElementById('rv-title').textContent = jp('jobLabel') + ' ' + (job.jobNumber || '—');
-  document.getElementById('rv-sub').textContent = stationLabel(job.station) + (job.customer ? ' · '+job.customer : '') + ' · ' + pf;
+  var pf = job.formNumber || job.productNumber || job.product;
+  document.getElementById('rv-title').innerHTML = escHtml(jp('jobLabel')) + ' ' + hlId(job.jobNumber);
+  document.getElementById('rv-sub').innerHTML = escHtml(stationLabel(job.station)) + (job.customer ? ' · '+escHtml(job.customer) : '') + ' · ' + hlId(pf);
 
   var rows = [
     [_rvjEs?'Estado':'Status', job.shippingApproved ? jp('shippingApproved') : (processLabel(job.process) || job.process || '—')],
@@ -17441,8 +17441,8 @@ function openRecordRCA(idxKey){
   if (!r) return;
   rvContext = { type: 'rca', id: idxKey };
   var _rvrEs = isEsLang();
-  document.getElementById('rv-title').textContent = 'RCA — ' + jp('jobLabel') + ' ' + (r.jobNumber || '—');
-  document.getElementById('rv-sub').textContent = stationLabel(r.station) + (r.customer ? ' · '+r.customer : '');
+  document.getElementById('rv-title').innerHTML = 'RCA — ' + escHtml(jp('jobLabel')) + ' ' + hlId(r.jobNumber);
+  document.getElementById('rv-sub').innerHTML = escHtml(stationLabel(r.station)) + (r.customer ? ' · '+escHtml(r.customer) : '');
   var rows = [
     [_rvrEs?'Estado':'Status', r.status ? rcaStatusLabel(r.status) : '—'],
     [_rvrEs?'Ruta':'Path', r.path ? rcaPathLabel(r.path) : '—'],
