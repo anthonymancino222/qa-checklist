@@ -12876,6 +12876,7 @@ function selectCustomerOther() {
 var _scheduleData = null; // { jobs: {...}, fetchedAt, sourceFile }
 var jobDropOpen = false;
 var closeJobDropTimer = null;
+var jobDropAutoCloseTimer = null;
 
 // Returns the fetch promise (resolved after _scheduleData is updated, or
 // rejected on failure) so callers that need to act right after a fresh pull
@@ -12949,6 +12950,15 @@ function filterJobSchedule() {
   if (matches.length > 50) matches = matches.slice(0, 50);
   renderJobDrop(matches, totalMatches);
   jobDropOpen = true;
+
+  // Auto-dismiss after 3s even if the field never blurs (e.g. a job was
+  // picked through the tap-picker instead) — every fresh keystroke restarts
+  // this clock via the oninput call into this same function.
+  clearTimeout(jobDropAutoCloseTimer);
+  jobDropAutoCloseTimer = setTimeout(function() {
+    document.getElementById('job-drop').style.display = 'none';
+    jobDropOpen = false;
+  }, 3000);
 }
 
 function openJobDrop() {
@@ -12967,6 +12977,7 @@ function selectScheduleJob(jobNumber) {
   var jobEl = document.getElementById('setup-job');
   jobEl.value = jobNumber;
   jobEl.dispatchEvent(new Event('input', { bubbles: true }));
+  clearTimeout(jobDropAutoCloseTimer);
   document.getElementById('job-drop').style.display = 'none';
   jobDropOpen = false;
   var entry = _scheduleData && _scheduleData.jobs[jobNumber];
