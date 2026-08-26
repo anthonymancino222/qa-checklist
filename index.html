@@ -4774,7 +4774,7 @@ var CHECKLIST_GLUER = [
   { id:'gl-qty',          name:['Quantity to execute the Material is correct?','¿La cantidad a ejecutar del material es correcta?'],                                 type:'qty',       req:true,  onchange:'checkGluerQty' },
   { id:'gl-cad-style',    name:['CAD Style','Estilo CAD'],                                                                    type:'choice',    req:true,  options:['STE','STE with Partition','Sleeve','Auto Bottom','Pocket folder','N/A'] },
   { id:'gl-more-options', name:['More Options','Más Opciones'],                                                                 type:'select',    onchange:'onGluerMoreOptionsChange', options:['1st Pass','1st pass w/ kleenstick','1st pass w/ kleenstick and tear strip','2nd Pass','For Count Only'] },
-  { id:'gl-test-job',     name:['Test Job?','¿Trabajo de Prueba?'],                                                                    type:'yesno',     req:true,  invertYesNo:true, noNote:true },
+  { id:'gl-test-job',     name:['Test Job?','¿Trabajo de Prueba?'],                                                                    type:'yesno',     req:true,  invertYesNo:true, noNote:true, confirmOnYes:true },
   { id:'gl-clean-area',   name:['Clean Area from the previous inventory item/job','Área limpia del artículo/trabajo anterior'],                              type:'toggle',    req:true  },
   { id:'gl-aql',          name:['AQL Sampling Requirements','Requisitos de Muestreo AQL'],                                                    type:'aql',       req:true  },
   { id:'gl-cad-sample',   name:['Cad Sample / Previous Sample approved by customer or CSR? (Critical Fail)','¿Muestra CAD / Muestra Anterior aprobada por el cliente o CSR? (Falla Crítica)'],   type:'toggle',    req:true  },
@@ -6255,8 +6255,8 @@ function openContinueModal(id) {
       packerInfo.innerHTML =
         '<div class="card-label">' + (_piEs ? 'Información del Empacador' : 'Packer Info') + '</div>' +
         '<div style="font-size:14px;line-height:2.1;">' +
-        '<div><strong>' + (_piEs ? 'Producto:' : 'Product:') + '</strong> '         + hlId(job.product)            + '</div>' +
-        '<div><strong>' + (_piEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> '  + escHtml(String(job.qtyToExecute||0)) + '</div>' +
+        '<div><strong>' + (_piEs ? 'ID de Producto:' : 'Product ID:') + '</strong> '         + hlId(job.product)            + '</div>' +
+        '<div><strong>' + (_piEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> '  + hlId(String(job.qtyToExecute||0)) + '</div>' +
         (job.finalQty ? '<div><strong>' + (_piEs ? 'Cantidad Final Producida:' : 'Final Qty Produced:') + '</strong> ' + escHtml(job.finalQty) + '</div>' : '') +
         '<div><strong>' + (_piEs ? 'Problema en 1eras 25:' : '1st 25 Issue:') + '</strong> '    + piBadge(job.first25Issue||'—','No')  + '</div>' +
         (job.first25Notes ? '<div><strong>' + (_piEs ? 'Notas del Problema:' : 'Issue Notes:') + '</strong> ' + escHtml(job.first25Notes) + '</div>' : '') +
@@ -6516,17 +6516,17 @@ function openContinueModal(id) {
       // have to scroll back up through the whole checklist to double-check
       // before approving.
       var _qaRevEs = isEsLang();
-      var _qaRevPF = job.formNumber || job.productNumber || job.product || '—';
+      var _qaRevPF = job.formNumber || job.productNumber || job.product;
       var _qaRevQtyLines = _jobQtySummaryLines(job);
       var _qaRevSummaryCard = document.getElementById('cm-qa-review-summary-card');
       if (_qaRevSummaryCard) {
         _qaRevSummaryCard.style.display = 'block';
         document.getElementById('cm-qa-review-summary').innerHTML =
           '<div><strong>' + (_qaRevEs?'Trabajo:':'Job:') + '</strong> ' + hlId(job.jobNumber) + '</div>' +
-          '<div><strong>' + (_qaRevEs?'Producto:':'Product:') + '</strong> ' + escHtml(_qaRevPF) + '</div>' +
+          '<div><strong>' + (_qaRevEs?'ID de Producto:':'Product ID:') + '</strong> ' + hlId(_qaRevPF) + '</div>' +
           (opResults['gl-cad-style'] ? '<div><strong>' + (_qaRevEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(opResults['gl-cad-style']) + '</div>' : '') +
           '<div><strong>' + (_qaRevEs?'Estación:':'Station:') + '</strong> ' + escHtml(job.station ? stationLabel(job.station) : '—') + '</div>' +
-          '<div><strong>' + (_qaRevEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + escHtml(_qaRevQtyLines.qtyExec) + '</div>';
+          '<div><strong>' + (_qaRevEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + hlId(_qaRevQtyLines.qtyExec) + '</div>';
       }
 
       // Customer — search-as-you-type against the canonical list, plus a
@@ -9668,7 +9668,7 @@ function _renderQaJobSummary(job) {
         '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-station-row\',\'cm-qa-station-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
       '</div>' +
     '</div>' : '') +
-    '<div><strong>' + (_qaEs ? 'Producto:' : 'Product:') + '</strong> '  + hlId(job.productNumber) + '</div>' +
+    '<div><strong>' + (_qaEs ? 'ID de Producto:' : 'Product ID:') + '</strong> '  + hlId(job.productNumber) + '</div>' +
     '<div id="cm-qa-operator-row"><strong>' + (_qaEs ? 'Operador:' : 'Operator:') + '</strong> ' + escHtml(job.operatorName||'—') +
       (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-operator-row\',\'cm-qa-operator-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
     '</div>' +
@@ -9689,7 +9689,7 @@ function _renderQaJobSummary(job) {
         '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-qa-cad-row\',\'cm-qa-cad-edit\')">✕ ' + (_qaEs?'Cancelar':'Cancel') + '</button>' +
       '</div>' +
     '</div>' : '') +
-    '<div id="cm-qa-qtyexec-row"><strong>' + (_qaEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> ' + escHtml(_qaQtyLines.qtyExec) +
+    '<div id="cm-qa-qtyexec-row"><strong>' + (_qaEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> ' + hlId(_qaQtyLines.qtyExec) +
       (_qaQtyEditable ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-qa-qtyexec-row\',\'cm-qa-qtyexec-edit\')" title="' + (_qaEs?'Editar':'Edit') + '">✏️</button>' : '') +
     '</div>' +
     (_qaQtyEditable ? '<div id="cm-qa-qtyexec-edit" style="display:none;margin:8px 0;">' +
@@ -9762,8 +9762,8 @@ function _renderProdSummary(job) {
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '         + hlId(job.jobNumber)           + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> Veritiv</div>' +
-      '<div><strong>' + (_prodSumEs?'Producto:':'Product:') + '</strong> '     + hlId(job.product)        + '</div>' +
-      '<div><strong>' + (_prodSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + escHtml(_pkQtyLines.qtyExec) + '</div>' +
+      '<div><strong>' + (_prodSumEs?'ID de Producto:':'Product ID:') + '</strong> '     + hlId(job.product)        + '</div>' +
+      '<div><strong>' + (_prodSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + hlId(_pkQtyLines.qtyExec) + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cantidad Final Producida:':'Final Qty Produced:') + '</strong> ' + escHtml(_pkQtyLines.finalQty) + '</div>' +
       '<div><strong>' + (_prodSumEs?'Problema en 1eras 25:':'1st 25 Issue:') + '</strong> '+ escHtml(job.first25Issue||'—')   + '</div>' +
       (job.first25Notes ? '<div><strong>' + (_prodSumEs?'Notas del Problema:':'Issue Notes:') + '</strong> ' + escHtml(job.first25Notes) + '</div>' : '') +
@@ -9799,7 +9799,7 @@ function _renderProdSummary(job) {
           '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'cm-prod-station-row\',\'cm-prod-station-edit\')">✕ ' + (_prodSumEs?'Cancelar':'Cancel') + '</button>' +
         '</div>' +
       '</div>' : '') +
-      '<div><strong>' + (cmIsGluer ? (_prodSumEs?'Producto':'Product') : (_prodSumEs?'Forma':'Form')) + ':</strong> ' + hlId((cmIsGluer ? job.productNumber : job.formNumber)) + '</div>' +
+      '<div><strong>' + (cmIsGluer ? (_prodSumEs?'ID de Producto':'Product ID') : (_prodSumEs?'ID de Forma':'Form ID')) + ':</strong> ' + hlId((cmIsGluer ? job.productNumber : job.formNumber)) + '</div>' +
       '<div id="cm-prod-operator-row"><strong>' + (_prodSumEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName||'—') +
         (_dataEditMode ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\'cm-prod-operator-row\',\'cm-prod-operator-edit\')" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
       '</div>' +
@@ -9821,7 +9821,7 @@ function _renderProdSummary(job) {
         '</div>' +
       '</div>' : '') +
       '<div id="cm-prod-qtyexec-row"><strong>' + (_prodSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' +
-        '<span id="cm-prod-qtyexec-display">' + escHtml(_prodQtyLines.qtyExec) + '</span>' +
+        '<span id="cm-prod-qtyexec-display">' + hlId(_prodQtyLines.qtyExec) + '</span>' +
         (_qtyExecEditable ? ' <button type="button" class="edit-qty-btn" onclick="_startEditQtyToExecute()" title="' + (_prodSumEs?'Editar':'Edit') + '">✏️</button>' : '') +
       '</div>' +
       (_qtyExecEditable ? '<div id="cm-prod-qtyexec-edit" style="display:none;margin:8px 0;">' +
@@ -10662,8 +10662,11 @@ function buildChecklistItem(item, prefix) {
   } else if (type === 'yesno') {
     var noVal  = item.invertYesNo ? 'pass' : 'no';
     var yesVal = item.invertYesNo ? 'fail' : 'yes';
+    var yesOnclick = item.confirmOnYes
+      ? "confirmSetCIToggle('"+prefix+"','"+item.id+"','"+yesVal+"',this)"
+      : "setCIToggle('"+prefix+"','"+item.id+"','"+yesVal+"',this)";
     var noBtn  = '<button class="tgl" onclick="setCIToggle(\''+prefix+'\',\''+item.id+'\',\''+noVal+'\',this)">No</button>';
-    var yesBtn = '<button class="tgl" onclick="setCIToggle(\''+prefix+'\',\''+item.id+'\',\''+yesVal+'\',this)">' + (isEs ? 'Sí' : 'Yes') + '</button>';
+    var yesBtn = '<button class="tgl" onclick="'+yesOnclick+'">' + (isEs ? 'Sí' : 'Yes') + '</button>';
     inner += '<div class="toggle-group">' + (item.swapYesNo ? yesBtn + noBtn : noBtn + yesBtn) + '</div>';
     inner += '</div>';
     if (!item.noNote) {
@@ -10779,6 +10782,18 @@ function setCIToggle(prefix, itemId, val, btn) {
   }
   checkNCRBannerForPrefix(prefix);
   _refreshAllChecklistProgress();
+}
+
+// Gate for yesno items flagged confirmOnYes (currently just gl-test-job) —
+// tapping "Yes" pops an "are you sure?" instead of applying immediately.
+// Canceling leaves the toggle exactly as it was (setCIToggle never runs).
+function confirmSetCIToggle(prefix, itemId, val, btn) {
+  var isEs = isEsLang();
+  showConfirm(
+    isEs ? '¿Marcar este trabajo como Trabajo de Prueba?' : 'Mark this job as a Test Job?',
+    function(ok) { if (ok) setCIToggle(prefix, itemId, val, btn); },
+    { danger: false }
+  );
 }
 
 function checkNCRBannerForPrefix(prefix) {
@@ -16659,11 +16674,11 @@ function _shipRenderJobHeader(job){
     '<div style="font-size:14px;line-height:1.8;">' +
     '<div><strong>' + (_shipSumEs?'Trabajo:':'Job:') + '</strong> ' + hlId(job.jobNumber) + '</div>' +
     '<div><strong>' + (_shipSumEs?'Estación:':'Station:') + '</strong> ' + escHtml(job.station ? stationLabel(job.station) : '—') + '</div>' +
-    '<div><strong>' + (_shipSumEs?'Producto:':'Product:') + '</strong> ' + hlId(job.formNumber || job.productNumber || job.product) + '</div>' +
+    '<div><strong>' + (_shipSumEs?'ID de Producto:':'Product ID:') + '</strong> ' + hlId(job.formNumber || job.productNumber || job.product) + '</div>' +
     (job.customer ? '<div><strong>' + (_shipSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer) + '</div>' : '') +
     (job.operatorName ? '<div><strong>' + (_shipSumEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName) + '</div>' : '') +
     (_shipCad ? '<div><strong>' + (_shipSumEs?'Estilo CAD:':'CAD Style:') + '</strong> ' + escHtml(_shipCad) + '</div>' : '') +
-    '<div><strong>' + (_shipSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + escHtml(_shipQtyLines.qtyExec) + '</div>' +
+    '<div><strong>' + (_shipSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + hlId(_shipQtyLines.qtyExec) + '</div>' +
     '<div><strong>' + (_shipSumEs?'Cantidad Final Producida:':'Final Qty Produced:') + '</strong> ' + escHtml(_shipQtyLines.finalQty) + '</div>' +
     '</div>';
 }
@@ -17215,7 +17230,7 @@ function openRecordJob(jobId){
   var qtyExec = _stationQtyToExecute(job);
   var finalQty = parseInt(job.gluerFinalQty || job.finalQty || 0) || 0;
   var _qtyLines = _jobQtySummaryLines(job);
-  rows.push([_rvjEs?'Cantidad a Ejecutar':'Qty to Execute', _qtyLines.qtyExec]);
+  rows.push([_rvjEs?'Cantidad a Ejecutar':'Qty to Execute', {html: hlId(_qtyLines.qtyExec)}]);
   rows.push([_rvjEs?'Cantidad Final Producida':'Final Qty Produced', _qtyLines.finalQty]);
   if (job.oversTarget != null) rows.push([_rvjEs?'Meta de Sobrantes':'Overs Target', job.oversTarget === '0' ? (_rvjEs?'Sin Sobrantes':'No Overs') : job.oversTarget + (_rvjEs?'% Sobrantes':'% Overs')]);
   if (job.shipmentType === 'split') rows.push([_rvjEs?'Tipo de Envío':'Shipment Type', (_rvjEs ? 'Dividido — ' : 'Split — ') + (job.splitCount||2) + (_rvjEs?' envíos':' shipments')]);
