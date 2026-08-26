@@ -13113,7 +13113,14 @@ function renderJobPickerList() {
     b.type = 'button';
     b.className = 'job-picker-row';
     var subParts = [e.entry.customer];
-    subParts.push(e.entry.products.length ? (e.entry.products.length + (isEs ? ' producto' : ' product') + (e.entry.products.length > 1 ? 's' : '')) : '');
+    // Show the real number(s) when there's just one or two — only fall back
+    // to a bare count once there are enough that spelling them all out
+    // would make the row unreadable (matches the tap-through product-panel
+    // threshold at _showJobPickerProductPanel — there's no size limit there
+    // since every number needs its own tappable row anyway).
+    if (e.entry.products.length === 1) subParts.push(e.entry.products[0]);
+    else if (e.entry.products.length === 2) subParts.push(e.entry.products.join(', '));
+    else if (e.entry.products.length > 2) subParts.push(e.entry.products.length + (isEs ? ' productos' : ' products'));
     var sub = subParts.filter(Boolean).join(' — ');
     b.innerHTML = '<div style="font-weight:700;">' + e.jobNumber + ' ' + _jobSheetTagsHtml(e.entry) + '</div>' + (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + sub + '</div>' : '');
     b.onclick = function(){ _pickJobFromPicker(e.jobNumber, e.entry); };
