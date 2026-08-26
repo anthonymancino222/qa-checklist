@@ -88,15 +88,17 @@ body {
   flex-wrap: wrap; row-gap: 10px;
   padding: 10px 20px;
   box-shadow: 0 2px 10px rgba(0,0,0,.35);
+  position: sticky; top: 0; z-index: 50;
 }
 .brand-co { font-size: 15px; letter-spacing: .2em; text-transform: uppercase; color: var(--lime); font-weight: 700; white-space: nowrap; }
 .brand-name { font-size: 18px; font-weight: 800; color: #fff; line-height: 1.1; white-space: nowrap; }
-.header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; row-gap: 10px; justify-content: flex-end; }
+.header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; row-gap: 10px; justify-content: flex-end; }
 /* Two visual groups instead of one undifferentiated row: "identity" stuff
-   (text size / who's signed in / language) vs. "actions" (sync + the
-   admin-only DATA EDIT / Deleted Items pair) — a thin divider between them
-   on desktop, a full stacked row each on mobile (see media query below). */
-.header-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px; }
+   (text size / who's signed in / language) vs. "actions" (sync + Start New +
+   the admin-only DATA EDIT / Deleted Items pair) — a thin divider between them
+   on desktop, each right-aligned on its own row on mobile (see media query
+   below) — never centered, so the layout reads as structured, not scattered. */
+.header-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 8px; justify-content: flex-end; }
 .header-group-actions { padding-left: 14px; border-left: 1px solid rgba(255,255,255,.15); }
 #signed-in-user { font-size: 13.5px; font-weight: 700; color: #fff; white-space: nowrap; cursor: pointer; }
 .header-pill-btn {
@@ -106,6 +108,8 @@ body {
   -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
 }
 .header-pill-btn:hover, .header-pill-btn:active { background: var(--pink); color: #fff; }
+.header-pill-btn-solid { background: var(--pink); color: #fff; }
+.header-pill-btn-solid:hover, .header-pill-btn-solid:active { background: #fff; color: var(--pink); }
 .text-size-ctrl {
   display: flex; align-items: center; gap: 6px;
 }
@@ -1066,13 +1070,14 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
   /* Header: compact, and stacked instead of one row trying (and failing) to
      fit brand + text-size + name + language + sync + admin buttons side by
-     side — each piece gets its own clearly-separated row, centered. */
+     side — each piece gets its own clearly-separated row, right-aligned to
+     match the desktop layout instead of centered. */
   .app-header { flex-direction: column; align-items: stretch; padding: 12px 14px; row-gap: 10px; }
   .brand-co { font-size: 14px; letter-spacing: .14em; }
   .brand-name { font-size: 15px; }
   .menu-btn { display: none !important; }
-  .header-right { width: 100%; justify-content: center; }
-  .header-group { width: 100%; justify-content: center; }
+  .header-right { width: 100%; justify-content: flex-end; }
+  .header-group { width: 100%; justify-content: flex-end; }
   .header-group-actions { padding-left: 0; border-left: none; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.15); }
 
   /* Sidebar hidden entirely — replaced by bottom nav */
@@ -1671,6 +1676,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     </div>
     <div class="header-group header-group-actions">
       <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
+      <button id="header-start-new-btn" class="header-pill-btn header-pill-btn-solid" onclick="headerStartNewClick()" title="Refresh the app and return to the landing page">↻ <span data-en>Start New</span><span data-es>Empezar de Nuevo</span></button>
     </div>
   </div>
 </header>
@@ -5273,6 +5279,20 @@ function headerSyncNowClick() {
     }
     showToast(isEs ? '✓ Sincronizado' : '✓ Synced', 'pass');
   });
+}
+
+// Header "Start New" button — a hard refresh back to the landing page,
+// reachable from anywhere in the app regardless of scroll position since it
+// lives in the sticky black banner. Confirms first: a reload discards any
+// in-progress, not-yet-submitted form the user was mid-typing.
+function headerStartNewClick() {
+  var isEs = isEsLang();
+  showConfirm(
+    isEs ? '¿Actualizar la aplicación y volver a la página de inicio? Se perderá cualquier trabajo en curso no guardado.' : 'Refresh the app and return to the landing page? Any in-progress, unsaved entry will be lost.',
+    function(ok) {
+      if (ok) location.reload();
+    }
+  );
 }
 
 // Shares ONE saved entry with the other devices, on explicit request from the
