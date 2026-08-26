@@ -2474,6 +2474,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button class="vmt-btn" id="ip-view-list-btn" onclick="setInProgressViewMode('list')">☰ <span data-en>List</span><span data-es>Lista</span></button>
         </div>
       </div>
+      <div style="padding:0 16px;">
+        <input type="text" id="ip-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderInProgress()" style="margin-bottom:14px;">
+      </div>
       <!-- Was a mirrored horizontal scrollbar for ip-kanban-wrap — obsolete
            now that the board wraps columns onto new rows instead of
            scrolling sideways (see .kanban-wrap), so there's nothing left to
@@ -3288,6 +3291,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button class="vmt-btn" id="qa-view-list-btn" onclick="setQAReleaseViewMode('list')">☰ <span data-en>List</span><span data-es>Lista</span></button>
         </div>
       </div>
+      <div style="padding:0 16px;">
+        <input type="text" id="qa-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderQARelease()" style="margin-bottom:14px;">
+      </div>
       <div id="qa-release-list" style="padding:0 16px 24px;"></div>
     </div>
     <div id="view-shipping" class="screen">
@@ -3300,6 +3306,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button class="vmt-btn" id="ship-view-tile-btn" onclick="setShippingViewMode('tile')">▦ <span data-en>Tile</span><span data-es>Mosaico</span></button>
           <button class="vmt-btn" id="ship-view-list-btn" onclick="setShippingViewMode('list')">☰ <span data-en>List</span><span data-es>Lista</span></button>
         </div>
+      </div>
+      <div style="padding:0 16px;">
+        <input type="text" id="ship-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderShipping()" style="margin-bottom:14px;">
       </div>
       <div id="shipping-list" style="padding:0 16px 24px;"></div>
     </div>
@@ -5685,6 +5694,21 @@ function updateQAReleaseBadge() {
 /* ══════════════════════════════════
    KANBAN RENDER
 ══════════════════════════════════ */
+// Shared by the Job in Progress / QA Release / Shipping Approval search
+// boxes — same job#/product/customer match as the Records search, just
+// applied to whatever list a given screen already computed.
+function _filterJobsBySearch(jobs, searchElId) {
+  var searchEl = document.getElementById(searchElId);
+  var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  if (!q) return jobs;
+  return jobs.filter(function(j) {
+    var pf = j.formNumber || j.productNumber || j.product || '';
+    return (j.jobNumber||'').toLowerCase().indexOf(q) >= 0 ||
+           String(pf).toLowerCase().indexOf(q) >= 0 ||
+           (j.customer||'').toLowerCase().indexOf(q) >= 0;
+  });
+}
+
 function renderQARelease() {
   updateQAReleaseBadge();
   var jobs = ipLoad().filter(function(j) {
@@ -5692,6 +5716,7 @@ function renderQARelease() {
     var isGluer = (j.station === 'Long Gluer' || j.station === 'Short Gluer');
     return (j.process === 'qa_pending' && isVeritivPack) || (j.process === 'qa_release' && isGluer);
   });
+  jobs = _filterJobsBySearch(jobs, 'qa-search');
   var el = document.getElementById('qa-release-list');
   if (!el) return;
   var viewMode = getQAReleaseViewMode();
@@ -5848,7 +5873,7 @@ function _syncKanbanScrollWidth() {
 }
 function renderInProgress() {
   updateQAReleaseBadge();
-  var jobs = ipLoad();
+  var jobs = _filterJobsBySearch(ipLoad(), 'ip-search');
   var viewMode = getInProgressViewMode();
   _syncViewToggle('ip-view-tile-btn', 'ip-view-list-btn', viewMode);
 
@@ -16611,7 +16636,7 @@ function updateShippingBadge(){
 
 function renderShipping(){
   updateShippingBadge();
-  var jobs = _shippingPendingJobs();
+  var jobs = _filterJobsBySearch(_shippingPendingJobs(), 'ship-search');
   var el = document.getElementById('shipping-list');
   if (!el) return;
   var viewMode = getShippingViewMode();
