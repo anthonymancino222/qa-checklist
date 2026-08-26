@@ -110,6 +110,26 @@ body {
 .header-pill-btn:hover, .header-pill-btn:active { background: var(--pink); color: #fff; }
 .header-pill-btn-solid { background: var(--pink); color: #fff; }
 .header-pill-btn-solid:hover, .header-pill-btn-solid:active { background: #fff; color: var(--pink); }
+
+/* "Pull Schedule" — deliberately larger/bolder than a normal secondary
+   button so it can't be missed now that it's the only way to open the job
+   picker (station selection no longer auto-opens it). */
+.pull-schedule-btn {
+  font-size: 16px; font-weight: 800; padding: 13px 20px; border-radius: 10px;
+  border: 2px solid var(--pink); color: #fff; background: var(--pink);
+  cursor: pointer; letter-spacing: .02em; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.pull-schedule-btn:hover, .pull-schedule-btn:active { background: #fff; color: var(--pink); }
+.pull-schedule-info-btn {
+  width: 30px; height: 30px; min-width: 30px; border-radius: 50%;
+  border: 2px solid var(--pink); color: var(--pink); background: #fff;
+  font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.pull-schedule-info-btn:hover, .pull-schedule-info-btn:active { background: var(--pink); color: #fff; }
 .text-size-ctrl {
   display: flex; align-items: center; gap: 6px;
 }
@@ -1875,10 +1895,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               </button>
               <div class="customer-drop" id="job-drop" style="display:none;"></div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-              <button type="button" class="header-pill-btn" onclick="pullScheduleNow()" id="pull-schedule-btn">
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
+              <button type="button" class="pull-schedule-btn" onclick="pullScheduleAndOpenPicker()" id="pull-schedule-btn">
                 🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span>
               </button>
+              <button type="button" class="pull-schedule-info-btn" onclick="showPullScheduleInfo()" title="What does this do?" aria-label="What does this do?">?</button>
               <span id="schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
             </div>
             <div id="job-schedule-hint" style="font-size:13px;color:var(--text-secondary);margin-top:4px;display:none;"></div>
@@ -13016,9 +13037,9 @@ function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
 }
 
 /* ── Job picker (tap-only station-filtered job/product selection) ──
-   Opens automatically right after a station is picked on the New Job screen
-   (see _maybeOpenJobPicker, wired into selectStationBtn/onStationDropdownChange
-   below), so the common path never requires typing a job number at all. */
+   Opens only when "Pull Schedule" is tapped (see pullScheduleAndOpenPicker
+   below) — no longer auto-opened on station selection, since that was
+   interrupting people before they were ready to look at a job list. */
 // Small letter-tag shown next to a job number in both the tap-picker and the
 // typed dropdown, so it's visible at a glance which schedule tab(s) a job
 // came from — independent of STATION_TO_SCHEDULE_SHEETS below (that map
@@ -13057,25 +13078,38 @@ var STATION_TO_SCHEDULE_SHEETS = {
 
 var _jobPickerStation = null;
 
-function _maybeOpenJobPicker(station) {
-  if (!station) return;
-  var jobEl = document.getElementById('setup-job');
-  if (jobEl && jobEl.value.trim()) return; // already has a job number — don't interrupt
-  openJobPickerForStation(station);
-}
-
-function openJobPickerForStation(station) {
+function openJobPickerForStation(station, forceRefresh) {
   _jobPickerStation = station;
   var isEs = isEsLang();
   document.getElementById('job-picker-title').textContent = (isEs ? '📋 Seleccionar Trabajo — ' : '📋 Select a Job — ') + station;
   document.getElementById('job-picker-search').value = '';
   _showJobPickerJobPanel();
   document.getElementById('jobPickerOverlay').classList.add('open');
-  if (!_scheduleData) {
+  if (!_scheduleData || forceRefresh) {
     _jobPickerRefresh();
   } else {
     renderJobPickerList();
   }
+}
+
+// The only entry point into the job picker now — station selection alone no
+// longer opens it (that was interrupting the "?" before anyone was ready to
+// look at a job list). Always forces a fresh pull so the button visibly does
+// what it says every time it's tapped, not just the first time.
+function pullScheduleAndOpenPicker() {
+  var station = document.getElementById('setup-station').value;
+  if (!station) return;
+  openJobPickerForStation(station, true);
+}
+
+function showPullScheduleInfo() {
+  var isEs = isEsLang();
+  showAlert(
+    isEs
+      ? 'Trae el programa de trabajos más reciente que Anthony exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre usa el archivo más nuevo — toma unos segundos.'
+      : 'Pulls the latest job schedule Anthony exported from the system, so you can tap to pick your job instead of typing it in. Always grabs the newest file — takes a few seconds.',
+    isEs ? 'ℹ️ Qué Hace Esto' : 'ℹ️ What This Does'
+  );
 }
 
 function closeJobPicker() {
@@ -13323,14 +13357,12 @@ function selectStationBtn(station, btn) {
   var sel = document.getElementById('setup-station');
   if (sel) sel.value = station;
   onStationChange(station);
-  _maybeOpenJobPicker(station);
 }
 
 function onStationDropdownChange(station) {
   var group = document.getElementById('setup-station-btns');
   if (group) group.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('sel'); });
   onStationChange(station);
-  _maybeOpenJobPicker(station);
 }
 
 // Keeps the visible station buttons in sync no matter how onStationChange
