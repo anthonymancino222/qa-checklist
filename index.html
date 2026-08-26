@@ -2049,7 +2049,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="card">
             <div class="card-label"><span data-en>More than 1 product</span><span data-es>Más de 1 producto</span> <span data-en> AND <u><strong>same CAD</strong></u>?</span><span data-es> Y <u><strong>mismo CAD</strong></u>?</span> <span class="req">*</span></div>
             <div class="toggle-group" id="gluer-multi-cad-group">
-              <button class="tgl" onclick="setGluerMultiSameCad('no',this)"><span data-en>No</span><span data-es>No</span></button>
+              <button class="tgl fail" onclick="setGluerMultiSameCad('no',this)"><span data-en>No</span><span data-es>No</span></button>
               <button class="tgl" onclick="setGluerMultiSameCad('yes',this)"><span data-en>Yes</span><span data-es>Sí</span></button>
             </div>
           </div>
@@ -12242,10 +12242,14 @@ function startNewJob() {
   gluerCurrentProcess = 'makeready';
   _gluerContinueBatch = null;
   gluerProductCount = 1;
-  // Multi-CAD gate resets to unanswered, hiding the count chooser again —
-  // matches the default state before anyone's touched it, not "No" or "Yes".
+  // Multi-CAD gate resets to "No" (the common case — most gluer jobs are a
+  // single product), hiding the count chooser again.
   var gluerMultiCadGroup = document.getElementById('gluer-multi-cad-group');
-  if (gluerMultiCadGroup) gluerMultiCadGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+  if (gluerMultiCadGroup) {
+    gluerMultiCadGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+    var gluerNoBtn = gluerMultiCadGroup.querySelector('[onclick*="\'no\'"]');
+    if (gluerNoBtn) gluerNoBtn.classList.add('fail');
+  }
   _safeStyle('gluer-count-card', 'display', 'none');
   var gluerCountGroup = document.getElementById('gluer-count-group');
   if (gluerCountGroup) gluerCountGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
