@@ -4128,6 +4128,11 @@ document.addEventListener('focusin', function(e){
    PWA contexts can suppress or no-op silently. Every destructive action in
    the app should route through this instead of window.confirm(). */
 var _confirmCallback = null;
+// Set whenever the caller passes itself as opts.relang — lets toggleAppLang()
+// (below) re-run the exact same showConfirm() call so a dialog left open
+// across a language switch picks up the new language instead of freezing on
+// whatever was current when it first opened.
+var _confirmRelang = null;
 function showConfirm(message, onConfirm, opts){
   opts = opts || {};
   var titleEl = document.getElementById('confirm-title');
@@ -4140,12 +4145,14 @@ function showConfirm(message, onConfirm, opts){
     okBtn.style.background = (opts.danger === false) ? 'var(--pink)' : '#dc2626';
   }
   _confirmCallback = onConfirm;
+  _confirmRelang = opts.relang || null;
   document.getElementById('confirmOverlay').classList.add('open');
 }
 function _confirmResolve(result){
   document.getElementById('confirmOverlay').classList.remove('open');
   var cb = _confirmCallback;
   _confirmCallback = null;
+  _confirmRelang = null;
   if (cb) cb(result);
 }
 
@@ -4155,17 +4162,24 @@ function _confirmResolve(result){
    instead of window.alert(). Signature-compatible with a plain message
    string so existing call sites just swap the function name. */
 var _alertCallback = null;
-function showAlert(message, title){
+// Set whenever the caller passes a 3rd relang argument — lets toggleAppLang()
+// (below) re-run the exact same showAlert() call so an alert left open across
+// a language switch picks up the new language instead of freezing on
+// whatever was current when it first opened.
+var _alertRelang = null;
+function showAlert(message, title, relang){
   var titleEl = document.getElementById('alert-title');
   var msgEl = document.getElementById('alert-message');
   if (titleEl) titleEl.textContent = title || (isEsLang() ? '⚠️ Falta Información' : '⚠️ Missing Info');
   if (msgEl) msgEl.textContent = message || '';
+  _alertRelang = relang || null;
   document.getElementById('alertOverlay').classList.add('open');
 }
 function _alertResolve(){
   document.getElementById('alertOverlay').classList.remove('open');
   var cb = _alertCallback;
   _alertCallback = null;
+  _alertRelang = null;
   if (cb) cb();
 }
 
@@ -8640,6 +8654,11 @@ function toggleAppLang(){
   if (typeof renderNCRPie === 'function') renderNCRPie();
   _translateStationSelects();
   if (_lastGluerBatchSheet) openGluerBatchSheet(_lastGluerBatchSheet.batchId, _lastGluerBatchSheet.context);
+  // An alert/confirm popup left open across a language switch would
+  // otherwise freeze on whatever language it first opened in — re-run
+  // whichever call produced it (see showAlert/showConfirm's relang param).
+  if (document.getElementById('alertOverlay').classList.contains('open') && _alertRelang) _alertRelang();
+  if (document.getElementById('confirmOverlay').classList.contains('open') && _confirmRelang) _confirmRelang();
 }
 
 function toggleSidebar() {
@@ -10792,7 +10811,7 @@ function confirmSetCIToggle(prefix, itemId, val, btn) {
   showConfirm(
     isEs ? '¿Marcar este trabajo como Trabajo de Prueba?' : 'Mark this job as a Test Job?',
     function(ok) { if (ok) setCIToggle(prefix, itemId, val, btn); },
-    { danger: false }
+    { danger: false, relang: function(){ confirmSetCIToggle(prefix, itemId, val, btn); } }
   );
 }
 
@@ -13134,7 +13153,8 @@ function showPullScheduleInfo() {
     isEs
       ? 'Trae el programa de trabajos más reciente que Anthony exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre usa el archivo más nuevo — toma unos segundos.'
       : 'Pulls the latest job schedule Anthony exported from the system, so you can tap to pick your job instead of typing it in. Always grabs the newest file — takes a few seconds.',
-    isEs ? 'ℹ️ Qué Hace Esto' : 'ℹ️ What This Does'
+    isEs ? 'ℹ️ Qué Hace Esto' : 'ℹ️ What This Does',
+    showPullScheduleInfo
   );
 }
 
