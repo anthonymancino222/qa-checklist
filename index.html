@@ -122,6 +122,20 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 .pull-schedule-btn:hover, .pull-schedule-btn:active { background: #fff; color: var(--pink); }
+
+/* "Start Next Product" on a QA Release card — was the plain outline
+   .header-pill-btn, which reads as a quiet secondary action and got missed
+   entirely on a card that's mostly a photo + text (a reported real issue).
+   Bold/solid/bordered like .pull-schedule-btn so it reads as the primary
+   next action it actually is. */
+.gluer-next-product-btn {
+  font-size: 15px; font-weight: 800; padding: 12px 16px; border-radius: 10px;
+  border: 2px solid var(--pink); color: #fff; background: var(--pink);
+  cursor: pointer; letter-spacing: .02em; white-space: normal; line-height: 1.3;
+  -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.gluer-next-product-btn:hover, .gluer-next-product-btn:active { background: #fff; color: var(--pink); }
 .pull-schedule-info-btn {
   width: 30px; height: 30px; min-width: 30px; border-radius: 50%;
   border: 2px solid var(--pink); color: var(--pink); background: #fff;
@@ -2073,7 +2087,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
                actually has a multi-product-same-CAD run. Answering "No" (or
                never answering) leaves gluerProductCount at its default of 1,
                same as before this question existed. -->
-          <div class="card">
+          <div class="card" id="gluer-multi-cad-card">
             <div class="card-label"><span data-en>More than 1 product</span><span data-es>Más de 1 producto</span> <span data-en> AND <u><strong>same CAD</strong></u>?</span><span data-es> Y <u><strong>mismo CAD</strong></u>?</span> <span class="req">*</span></div>
             <div class="toggle-group" id="gluer-multi-cad-group">
               <button class="tgl fail" onclick="setGluerMultiSameCad('no',this)"><span data-en>No</span><span data-es>No</span></button>
@@ -5792,7 +5806,7 @@ function renderQARelease() {
     var _needsNextGluerProduct = job.batchSize > 1 &&
       (job.scheduleProductPool || []).length > (job.scheduleProductsUsed || []).length;
     var _nextProductBtnHTML = _needsNextGluerProduct
-      ? '<button type="button" class="header-pill-btn" style="width:100%;margin-top:8px;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
+      ? '<button type="button" class="gluer-next-product-btn" style="width:100%;margin-top:10px;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
         (isEsLang() ? 'Iniciar Siguiente Producto' : 'Start Next Product') + ' (' + ((job.scheduleProductsUsed||[]).length + 1) + ' ' + (isEsLang()?'de':'of') + ' ' + job.batchSize + ')</button>'
       : '';
     card.innerHTML = photoHTML +
@@ -9374,7 +9388,15 @@ function setGluerCount(n, btn) {
 // it out cleanly means also removing those two helper functions and the
 // .gluer-stack-card/.gluer-prod-* CSS they depend on — a larger, riskier
 // diff than this feature actually calls for.
-function renderGluerProductFields() {
+// preserve (default true): whether to carry over whatever's already in the
+// Product ID field / make-ready photo across the rebuild below. Pass false
+// for a genuine reset (a brand new job, or starting the next product in a
+// batch) — those should start with a blank field, not the previous entry's
+// leftovers. True is for toggling "same CAD?"/product count mid-entry,
+// where the field is being rebuilt but the operator's work-so-far shouldn't
+// vanish.
+function renderGluerProductFields(preserve) {
+  if (preserve === undefined) preserve = true;
   var otherInput = document.getElementById('gluer-count-other-input');
   if (otherInput && otherInput.style.display !== 'none') {
     gluerProductCount = parseInt(otherInput.value) || 0;
@@ -9388,9 +9410,9 @@ function renderGluerProductFields() {
   // someone already typed/scanned a Product ID or attached the make-ready
   // photo. Save that state first and restore it into the freshly-rendered
   // field below, rather than silently wiping out what they'd already done.
-  var existingProdEl = document.getElementById('gluer-product-0');
+  var existingProdEl = preserve ? document.getElementById('gluer-product-0') : null;
   var existingProdVal = existingProdEl ? existingProdEl.value : '';
-  var existingPhotoEl = document.getElementById('gluer-prod-photo-prev-0');
+  var existingPhotoEl = preserve ? document.getElementById('gluer-prod-photo-prev-0') : null;
   var existingPhotoSrc = (existingPhotoEl && existingPhotoEl.style.display !== 'none') ? existingPhotoEl.src : '';
 
   if (n === 0) { wrap.innerHTML = ''; return; }
@@ -12368,7 +12390,11 @@ function startNewJob() {
   _gluerContinueBatch = null;
   gluerProductCount = 1;
   // Multi-CAD gate resets to "No" (the common case — most gluer jobs are a
-  // single product), hiding the count chooser again.
+  // single product), hiding the count chooser again. Also un-hides the
+  // question card itself — _startGluerNextProduct() hides it entirely for
+  // a batch continuation (see there), and a genuinely new job should ask it
+  // again.
+  _safeStyle('gluer-multi-cad-card', 'display', '');
   var gluerMultiCadGroup = document.getElementById('gluer-multi-cad-group');
   if (gluerMultiCadGroup) {
     gluerMultiCadGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
@@ -12381,7 +12407,7 @@ function startNewJob() {
   var gluerCountOther = document.getElementById('gluer-count-other-input');
   if (gluerCountOther) { gluerCountOther.style.display = 'none'; gluerCountOther.value = ''; }
   _safeSet('gluer-mr-comments', 'value', '');
-  renderGluerProductFields();
+  renderGluerProductFields(false); // false: genuine reset, don't carry over a prior entry's Product ID/photo
   var kamaGroup = document.getElementById('kama-process-group');
   if (kamaGroup) {
     kamaGroup.querySelectorAll('.tgl').forEach(function(b){ b.classList.remove('pass','fail','na'); });
@@ -13461,17 +13487,30 @@ function _startGluerNextProduct(job, productNumber) {
   jobEl.value = job.jobNumber;
   jobEl.dispatchEvent(new Event('input', { bubbles: true }));
   document.getElementById('setup-customer').value = job.customer || '';
-  // Count is fixed for the life of this batch — re-answer "Yes" so the
-  // count card (and gluer-product-fields) render, but the count itself
-  // isn't re-choosable here (no button click sets it — restore each field
-  // manually, since the count-card only exists to CHOOSE a fresh count).
-  var yesBtn = document.querySelector('#gluer-multi-cad-group [onclick*="\'yes\'"]');
-  if (yesBtn) yesBtn.classList.add('pass');
+  // "Same CAD?" and the product count were already answered/fixed for
+  // product 1 — re-showing them here as live, tappable buttons (even
+  // pre-selected to Yes) meant a stray tap on "No" could derail an
+  // in-progress batch. Hide both entirely instead; startNewJob() un-hides
+  // gluer-multi-cad-card again for the next genuinely new job.
+  _safeStyle('gluer-multi-cad-card', 'display', 'none');
+  _safeStyle('gluer-count-card', 'display', 'none');
   gluerProductCount = job.batchSize;
-  renderGluerProductFields();
+  renderGluerProductFields(false); // false: fresh product, nothing to carry over from product 1's entry
   if (productNumber) {
     var prodEl = document.getElementById('gluer-product-0');
     if (prodEl) prodEl.value = productNumber;
+  }
+  // Same CAD was already confirmed for this batch, so product 2/3's CAD
+  // Style should default to whatever product 1 used — not sit blank and
+  // force a re-pick of something that's already settled. Simulates a real
+  // click on the matching option button so it goes through the normal
+  // setCIToggle() path (styling + _refreshAllChecklistProgress() etc.)
+  // rather than hand-writing that state here.
+  var priorCad = (job.checklist || []).filter(function(x){ return x.id === 'gl-cad-style'; })[0];
+  if (priorCad && priorCad.val) {
+    var cadWrap = document.getElementById('setup-ci-gl-cad-style');
+    var cadBtn = cadWrap && Array.prototype.find.call(cadWrap.querySelectorAll('.tgl'), function(b){ return b.textContent.trim() === priorCad.val; });
+    if (cadBtn) cadBtn.click();
   }
   var isEs = isEsLang();
   showToast((isEs ? 'Iniciando producto ' : 'Starting product ') + (used.length + 1) + (isEs ? ' de ' : ' of ') + job.batchSize, 'pass');
