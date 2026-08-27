@@ -15311,10 +15311,12 @@ function ncrFormHTML() {
     '<div class="card">' + stepTitle(1, ncrPathTitle(ncrState.path) + (isEs?' — Información del Trabajo':' — Job Info')) +
     prefillHTML +
     '<div class="field"><div class="field-label">' + (isEs?'Cliente':'Customer') + ' <span class="req">*</span></div>' +
-    '<select id="ncr-customer" class="input" onchange="ncrCustomerChange(this.value)">' +
-    '<option value="">' + (isEs?'Seleccionar cliente':'Select customer') + '</option>' +
-    '<option value="__other"'+(d.customerIsOther?' selected':'')+'>✏️ ' + (isEs?'Otro (escribir)':'Other (type in)') + '</option>' +
-    _ncrOpts(CUSTOMERS, d.customerIsOther ? '' : d.customer) + '</select>' +
+    '<div style="position:relative;">' +
+    '<input type="text" class="input" id="ncr-customer-search" autocomplete="off" autocorrect="off" spellcheck="false" ' +
+    'placeholder="' + (isEs?'Buscar o seleccionar cliente…':'Search or select customer…') + '" value="'+_ncrEsc(d.customerIsOther ? '' : (d.customer||''))+'" ' +
+    'oninput="ncrFilterCustomer()" onfocus="ncrFilterCustomer()" onblur="setTimeout(ncrCloseCustomerDrop,200)">' +
+    '<div class="customer-drop" id="ncr-customer-drop" style="display:none;"></div>' +
+    '</div>' +
     '<input id="ncr-customer-other" class="input" type="text" placeholder="' + (isEs?'Escriba el nombre del cliente…':'Type customer name…') + '" ' +
     'style="margin-top:7px;display:'+(d.customerIsOther?'block':'none')+'" value="'+_ncrEsc(d.customerManual||'')+'" ' +
     'oninput="ncrState.d.customerManual=this.value" onblur="addCustomerToList(this.value)"></div>' +
@@ -15435,11 +15437,53 @@ function ncrSelectProdSuggestion(i, val){
   if (input) input.value = val;
   ncrCloseProdDrop(i);
 }
-function ncrCustomerChange(v){
-  var d = ncrState.d;
+// Customer field — same type-to-search combo pattern as the QC setup
+// screen's #customer-search (see filterCustomers()/selectCustomer()), just
+// scoped to the NCR form and writing straight into ncrState.d instead of
+// hidden inputs, matching how the rest of this form works.
+function ncrFilterCustomer(){
+  var input = document.getElementById('ncr-customer-search');
+  var drop = document.getElementById('ncr-customer-drop');
+  if (!input || !drop) return;
+  var q = input.value.trim().toLowerCase();
+  var filtered = q ? CUSTOMERS.filter(function(c){ return c.toLowerCase().indexOf(q) >= 0; }) : CUSTOMERS;
+  var isEs = isEsLang();
+  drop.innerHTML = '';
+  filtered.forEach(function(c){
+    var opt = document.createElement('div');
+    opt.className = 'cust-opt';
+    opt.textContent = c;
+    opt.onmousedown = function(e){ e.preventDefault(); ncrSelectCustomer(c); };
+    drop.appendChild(opt);
+  });
+  var other = document.createElement('div');
+  other.className = 'cust-opt other-opt';
+  other.textContent = '+ ' + (isEs ? 'Otro — escribir manualmente' : 'Other — type manually');
+  other.onmousedown = function(e){ e.preventDefault(); ncrSelectCustomerOther(); };
+  drop.appendChild(other);
+  drop.style.display = 'block';
+}
+function ncrCloseCustomerDrop(){
+  var drop = document.getElementById('ncr-customer-drop');
+  if (drop) drop.style.display = 'none';
+}
+function ncrSelectCustomer(name){
+  ncrState.d.customer = name;
+  ncrState.d.customerIsOther = false;
+  var input = document.getElementById('ncr-customer-search');
+  if (input) input.value = name;
+  ncrCloseCustomerDrop();
   var other = document.getElementById('ncr-customer-other');
-  if (v === '__other') { d.customerIsOther = true; d.customer = ''; other.style.display='block'; other.focus(); }
-  else { d.customerIsOther = false; d.customer = v; other.style.display='none'; }
+  if (other) other.style.display = 'none';
+}
+function ncrSelectCustomerOther(){
+  ncrState.d.customer = '';
+  ncrState.d.customerIsOther = true;
+  var input = document.getElementById('ncr-customer-search');
+  if (input) input.value = '';
+  ncrCloseCustomerDrop();
+  var other = document.getElementById('ncr-customer-other');
+  if (other) { other.style.display = 'block'; other.focus(); }
 }
 /* Pre-fill the NCR form from a QC approval entry */
 function ncrPrefillFromQC(jobId){
