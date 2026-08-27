@@ -9382,6 +9382,17 @@ function renderGluerProductFields() {
   var n = gluerProductCount;
   var wrap = document.getElementById('gluer-product-fields');
   if (!wrap) return;
+
+  // This function fully rebuilds the Product ID field's DOM every time it's
+  // called — including from toggling "same CAD?" or the product count after
+  // someone already typed/scanned a Product ID or attached the make-ready
+  // photo. Save that state first and restore it into the freshly-rendered
+  // field below, rather than silently wiping out what they'd already done.
+  var existingProdEl = document.getElementById('gluer-product-0');
+  var existingProdVal = existingProdEl ? existingProdEl.value : '';
+  var existingPhotoEl = document.getElementById('gluer-prod-photo-prev-0');
+  var existingPhotoSrc = (existingPhotoEl && existingPhotoEl.style.display !== 'none') ? existingPhotoEl.src : '';
+
   if (n === 0) { wrap.innerHTML = ''; return; }
   var isEs = isEsLang();
 
@@ -9408,6 +9419,14 @@ function renderGluerProductFields() {
           '</div>' +
         '</div>' +
       '</div>';
+    if (existingProdVal) {
+      var newProdEl = document.getElementById('gluer-product-0');
+      if (newProdEl) newProdEl.value = existingProdVal;
+    }
+    if (existingPhotoSrc) {
+      var newPhotoEl = document.getElementById('gluer-prod-photo-prev-0');
+      if (newPhotoEl) { newPhotoEl.src = existingPhotoSrc; newPhotoEl.style.display = 'block'; setPhotoText('gluer-prod-photo-txt-0', 'captured'); }
+    }
     return;
   }
 
