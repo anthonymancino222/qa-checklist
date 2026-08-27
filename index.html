@@ -4944,7 +4944,11 @@ function _tryRestoreLocalSession() {
   _renderSignedInUser();
   _applyDataEditVisibility();
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
-  _initScheduleAutoPull();
+  // Deferred to next tick — this runs very early in the script, before
+  // later-declared module vars (_scheduleData, _pullScheduleInFlight) have
+  // been assigned; letting the rest of the script finish first avoids
+  // touching them mid-initialization.
+  setTimeout(_initScheduleAutoPull, 0);
   return true;
 }
 
@@ -5022,7 +5026,7 @@ function _onGoogleSignIn(response) {
   // Google's own silent one-tap resume succeeds on that later visit.
   _saveLocalSession(_googleIdToken);
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
-  _initScheduleAutoPull();
+  setTimeout(_initScheduleAutoPull, 0);
 }
 
 // google.accounts.id loads async (script tag has `defer`) — this polls
@@ -12967,14 +12971,21 @@ function pullScheduleNow() {
 // (rather than one long setTimeout) plus a visibilitychange catch-up, since
 // a floor tablet's browser can sit backgrounded/asleep across the scheduled
 // time and a plain setTimeout isn't reliable across that.
-var SCHEDULE_AUTOPULL_HOURS = [5, 17];
+// The hours list is local to this function (not a module-level var) on
+// purpose: _initScheduleAutoPull() is called from _tryRestoreLocalSession(),
+// which runs very early in this one giant top-to-bottom <script> block — a
+// module-level var declared further down wouldn't be assigned yet at that
+// point, and reading it here would throw (and a single uncaught error mid-
+// script silently kills every var/init statement still below it in the
+// file — this broke unrelated features once, don't reintroduce it).
 var _scheduleAutoPullCheckTimer = null;
 
 function _computeNextAutoPullAt(fromMs) {
+  var hours = [5, 17];
   var from = new Date(fromMs);
   var best = null;
   [0, 1, 2].forEach(function(dayOffset) {
-    SCHEDULE_AUTOPULL_HOURS.forEach(function(h) {
+    hours.forEach(function(h) {
       var d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + dayOffset, h, 0, 0, 0).getTime();
       if (d > fromMs && (best === null || d < best)) best = d;
     });
