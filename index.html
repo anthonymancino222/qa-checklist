@@ -15262,8 +15262,18 @@ function ncrFormHTML() {
   var isEs = isEsLang();
   var d = ncrState.d;
   var qcJobs = ipLoad();
+  var hasScheduleJobs = !!(_scheduleData && _scheduleData.jobs && Object.keys(_scheduleData.jobs).length);
   var prefillHTML = '<div class="field"><div class="field-label">' + (isEs?'Extraer de un trabajo de QC':'Pull from QC job') + ' <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(' + (isEs?'opcional':'optional') + ')</span></div>';
-  if (qcJobs.length){
+  // "Pull Schedule" here too — same button/behavior as the QC setup screen
+  // (pullScheduleNow()) — so this search can also find any job on today's
+  // pulled schedule, not just jobs that already have a QC entry recorded in
+  // this browser. Also ensures _scheduleData is fresh right before the
+  // search below runs, on a device that hasn't opened the QC screen yet.
+  prefillHTML += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">' +
+    '<button type="button" class="pull-schedule-btn" style="padding:10px 16px;font-size:14px;" onclick="ncrPullScheduleClick()">🔄 ' + (isEs?'Actualizar Programa':'Pull Schedule') + '</button>' +
+    '<span id="ncr-schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>' +
+    '</div>';
+  if (qcJobs.length || hasScheduleJobs){
     var preselectedLabel = '';
     if (d.__prefillFrom){
       var pj = qcJobs.filter(function(j){ return j.id === d.__prefillFrom; })[0];
@@ -15271,6 +15281,8 @@ function ncrFormHTML() {
         var ppf = pj.formNumber || pj.productNumber || pj.product || '';
         preselectedLabel = (pj.jobNumber||'?') + ' · ' + (pj.station||'') + (pj.customer?' · '+pj.customer:'') + (ppf?' · '+ppf:'');
       }
+    } else if (d.__prefillScheduleJobNumber) {
+      preselectedLabel = _ncrScheduleLabel(d.__prefillScheduleJobNumber);
     }
     prefillHTML += '<div style="position:relative;">' +
       '<input type="text" class="input" id="ncr-prefill-search" autocomplete="off" autocorrect="off" spellcheck="false" ' +
@@ -15280,7 +15292,7 @@ function ncrFormHTML() {
       '</div>' +
       '<small class="hint" style="display:block;margin-top:6px;">' + (isEs?'Empiece a escribir al menos 1 carácter para ver trabajos coincidentes.':'Start typing at least 1 character to see matching jobs.') + '</small>';
   } else {
-    prefillHTML += '<input type="text" class="input" disabled placeholder="' + (isEs?'Aún no hay entradas de QC en este navegador':'No QC entries in this browser yet') + '">';
+    prefillHTML += '<input type="text" class="input" disabled placeholder="' + (isEs?'Aún no hay entradas de QC ni programa cargado':'No QC entries or pulled schedule yet') + '">';
   }
   prefillHTML += '</div>';
 
@@ -15449,10 +15461,20 @@ function ncrPrefillFromQC(jobId){
   renderNCRView();
 }
 
-/* Typeahead for "Pull from QC job" — shows matches once 1+ character is typed */
+/* Typeahead for "Pull from QC job" — shows matches once 1+ character is
+   typed. Searches two sources: real QC entries already recorded in this
+   browser (ipLoad(), preferred — has a station and a specific product
+   already run), and the schedule bridge (_scheduleData, see the SCHEDULE
+   BRIDGE section) for any job on today's pulled schedule that doesn't have
+   a QC entry yet — e.g. an NCR filed before the job is ever run through QC. */
 function _ncrPrefillLabel(j){
   var pf = j.formNumber || j.productNumber || j.product || '';
   return (j.jobNumber||'?') + ' · ' + (j.station||'') + (j.customer?' · '+j.customer:'') + (pf?' · '+pf:'');
+}
+function _ncrScheduleLabel(jobNumber){
+  var entry = _scheduleData && _scheduleData.jobs && _scheduleData.jobs[jobNumber];
+  if (!entry) return jobNumber;
+  return jobNumber + (entry.customer ? ' · ' + entry.customer : '') + ((entry.products||[]).length ? ' · ' + entry.products.slice(0,2).join(', ') : '');
 }
 function ncrFilterPrefill(){
   var input = document.getElementById('ncr-prefill-search');
@@ -15460,15 +15482,33 @@ function ncrFilterPrefill(){
   if (!input || !drop) return;
   var q = input.value.trim().toLowerCase();
   if (q.length < 1){ drop.style.display = 'none'; drop.innerHTML = ''; return; }
-  var jobs = ipLoad().filter(function(j){
+  var qcJobs = ipLoad().filter(function(j){
     return _ncrPrefillLabel(j).toLowerCase().indexOf(q) >= 0;
   }).slice(0, 8);
-  if (!jobs.length){
+  var qcJobNumbers = {};
+  qcJobs.forEach(function(j){ qcJobNumbers[j.jobNumber] = true; });
+
+  var scheduleMatches = [];
+  if (_scheduleData && _scheduleData.jobs) {
+    for (var jobNumber in _scheduleData.jobs) {
+      if (qcJobNumbers[jobNumber]) continue; // already have a real QC record for this job — prefer that one
+      if (_ncrScheduleLabel(jobNumber).toLowerCase().indexOf(q) < 0) continue;
+      scheduleMatches.push(jobNumber);
+      if (scheduleMatches.length >= 8) break;
+    }
+  }
+
+  if (!qcJobs.length && !scheduleMatches.length){
     drop.innerHTML = '<div class="cust-no-results">' + (isEsLang() ? 'Sin trabajos coincidentes' : 'No matching jobs') + '</div>';
   } else {
-    drop.innerHTML = jobs.map(function(j){
+    var html = qcJobs.map(function(j){
       return '<div class="cust-opt" onmousedown="ncrSelectPrefillJob(\''+j.id+'\')">'+_ncrEsc(_ncrPrefillLabel(j))+'</div>';
     }).join('');
+    html += scheduleMatches.map(function(jobNumber){
+      return '<div class="cust-opt" onmousedown="ncrSelectPrefillFromSchedule(\''+_ncrEsc(jobNumber)+'\')">'+_ncrEsc(_ncrScheduleLabel(jobNumber))+
+        ' <span style="font-size:11.5px;color:var(--text-tertiary);">(' + (isEsLang()?'del programa':'from schedule') + ')</span></div>';
+    }).join('');
+    drop.innerHTML = html;
   }
   drop.style.display = 'block';
 }
@@ -15483,6 +15523,46 @@ function ncrSelectPrefillJob(jobId){
   if (input && j) input.value = _ncrPrefillLabel(j);
   ncrClosePrefillDrop();
   ncrPrefillFromQC(jobId);
+}
+// Same idea as ncrPrefillFromQC, but from a schedule-bridge entry instead
+// of a real QC record — no station or __prefillFrom job id to carry over
+// (the schedule doesn't reliably know which specific station/machine a job
+// will run on), so Station stays for the operator to pick in Step 2 as normal.
+function ncrPrefillFromSchedule(jobNumber){
+  var entry = _scheduleData && _scheduleData.jobs && _scheduleData.jobs[jobNumber];
+  if (!entry) return;
+  var d = ncrState.d;
+  d.__prefillFrom = null;
+  d.__prefillScheduleJobNumber = jobNumber;
+  d.jobNumber = jobNumber;
+  var cust = entry.customer || '';
+  if (cust){
+    if (CUSTOMERS.indexOf(cust) >= 0){ d.customer = cust; d.customerIsOther = false; }
+    else { d.customerIsOther = true; d.customerManual = cust; d.customer = ''; }
+  }
+  if ((entry.products||[]).length) d.products[0] = entry.products[0];
+  renderNCRView();
+}
+function ncrSelectPrefillFromSchedule(jobNumber){
+  var input = document.getElementById('ncr-prefill-search');
+  if (input) input.value = _ncrScheduleLabel(jobNumber);
+  ncrClosePrefillDrop();
+  ncrPrefillFromSchedule(jobNumber);
+}
+// "Pull Schedule" button inside the NCR form — same pullScheduleNow() the
+// QC setup screen uses, just with its own status line and a re-filter of
+// whatever's currently typed once the fresh data lands.
+function ncrPullScheduleClick(){
+  var status = document.getElementById('ncr-schedule-pull-status');
+  if (status) { status.textContent = isEsLang() ? 'Actualizando…' : 'Pulling…'; status.style.color = 'var(--text-tertiary)'; }
+  pullScheduleNow()
+    .then(function(data){
+      if (status) { status.style.color = 'var(--text-tertiary)'; status.textContent = (isEsLang()?'Cargados ':'Loaded ') + data.jobCount + (isEsLang()?' trabajos':' jobs'); }
+      ncrFilterPrefill();
+    })
+    .catch(function(err){
+      if (status) { status.style.color = 'var(--red)'; status.textContent = (isEsLang()?'Error: ':'Pull failed: ') + err.message; }
+    });
 }
 
 /* Path: Document an NCR — issue entry is tap-first: a single quality-issue
