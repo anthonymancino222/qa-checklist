@@ -12929,13 +12929,19 @@ var jobDropAutoCloseTimer = null;
 // rejected on failure) so callers that need to act right after a fresh pull
 // — like the job picker's own 🔄 button — can chain onto it instead of
 // guessing when it's done.
+// Concurrent calls (e.g. the 5am/5pm auto-pull firing at the same moment as
+// someone tapping "Pull Schedule") share this one in-flight request instead
+// of firing two real calls to the Worker/Drive API at once — that double-up
+// was seen to make one of the two transiently fail.
+var _pullScheduleInFlight = null;
 function pullScheduleNow() {
+  if (_pullScheduleInFlight) return _pullScheduleInFlight;
   var btn = document.getElementById('pull-schedule-btn');
   var status = document.getElementById('schedule-pull-status');
   if (btn) btn.disabled = true;
   if (status) { status.textContent = 'Pulling…'; status.style.color = 'var(--text-tertiary)'; }
 
-  return fetch(QA_BACKEND_URL + '/admin/schedule-pull', { headers: _authHeaders() })
+  _pullScheduleInFlight = fetch(QA_BACKEND_URL + '/admin/schedule-pull', { headers: _authHeaders() })
     .then(function(res) { if (!res.ok) return res.json().then(function(e){ throw new Error(e.error || ('HTTP ' + res.status)); }); return res.json(); })
     .then(function(data) {
       _scheduleData = data;
@@ -12951,7 +12957,8 @@ function pullScheduleNow() {
       if (status) { status.style.color = 'var(--red)'; status.textContent = 'Pull failed: ' + err.message; }
       throw err;
     })
-    .finally(function() { if (btn) btn.disabled = false; });
+    .finally(function() { if (btn) btn.disabled = false; _pullScheduleInFlight = null; });
+  return _pullScheduleInFlight;
 }
 
 // Background auto-pull: fires at 5:00am and 5:00pm local device time, daily,
