@@ -5818,6 +5818,13 @@ function renderQARelease() {
 
 function _computeIPCols(jobs) {
   var cols = { makeready: [], production: [], secondpassready: [], inspection: [], onhold: [], needsNextProduct: [] };
+  // Multiple products from the same batch can each independently sit at QA
+  // Release at once (e.g. product 1 AND product 2 both released, only
+  // product 3 left) — every one of them individually "needs a next
+  // product," but that must render as ONE prompt card per batch, not one
+  // per finished product. Keep only the most-advanced record per batchId
+  // (the one with the most scheduleProductsUsed) as the representative.
+  var needsNextByBatch = {};
   jobs.forEach(function(j) {
     var isVeritivPack = (j.station === 'Packing' && j.customer === 'Veritiv');
     if (j.process === 'qa_pending' && isVeritivPack) return;
@@ -5828,7 +5835,11 @@ function _computeIPCols(jobs) {
       // production works from there and doesn't check QA Release.
       var isGluer = (j.station === 'Long Gluer' || j.station === 'Short Gluer');
       if (isGluer && j.batchSize > 1 && (j.scheduleProductPool || []).length > (j.scheduleProductsUsed || []).length) {
-        cols.needsNextProduct.push(j);
+        var key = j.batchId || j.id;
+        var existing = needsNextByBatch[key];
+        if (!existing || (j.scheduleProductsUsed || []).length > (existing.scheduleProductsUsed || []).length) {
+          needsNextByBatch[key] = j;
+        }
       }
       return;
     }
@@ -5838,6 +5849,7 @@ function _computeIPCols(jobs) {
     else if (j.process === 'inspection')  cols.inspection.push(j);
     else if (j.process === 'on_hold')     cols.onhold.push(j);
   });
+  cols.needsNextProduct = Object.keys(needsNextByBatch).map(function(k){ return needsNextByBatch[k]; });
   return cols;
 }
 
