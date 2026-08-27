@@ -4944,6 +4944,7 @@ function _tryRestoreLocalSession() {
   _renderSignedInUser();
   _applyDataEditVisibility();
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
+  _initScheduleAutoPull();
   return true;
 }
 
@@ -5021,6 +5022,7 @@ function _onGoogleSignIn(response) {
   // Google's own silent one-tap resume succeeds on that later visit.
   _saveLocalSession(_googleIdToken);
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
+  _initScheduleAutoPull();
 }
 
 // google.accounts.id loads async (script tag has `defer`) — this polls
@@ -12910,9 +12912,10 @@ function selectCustomerOther() {
    Anthony manually exports the CERM job schedule to Excel and drops it in a
    Shared Drive folder — the app never talks to CERM directly (standing
    rule). GET /admin/schedule-pull reads the newest file there and returns
-   { jobNumber: {customer, products, dieNumbers} }. Deliberately a manual
-   "Pull Schedule" button for now, not an automatic background fetch, per
-   how this was first scoped — see CLAUDE.md if that changes.
+   { jobNumber: {customer, products, dieNumbers} }.
+   Auto-pulled in the background at 5am/5pm daily (see
+   _initScheduleAutoPull() below) — the "Pull Schedule" button still exists
+   for a forced immediate refresh, it's no longer the only way this happens.
    Cached in memory only (not localStorage) — it's a live snapshot of
    in-progress jobs, not something that should look "current" after being
    stale for days if the app was just reopened.
@@ -12949,6 +12952,60 @@ function pullScheduleNow() {
       throw err;
     })
     .finally(function() { if (btn) btn.disabled = false; });
+}
+
+// Background auto-pull: fires at 5:00am and 5:00pm local device time, daily,
+// so the schedule stays current without anyone having to tap "Pull Schedule"
+// first. Uses a persisted next-run timestamp checked on a recurring interval
+// (rather than one long setTimeout) plus a visibilitychange catch-up, since
+// a floor tablet's browser can sit backgrounded/asleep across the scheduled
+// time and a plain setTimeout isn't reliable across that.
+var SCHEDULE_AUTOPULL_HOURS = [5, 17];
+var _scheduleAutoPullCheckTimer = null;
+
+function _computeNextAutoPullAt(fromMs) {
+  var from = new Date(fromMs);
+  var best = null;
+  [0, 1, 2].forEach(function(dayOffset) {
+    SCHEDULE_AUTOPULL_HOURS.forEach(function(h) {
+      var d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + dayOffset, h, 0, 0, 0).getTime();
+      if (d > fromMs && (best === null || d < best)) best = d;
+    });
+  });
+  return best;
+}
+
+function _getScheduleAutoPullNextRunAt() {
+  var raw = localStorage.getItem('qa_schedule_autopull_next_v1');
+  var n = raw ? parseInt(raw, 10) : NaN;
+  return isNaN(n) ? null : n;
+}
+
+function _scheduleAutoPullCheck() {
+  var now = Date.now();
+  var nextRunAt = _getScheduleAutoPullNextRunAt();
+  if (!nextRunAt) {
+    localStorage.setItem('qa_schedule_autopull_next_v1', String(_computeNextAutoPullAt(now)));
+    return;
+  }
+  if (now >= nextRunAt) {
+    pullScheduleNow().catch(function(){ /* status line already shows the failure; next check retries */ });
+    localStorage.setItem('qa_schedule_autopull_next_v1', String(_computeNextAutoPullAt(now)));
+  }
+}
+
+// Called once right after sign-in (local-session restore or fresh Google
+// sign-in — see both call sites). Does one immediate silent pull if nothing's
+// cached yet (e.g. the tablet was freshly opened outside the 5am/5pm window),
+// then starts the recurring daily check.
+function _initScheduleAutoPull() {
+  if (_scheduleAutoPullCheckTimer) return; // already running
+  if (!_scheduleData) pullScheduleNow().catch(function(){});
+  _scheduleAutoPullCheck();
+  _scheduleAutoPullCheckTimer = setInterval(_scheduleAutoPullCheck, 60000);
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') _scheduleAutoPullCheck();
+  });
 }
 
 function renderJobDrop(matches, totalMatches) {
@@ -13176,8 +13233,8 @@ function showPullScheduleInfo() {
   var isEs = isEsLang();
   showAlert(
     isEs
-      ? 'Trae el programa de trabajos más reciente que Anthony exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre usa el archivo más nuevo — toma unos segundos.'
-      : 'Pulls the latest job schedule Anthony exported from the system, so you can tap to pick your job instead of typing it in. Always grabs the newest file — takes a few seconds.',
+      ? 'Trae el programa de trabajos más reciente que Anthony exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre usa el archivo más nuevo — toma unos segundos. La app también se actualiza sola cada día a las 5am y 5pm; toque este botón solo si necesita el programa más reciente en este momento.'
+      : 'Pulls the latest job schedule Anthony exported from the system, so you can tap to pick your job instead of typing it in. Always grabs the newest file — takes a few seconds. The app also refreshes this automatically every day at 5am and 5pm; only tap this if you need the very latest schedule right now.',
     isEs ? 'ℹ️ Qué Hace Esto' : 'ℹ️ What This Does',
     showPullScheduleInfo
   );
