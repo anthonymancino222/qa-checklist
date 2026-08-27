@@ -5800,15 +5800,10 @@ function renderQARelease() {
     var pfVal = job.formNumber || job.productNumber || job.product;
     var subLine = jp('product') + ': ' + hlId(pfVal);
     var _stationDisp = isVeritivJob ? (stationLabel('Packing') + ' · Veritiv') : stationLabel(job.station);
-    // Gluer multi-product batch (see "GLUER SEQUENTIAL MULTI-PRODUCT BATCH")
-    // still has schedule numbers left unassigned — offer to kick off the
-    // next one right from here instead of waiting for someone to remember.
-    var _needsNextGluerProduct = job.batchSize > 1 &&
-      (job.scheduleProductPool || []).length > (job.scheduleProductsUsed || []).length;
-    var _nextProductBtnHTML = _needsNextGluerProduct
-      ? '<button type="button" class="gluer-next-product-btn" style="width:100%;margin-top:10px;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
-        (isEsLang() ? 'Iniciar Siguiente Producto' : 'Start Next Product') + ' (' + ((job.scheduleProductsUsed||[]).length + 1) + ' ' + (isEsLang()?'de':'of') + ' ' + job.batchSize + ')</button>'
-      : '';
+    // "Start Next Product" for a Gluer batch used to live here — moved to
+    // the Make Ready column of Job in Progress instead (see
+    // _computeIPCols/renderInProgress), since production works from there
+    // and doesn't check QA Release.
     card.innerHTML = photoHTML +
       '<div class="jp-card-body">' +
         '<div class="jp-card-ts">' + job.timestamp + '</div>' +
@@ -5816,18 +5811,27 @@ function renderQARelease() {
         '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
         '<div class="jp-card-form">' + subLine + '</div>' +
         '<div class="jp-card-badges"><span class="jp-badge" style="background:var(--pink);color:#fff;">' + jp('qaReleaseReq') + '</span></div>' +
-        _nextProductBtnHTML +
       '</div>';
     el.appendChild(card);
   });
 }
 
 function _computeIPCols(jobs) {
-  var cols = { makeready: [], production: [], secondpassready: [], inspection: [], onhold: [] };
+  var cols = { makeready: [], production: [], secondpassready: [], inspection: [], onhold: [], needsNextProduct: [] };
   jobs.forEach(function(j) {
     var isVeritivPack = (j.station === 'Packing' && j.customer === 'Veritiv');
     if (j.process === 'qa_pending' && isVeritivPack) return;
-    if (j.process === 'qa_release') return;
+    if (j.process === 'qa_release') {
+      // A Gluer batch member that's reached QA Release but still has
+      // unassigned products left — surfaced in the Make Ready column (see
+      // renderInProgress) as a "Start Next Product" prompt, since
+      // production works from there and doesn't check QA Release.
+      var isGluer = (j.station === 'Long Gluer' || j.station === 'Short Gluer');
+      if (isGluer && j.batchSize > 1 && (j.scheduleProductPool || []).length > (j.scheduleProductsUsed || []).length) {
+        cols.needsNextProduct.push(j);
+      }
+      return;
+    }
     if      (j.process === 'makeready' || j.process === 'qa_pending') cols.makeready.push(j);
     else if (j.process === 'production')  cols.production.push(j);
     else if (j.process === '2nd_pass_ready') cols.secondpassready.push(j);
@@ -5921,17 +5925,58 @@ function renderInProgress() {
     return entries;
   }
 
+  // "Start Next Product" prompt for a Gluer batch whose product 1 already
+  // reached QA Release but still has unassigned products left — shown in
+  // the Make Ready column (production works from here, not QA Release; see
+  // _computeIPCols). Distinct dashed-border styling since the job itself
+  // isn't actually in make-ready state, this is a "start the next one" cue.
+  var needsNext = cols.needsNextProduct || [];
+  function _needsNextProductCard(job) {
+    var card = document.createElement('div');
+    card.className = 'jp-card';
+    card.style.cssText = 'margin-bottom:12px;border:2px dashed var(--pink);cursor:default;';
+    card.innerHTML =
+      '<div class="jp-card-photo-empty">▶</div>' +
+      '<div class="jp-card-body">' +
+        '<div class="jp-card-station">' + stationLabel(job.station) + '</div>' +
+        '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
+        '<div class="jp-card-form">' + ((job.scheduleProductsUsed||[]).length) + ' ' + (isEsLang()?'de':'of') + ' ' + job.batchSize + ' ' + (isEsLang()?'productos completados':'products done') + '</div>' +
+        '<button type="button" class="gluer-next-product-btn" style="width:100%;margin-top:10px;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
+        (isEsLang() ? 'Iniciar Siguiente Producto' : 'Start Next Product') + ' (' + ((job.scheduleProductsUsed||[]).length + 1) + ' ' + (isEsLang()?'de':'of') + ' ' + job.batchSize + ')</button>' +
+      '</div>';
+    return card;
+  }
+  function _needsNextProductListRow(job) {
+    var row = document.createElement('div');
+    row.className = 'jp-list-row';
+    row.style.borderColor = 'var(--pink)';
+    row.innerHTML =
+      '<div class="jp-list-thumb-empty">▶</div>' +
+      '<div class="jp-list-info">' +
+        '<div class="jp-list-job">' + hlId(job.jobNumber) + '</div>' +
+        '<div class="jp-list-sub">' + stationLabel(job.station) + ' · ' + ((job.scheduleProductsUsed||[]).length) + '/' + job.batchSize + '</div>' +
+      '</div>' +
+      '<button type="button" class="gluer-next-product-btn" style="flex-shrink:0;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
+      (isEsLang() ? 'Iniciar Siguiente' : 'Start Next') + '</button>';
+    return row;
+  }
+
   ['makeready','production','secondpassready','inspection','onhold'].forEach(function(phase) {
     var list = cols[phase];
     var el = document.getElementById('col-' + phase);
     var countEl = document.getElementById('count-' + phase);
+    var extraNext = (phase === 'makeready') ? needsNext : [];
 
     if (viewMode === 'list') {
       // List mode: every job is its own row — no batch grouping, always individually tappable
-      countEl.textContent = list.length;
-      countEl.className = 'kanban-col-count' + (list.length ? ' has-items' : '');
+      countEl.textContent = list.length + extraNext.length;
+      countEl.className = 'kanban-col-count' + ((list.length + extraNext.length) ? ' has-items' : '');
       el.innerHTML = '';
-      if (!list.length) { el.innerHTML = '<div class="kanban-empty">' + (isEsLang() ? 'Sin elementos' : 'No items') + '</div>'; return; }
+      extraNext.forEach(function(job) { el.appendChild(_needsNextProductListRow(job)); });
+      if (!list.length) {
+        if (!extraNext.length) el.innerHTML = '<div class="kanban-empty">' + (isEsLang() ? 'Sin elementos' : 'No items') + '</div>';
+        return;
+      }
       list.forEach(function(job) {
         var isProd = (job.process === 'production');
         var badge = '';
@@ -5946,10 +5991,11 @@ function renderInProgress() {
     }
 
     var entries = buildEntries(list);
-    countEl.textContent = entries.length;
-    countEl.className = 'kanban-col-count' + (entries.length ? ' has-items' : '');
-    if (!entries.length) { el.innerHTML = '<div class="kanban-empty">' + (isEsLang() ? 'Sin elementos' : 'No items') + '</div>'; return; }
+    countEl.textContent = entries.length + extraNext.length;
+    countEl.className = 'kanban-col-count' + ((entries.length + extraNext.length) ? ' has-items' : '');
+    if (!entries.length && !extraNext.length) { el.innerHTML = '<div class="kanban-empty">' + (isEsLang() ? 'Sin elementos' : 'No items') + '</div>'; return; }
     el.innerHTML = '';
+    extraNext.forEach(function(job) { el.appendChild(_needsNextProductCard(job)); });
 
     entries.forEach(function(entry) {
       if (entry.type === 'batch') {
