@@ -4903,7 +4903,7 @@ var _signedInUser = null; // { name, email } — cosmetic only, for the header
 // as the AppSheet app people are used to, which never re-asked for a login
 // on a device that was still being used. Explicit sign-out clears this.
 var _LOCAL_SESSION_KEY = 'qa_local_session_v1';
-var _LOCAL_SESSION_MAX_INACTIVITY_MS = 12 * 60 * 60 * 1000; // 12 hours
+var _LOCAL_SESSION_MAX_INACTIVITY_MS = 72 * 60 * 60 * 1000; // 72 hours
 function _saveLocalSession(idToken) {
   try {
     localStorage.setItem(_LOCAL_SESSION_KEY, JSON.stringify({
@@ -4920,14 +4920,14 @@ function _readLocalSession() {
     if (!raw) return null;
     var s = JSON.parse(raw);
     if (!s || !s.email || !s.lastActivityAt) return null;
-    if (Date.now() - s.lastActivityAt > _LOCAL_SESSION_MAX_INACTIVITY_MS) return null; // expired — 12h+ untouched
+    if (Date.now() - s.lastActivityAt > _LOCAL_SESSION_MAX_INACTIVITY_MS) return null; // expired — 72h+ untouched
     return s;
   } catch (e) { return null; }
 }
 function _clearLocalSession() {
   try { localStorage.removeItem(_LOCAL_SESSION_KEY); } catch (e) {}
 }
-// Refreshes lastActivityAt so the 12h window is "since last use," not "since
+// Refreshes lastActivityAt so the 72h window is "since last use," not "since
 // login" — throttled to once/minute so real interactions don't spam writes.
 var _lastActivityTouch = 0;
 function _touchLocalSessionActivity() {
@@ -5036,7 +5036,7 @@ function _onGoogleSignIn(response) {
   // Establishes (or refreshes) this device's local "stay signed in" session —
   // see _saveLocalSession() above. From this point on, reopening/reloading
   // the app on this device skips the sign-in screen entirely as long as it's
-  // used again within the 12h inactivity window, regardless of whether
+  // used again within the 72h inactivity window, regardless of whether
   // Google's own silent one-tap resume succeeds on that later visit.
   _saveLocalSession(_googleIdToken);
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
