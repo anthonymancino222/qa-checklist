@@ -9150,6 +9150,16 @@ var _mk = {
 function openPhotoMarkup(src, onSave){
   if (!src){ showToast('No photo to edit', 'fail'); return; }
   var img = new Image();
+  // Photos moved to Drive (see _uploadPhotoToDrive) load from a different
+  // origin (the Cloudflare Worker's /photo/:id proxy) than this page —
+  // without requesting the image in CORS mode, drawing it to <canvas>
+  // "taints" the canvas and toDataURL() throws, silently killing the
+  // rest of this onload handler (the markup overlay never opens). The
+  // Worker already sends Access-Control-Allow-Origin: * on that endpoint
+  // (see CORS_HEADERS in cloudflare-backend/src/index.js) — this is the
+  // missing half. Harmless to set unconditionally for a same-origin/data:
+  // URL photo too (the older, pre-Drive-migration ones).
+  img.crossOrigin = 'anonymous';
   img.onload = function(){
     var maxDim = 1400; // cap working resolution — plenty for markup, keeps it fast
     var w = img.width, h = img.height;
