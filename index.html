@@ -4634,7 +4634,7 @@ var CHECKLIST_GLUER_QA_RELEASE = [
   { id:'glr-location',    name:['Sample Location','Ubicación de la Muestra'],                                type:'textinput', req:true  },
   { id:'glr-notes',       name:['Notes','Notas'],                                          type:'textinput'            },
   { id:'glr-packers',     name:['How many packers?','¿Cuántos empacadores?'],                              type:'textinput', req:true  },
-  { id:'glr-3rd-person',  name:['There\'s a 3rd person helping to palletize?','¿Hay una tercera persona ayudando a paletizar?'],   type:'yesno',     req:true,  noNote:true },
+  { id:'glr-3rd-person',  name:['There\'s a 3rd person helping to palletize?','¿Hay una tercera persona ayudando a paletizar?'],   type:'yesno',     req:true,  noNote:true, invertYesNo:true },
 ];
 var GLR_WHY_SHORT_OPTIONS = ['Printing Issue', 'Not enough Material', 'Die Cutting Issue', 'Fold/Glue Issue', 'Not Short, Partial Run'];
 // name is stored as the checkbox value (unchanged — matches what's already
