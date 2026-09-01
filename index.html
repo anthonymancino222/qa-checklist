@@ -16966,18 +16966,48 @@ function updateShippingBadge(){
   else { dot.style.display = 'none'; }
 }
 
+// Shipping Approval is a live work queue (the shipping team is expected to
+// clear it daily), not an archive — a Records-style year/month picker would
+// hide today's actual pending work behind an extra tap, which is backwards
+// for something people need to act on right now. Instead: render only the
+// newest _shippingRenderLimit cards (each one embeds a full photo — that's
+// the real cost once a backlog builds up, not raw job count) with a "Load
+// more" button for the rest. Search still runs across every pending job,
+// not just the visible page.
+var _shippingRenderLimit = 30;
+var _shippingLastSearchQuery = '';
+function _shippingLoadMore(){
+  _shippingRenderLimit += 30;
+  renderShipping();
+}
 function renderShipping(){
   updateShippingBadge();
-  var jobs = _filterJobsBySearch(_shippingPendingJobs(), 'ship-search');
+  var searchEl = document.getElementById('ship-search');
+  var q = searchEl ? searchEl.value : '';
+  if (q !== _shippingLastSearchQuery) { _shippingLastSearchQuery = q; _shippingRenderLimit = 30; }
+  var allJobs = _filterJobsBySearch(_shippingPendingJobs(), 'ship-search');
   var el = document.getElementById('shipping-list');
   if (!el) return;
   var viewMode = getShippingViewMode();
   _syncViewToggle('ship-view-tile-btn', 'ship-view-list-btn', viewMode);
-  if (!jobs.length){
+  if (!allJobs.length){
     el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' + jp('noJobsShipping') + '</div>';
     return;
   }
   el.innerHTML = '';
+  var jobs = allJobs.slice(0, _shippingRenderLimit);
+  var remaining = allJobs.length - jobs.length;
+  var isEs = isEsLang();
+  function appendLoadMoreIfNeeded(){
+    if (remaining <= 0) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pull-schedule-btn';
+    btn.style.cssText = 'width:100%;margin-top:4px;';
+    btn.textContent = (isEs ? 'Cargar ' : 'Load ') + Math.min(remaining, 30) + (isEs ? ' más (' + remaining + ' restantes)' : ' more (' + remaining + ' remaining)');
+    btn.onclick = _shippingLoadMore;
+    el.appendChild(btn);
+  }
 
   if (viewMode === 'list'){
     jobs.forEach(function(job){
@@ -16996,6 +17026,7 @@ function renderShipping(){
         '<div class="jp-list-badges"><span class="jp-badge" style="background:#dc2626;color:#fff;">' + jp('shippingApproval') + '</span></div>';
       el.appendChild(row);
     });
+    appendLoadMoreIfNeeded();
     return;
   }
 
@@ -17018,6 +17049,7 @@ function renderShipping(){
       '</div>';
     el.appendChild(card);
   });
+  appendLoadMoreIfNeeded();
 }
 
 function _shipSetDefault(groupId, key, val, idx){
