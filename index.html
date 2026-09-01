@@ -16969,22 +16969,26 @@ function updateShippingBadge(){
 // Shipping Approval is a live work queue (the shipping team is expected to
 // clear it daily), not an archive — a Records-style year/month picker would
 // hide today's actual pending work behind an extra tap, which is backwards
-// for something people need to act on right now. Instead: render only the
-// newest _shippingRenderLimit cards (each one embeds a full photo — that's
-// the real cost once a backlog builds up, not raw job count) with a "Load
-// more" button for the rest. Search still runs across every pending job,
-// not just the visible page.
-var _shippingRenderLimit = 30;
+// for something people need to act on right now. Instead: real pages of
+// _SHIPPING_PAGE_SIZE cards (each one embeds a full photo — that's the real
+// render cost once a backlog builds up, not raw job count), with Prev/Next
+// controls. Search runs across every pending job, not just the current
+// page — changing the query re-pages the full filtered result set from
+// page 1, it never hides a match just because it's on a later page.
+var _SHIPPING_PAGE_SIZE = 30;
+var _shippingPage = 1;
 var _shippingLastSearchQuery = '';
-function _shippingLoadMore(){
-  _shippingRenderLimit += 30;
+function _shippingGoToPage(p){
+  _shippingPage = p;
   renderShipping();
+  var el = document.getElementById('shipping-list');
+  if (el) el.scrollTo({top:0,behavior:'smooth'});
 }
 function renderShipping(){
   updateShippingBadge();
   var searchEl = document.getElementById('ship-search');
   var q = searchEl ? searchEl.value : '';
-  if (q !== _shippingLastSearchQuery) { _shippingLastSearchQuery = q; _shippingRenderLimit = 30; }
+  if (q !== _shippingLastSearchQuery) { _shippingLastSearchQuery = q; _shippingPage = 1; }
   var allJobs = _filterJobsBySearch(_shippingPendingJobs(), 'ship-search');
   var el = document.getElementById('shipping-list');
   if (!el) return;
@@ -16994,19 +16998,39 @@ function renderShipping(){
     el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' + jp('noJobsShipping') + '</div>';
     return;
   }
-  el.innerHTML = '';
-  var jobs = allJobs.slice(0, _shippingRenderLimit);
-  var remaining = allJobs.length - jobs.length;
+  var totalPages = Math.max(1, Math.ceil(allJobs.length / _SHIPPING_PAGE_SIZE));
+  if (_shippingPage > totalPages) _shippingPage = totalPages; // e.g. a search just shrank the result set
+  if (_shippingPage < 1) _shippingPage = 1;
+  var startIdx = (_shippingPage - 1) * _SHIPPING_PAGE_SIZE;
+  var jobs = allJobs.slice(startIdx, startIdx + _SHIPPING_PAGE_SIZE);
   var isEs = isEsLang();
-  function appendLoadMoreIfNeeded(){
-    if (remaining <= 0) return;
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'pull-schedule-btn';
-    btn.style.cssText = 'width:100%;margin-top:4px;';
-    btn.textContent = (isEs ? 'Cargar ' : 'Load ') + Math.min(remaining, 30) + (isEs ? ' más (' + remaining + ' restantes)' : ' more (' + remaining + ' remaining)');
-    btn.onclick = _shippingLoadMore;
-    el.appendChild(btn);
+
+  el.innerHTML = '';
+  function appendPagerIfNeeded(){
+    if (totalPages <= 1) return;
+    var pager = document.createElement('div');
+    pager.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;';
+    var prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'pull-schedule-btn';
+    prevBtn.style.cssText = 'flex:0 0 auto;padding:10px 18px;';
+    prevBtn.textContent = '← ' + (isEs ? 'Anterior' : 'Prev');
+    prevBtn.disabled = (_shippingPage <= 1);
+    prevBtn.style.opacity = prevBtn.disabled ? '.4' : '1';
+    prevBtn.onclick = function(){ _shippingGoToPage(_shippingPage - 1); };
+    var label = document.createElement('div');
+    label.style.cssText = 'font-size:14px;font-weight:700;color:var(--text-secondary);';
+    label.textContent = (isEs ? 'Página ' : 'Page ') + _shippingPage + (isEs ? ' de ' : ' of ') + totalPages;
+    var nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'pull-schedule-btn';
+    nextBtn.style.cssText = 'flex:0 0 auto;padding:10px 18px;';
+    nextBtn.textContent = (isEs ? 'Siguiente' : 'Next') + ' →';
+    nextBtn.disabled = (_shippingPage >= totalPages);
+    nextBtn.style.opacity = nextBtn.disabled ? '.4' : '1';
+    nextBtn.onclick = function(){ _shippingGoToPage(_shippingPage + 1); };
+    pager.appendChild(prevBtn); pager.appendChild(label); pager.appendChild(nextBtn);
+    el.appendChild(pager);
   }
 
   if (viewMode === 'list'){
@@ -17026,7 +17050,7 @@ function renderShipping(){
         '<div class="jp-list-badges"><span class="jp-badge" style="background:#dc2626;color:#fff;">' + jp('shippingApproval') + '</span></div>';
       el.appendChild(row);
     });
-    appendLoadMoreIfNeeded();
+    appendPagerIfNeeded();
     return;
   }
 
@@ -17049,7 +17073,7 @@ function renderShipping(){
       '</div>';
     el.appendChild(card);
   });
-  appendLoadMoreIfNeeded();
+  appendPagerIfNeeded();
 }
 
 function _shipSetDefault(groupId, key, val, idx){
