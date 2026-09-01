@@ -17006,10 +17006,13 @@ function renderShipping(){
   var isEs = isEsLang();
 
   el.innerHTML = '';
-  function appendPagerIfNeeded(){
-    if (totalPages <= 1) return;
+  // Builds a fresh pager element each call (a DOM node can only live in one
+  // place at a time) — used both above and below the list, so paging
+  // doesn't require scrolling all the way down first.
+  function buildPager(marginSide){
+    if (totalPages <= 1) return null;
     var pager = document.createElement('div');
-    pager.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;';
+    pager.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:12px;' + marginSide + ':10px;';
     var prevBtn = document.createElement('button');
     prevBtn.type = 'button';
     prevBtn.className = 'pull-schedule-btn';
@@ -17030,8 +17033,10 @@ function renderShipping(){
     nextBtn.style.opacity = nextBtn.disabled ? '.4' : '1';
     nextBtn.onclick = function(){ _shippingGoToPage(_shippingPage + 1); };
     pager.appendChild(prevBtn); pager.appendChild(label); pager.appendChild(nextBtn);
-    el.appendChild(pager);
+    return pager;
   }
+  var topPager = buildPager('margin-bottom');
+  if (topPager) el.appendChild(topPager);
 
   if (viewMode === 'list'){
     jobs.forEach(function(job){
@@ -17050,7 +17055,8 @@ function renderShipping(){
         '<div class="jp-list-badges"><span class="jp-badge" style="background:#dc2626;color:#fff;">' + jp('shippingApproval') + '</span></div>';
       el.appendChild(row);
     });
-    appendPagerIfNeeded();
+    var bottomPager1 = buildPager('margin-top');
+    if (bottomPager1) el.appendChild(bottomPager1);
     return;
   }
 
@@ -17073,7 +17079,8 @@ function renderShipping(){
       '</div>';
     el.appendChild(card);
   });
-  appendPagerIfNeeded();
+  var bottomPager2 = buildPager('margin-top');
+  if (bottomPager2) el.appendChild(bottomPager2);
 }
 
 function _shipSetDefault(groupId, key, val, idx){
