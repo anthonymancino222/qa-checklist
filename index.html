@@ -3263,15 +3263,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="card">
             <div class="card-label"><span data-en>Cutter Picture</span><span data-es>Foto del Corte</span></div>
             <img id="ship-photo-preview" style="display:none;width:100%;border-radius:10px;margin-bottom:8px;">
-            <div id="ship-photo-text" style="font-size:15px;color:var(--text-secondary);border:1.5px dashed var(--border-mid);border-radius:10px;padding:14px;text-align:center;">📷 Tap to attach a photo</div>
-            <div class="photo-btn-row">
-              <label class="photo-btn">📷 <span data-en>Take Photo</span><span data-es>Tomar Foto</span>
-                <input type="file" accept="image/*" capture="environment" onchange="handleKamaPhoto(this,'ship-photo-preview','ship-photo-text')">
-              </label>
-              <label class="photo-btn">🖼️ <span data-en>Upload</span><span data-es>Subir</span>
-                <input type="file" accept="image/*" onchange="handleKamaPhoto(this,'ship-photo-preview','ship-photo-text')">
-              </label>
-              <button type="button" class="photo-btn" style="flex:0 0 44px;" onclick="openPhotoMarkupFor('ship-photo-preview')" title="Markup / edit photo">✏️</button>
+            <!-- Read-only at this stage — carried over from make-ready (or a
+                 prior shipping-approval visit's own photo), no need to
+                 retake/upload here; the pencil still allows marking up the
+                 photo that's already on file. -->
+            <div id="ship-photo-text" style="font-size:15px;color:var(--text-secondary);border:1.5px dashed var(--border-mid);border-radius:10px;padding:14px;text-align:center;">📷 No photo on file</div>
+            <div class="photo-btn-row" id="ship-photo-markup-row" style="display:none;">
+              <button type="button" class="photo-btn" onclick="openPhotoMarkupFor('ship-photo-preview')" title="Markup / edit photo">✏️ <span data-en>Markup</span><span data-es>Anotar</span></button>
             </div>
           </div>
 
@@ -17165,22 +17163,30 @@ function openShippingModal(jobId){
     _shipSetDefault('ship-pidmatch-group', 'productIdMatch', 'Yes', 0);
   }
 
+  // Read-only display at this stage (see the card's own HTML comment) — no
+  // take/upload controls here anymore, just whatever photo is already on
+  // file, with the markup pencil shown only when there's actually a photo
+  // to annotate.
   var _shipEs = isEsLang();
+  var _shipMarkupRow = document.getElementById('ship-photo-markup-row');
   if (existing && existing.cutterPicture){
     document.getElementById('ship-photo-preview').style.display = 'block';
     document.getElementById('ship-photo-preview').src = existing.cutterPicture;
-    document.getElementById('ship-photo-text').textContent = _shipEs ? '✓ Foto registrada — toque un botón para reemplazar' : '✓ Photo on file — tap a button to replace';
+    document.getElementById('ship-photo-text').textContent = _shipEs ? '✓ Foto registrada' : '✓ Photo on file';
+    if (_shipMarkupRow) _shipMarkupRow.style.display = 'flex';
   } else if (job.mrPhoto){
     // No shipping-specific photo yet — carry over the make-ready photo taken
     // earlier at whichever station this job ran through, so QA isn't asked
     // to attach a photo that's already on file.
     document.getElementById('ship-photo-preview').style.display = 'block';
     document.getElementById('ship-photo-preview').src = job.mrPhoto;
-    document.getElementById('ship-photo-text').textContent = _shipEs ? '✓ Trasladada desde preparación — toque un botón para reemplazar' : '✓ Carried over from make-ready — tap a button to replace';
+    document.getElementById('ship-photo-text').textContent = _shipEs ? '✓ Trasladada desde preparación' : '✓ Carried over from make-ready';
+    if (_shipMarkupRow) _shipMarkupRow.style.display = 'flex';
   } else {
     document.getElementById('ship-photo-preview').style.display = 'none';
     document.getElementById('ship-photo-preview').src = '';
-    document.getElementById('ship-photo-text').textContent = _shipEs ? '📷 Toque para adjuntar una foto' : '📷 Tap to attach a photo';
+    document.getElementById('ship-photo-text').textContent = _shipEs ? '📷 Sin foto en archivo' : '📷 No photo on file';
+    if (_shipMarkupRow) _shipMarkupRow.style.display = 'none';
   }
   shipSigHasMark.val = false;
   var ph = document.getElementById('ship-sig-placeholder');
