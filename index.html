@@ -4552,12 +4552,29 @@ document.addEventListener('DOMContentLoaded', function(){
   var mainEl = document.getElementById('mainContent');
   var btn = document.getElementById('backToTopBtn');
   if (!mainEl || !btn) return;
-  // #mainContent, not window, is what actually scrolls — see its own CSS
-  // comment ("children's own overflow-y:auto is what scrolls, not the
-  // page"). Threshold matches roughly "scrolled past the header."
-  mainEl.addEventListener('scroll', function(){
-    btn.classList.toggle('visible', mainEl.scrollTop > 240);
-  });
+  // #mainContent, not window, is what actually scrolls the base app — see
+  // its own CSS comment ("children's own overflow-y:auto is what scrolls,
+  // not the page"). But several full-screen/tall overlays scroll
+  // independently of it — the shared .continue-overlay modal (job details,
+  // QA release, shipping approval, records view, …), the Pallet Tag
+  // overlay, and the batch-picker bottom sheets — and none of those got
+  // this button before, even though they can scroll just as long. Rather
+  // than wiring up one button per overlay, one shared button now follows
+  // whichever scrollable element the user actually just scrolled, tracked
+  // via a capturing 'scroll' listener on the document (scroll events don't
+  // bubble, but they do pass through the capture phase on ancestors).
+  var _backToTopTarget = mainEl;
+  function _updateBackToTopBtn(el){
+    if (el) _backToTopTarget = el;
+    btn.classList.toggle('visible', _backToTopTarget.scrollTop > 240);
+  }
+  btn.onclick = function(){ _backToTopTarget.scrollTo({top:0,behavior:'smooth'}); };
+  document.addEventListener('scroll', function(e){
+    var t = e.target;
+    if (!t || t.nodeType !== 1) return; // ignore window/document scroll events
+    if (t.scrollHeight - t.clientHeight < 20) return; // not meaningfully scrollable — ignore
+    _updateBackToTopBtn(t);
+  }, true);
 });
 
 /* ══════════════════════════════════
