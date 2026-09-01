@@ -669,7 +669,15 @@ select.input.station-select-picked {
   position: relative; max-width: 100%; overflow: auto; border: 1px solid var(--border);
   border-radius: 8px; background: #1a1a1a; touch-action: none; line-height: 0;
 }
-.mk-canvas-wrap canvas { display: block; max-width: 100%; touch-action: none; }
+/* max-width + max-height + width/height:auto together let the browser
+   shrink-to-fit a portrait OR landscape photo within the same box while
+   keeping its real aspect ratio — <canvas width height> has an intrinsic
+   size just like <img>, so this behaves the same way object-fit:contain
+   would. Missing height:auto here (only max-width was set) was the actual
+   bug: a portrait photo's canvas rendered at full native pixel height
+   while CSS only shrank its width, so what showed on screen was a
+   vertically-stretched, mostly-offscreen sliver of the real photo. */
+.mk-canvas-wrap canvas { display: block; max-width: 100%; max-height: 65vh; width: auto; height: auto; touch-action: none; }
 .mk-resize-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .photo-btn input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 /* Floating dictation mic — appears when a text field is focused */
@@ -4562,6 +4570,13 @@ document.addEventListener('DOMContentLoaded', function(){
   // via a capturing 'scroll' listener on the document (scroll events don't
   // bubble, but they do pass through the capture phase on ancestors).
   var _backToTopTarget = mainEl;
+  function _elIsVisible(el){
+    // offsetParent is unreliable here — it's always null for position:fixed
+    // elements (a well-known quirk), which is exactly what every one of
+    // these overlays is. getClientRects() correctly reflects "actually
+    // rendered" regardless of positioning scheme.
+    return el.getClientRects().length > 0;
+  }
   function _updateBackToTopBtn(el){
     if (el) _backToTopTarget = el;
     btn.classList.toggle('visible', _backToTopTarget.scrollTop > 240);
@@ -4573,6 +4588,39 @@ document.addEventListener('DOMContentLoaded', function(){
     if (t.scrollHeight - t.clientHeight < 20) return; // not meaningfully scrollable — ignore
     _updateBackToTopBtn(t);
   }, true);
+  // The scroll listener above only updates once the user has actually
+  // scrolled the new thing — until then, the button stays pointed at
+  // (and shows the state of) whatever was scrolled before, which can be
+  // #mainContent sitting hidden behind a freshly-opened modal. That's a
+  // real bug, not just a cosmetic one: it can show the button as "visible"
+  // over a modal that hasn't been scrolled at all, and clicking it then
+  // scrolls the invisible page behind the modal instead of the modal
+  // itself. Re-point the target the instant a known overlay's own open/
+  // closed state changes — scoped to just these elements (not a
+  // document.body subtree observer), since this app toggles class/style
+  // on all sorts of unrelated buttons constantly and watching the whole
+  // tree for that would fire this callback on every single one of them.
+  function _recomputeOverlayTarget(){
+    var openOverlay = null;
+    document.querySelectorAll('.continue-overlay.open, #ptOverlay.open').forEach(function(el){ if (!openOverlay) openOverlay = el; });
+    if (!openOverlay) {
+      document.querySelectorAll('.batch-sheet-overlay').forEach(function(el){ if (!openOverlay && _elIsVisible(el)) openOverlay = el; });
+    }
+    if (openOverlay) {
+      var panel = openOverlay.querySelector('.batch-sheet-panel');
+      _backToTopTarget = panel || openOverlay;
+    } else {
+      _backToTopTarget = mainEl;
+    }
+    _updateBackToTopBtn();
+  }
+  var _overlayObserver = new MutationObserver(_recomputeOverlayTarget);
+  document.querySelectorAll('.continue-overlay, #ptOverlay').forEach(function(el){
+    _overlayObserver.observe(el, { attributes: true, attributeFilter: ['class'] });
+  });
+  document.querySelectorAll('.batch-sheet-overlay').forEach(function(el){
+    _overlayObserver.observe(el, { attributes: true, attributeFilter: ['style'] });
+  });
 });
 
 /* ══════════════════════════════════
