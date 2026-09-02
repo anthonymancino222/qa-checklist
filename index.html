@@ -5152,6 +5152,15 @@ function _isNcrQuickReportAllowedUser() {
 function _isDataEditAllowedUser() {
   return !!(_signedInUser && DATA_EDIT_ALLOWED_EMAILS.indexOf(_signedInUser.email) !== -1);
 }
+// These accounts skip the "Sync Before Starting a New Job" gate entirely —
+// Start New Job takes them straight into the form, no forced sync tap.
+var QC_SYNC_GATE_SKIP_EMAILS = [
+  'anthony.mancino@moquinpress.com', 'mathias@moquinpress.com', 'norma@moquinpress.com',
+  'mariah.gomez@moquinpress.com'
+];
+function _skipsQcSyncGate() {
+  return !!(_signedInUser && QC_SYNC_GATE_SKIP_EMAILS.indexOf(_signedInUser.email) !== -1);
+}
 // Shows/hides the header DATA EDIT button by identity — called once right
 // after sign-in. Everything it reveals defaults to hidden in the HTML itself
 // (the header/QA dashboard sit outside the sign-in gate, so they're present
@@ -12392,6 +12401,11 @@ function _shipDeleteJob() {
   );
 }
 function openQcSyncGate() {
+  if (_skipsQcSyncGate()) {
+    _qcRevealForm();
+    startNewJob();
+    return;
+  }
   var btn = document.getElementById('qc-sync-now-btn');
   if (btn) {
     btn.disabled = false;
