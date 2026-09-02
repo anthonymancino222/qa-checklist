@@ -2216,7 +2216,26 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <button class="tgl" onclick="toggleVeritivFirst25('yes',this)"><span data-en>Yes</span><span data-es>Sí</span></button>
             </div>
             <div id="veritiv-first25-note" style="display:none;margin-top:8px;">
-              <textarea class="input" id="veritiv-first25-notes" placeholder="Describe the issue…" data-ph-en="Describe the issue…" data-ph-es="Describa el problema…" style="resize:vertical;min-height:60px;"></textarea>
+              <!-- Quick-pick common issues, built lazily from
+                   NCR_ISSUE_CATEGORIES['Packing'] the first time this opens
+                   (that var isn't assigned yet this early in the script —
+                   see _renderVeritivFirst25Issues). Closed by default;
+                   auto-opens when "Yes" is answered. -->
+              <button type="button" class="checklist-collapse-toggle" id="veritiv-first25-issues-toggle" onclick="_toggleVeritivFirst25IssuesCollapse()">
+                <span id="veritiv-first25-issues-toggle-label"><span data-en>▾ Common issues — tap any that apply</span><span data-es>▾ Problemas comunes — toque los que apliquen</span></span>
+              </button>
+              <div id="veritiv-first25-issues-body" class="checklist-collapsible-body" style="display:none;">
+                <div class="toggle-group" id="veritiv-first25-issue-tags" style="flex-wrap:wrap;gap:6px;"></div>
+              </div>
+              <textarea class="input" id="veritiv-first25-notes" placeholder="Describe the issue…" data-ph-en="Describe the issue…" data-ph-es="Describa el problema…" style="resize:vertical;min-height:60px;margin-top:8px;"></textarea>
+              <div class="card-label" style="margin-top:14px;"><span data-en>Have you notified QA or a Manager?</span><span data-es>¿Ha notificado a Calidad o a un Gerente?</span> <span class="req">*</span></div>
+              <div class="toggle-group" id="veritiv-first25-notify-group">
+                <button class="tgl" onclick="setVeritivFirst25Notify('no',this)"><span data-en>No</span><span data-es>No</span></button>
+                <button class="tgl" onclick="setVeritivFirst25Notify('yes',this)"><span data-en>Yes</span><span data-es>Sí</span></button>
+              </div>
+              <div id="veritiv-first25-notnotified-wrap" style="display:none;margin-top:8px;">
+                <textarea class="input" id="veritiv-first25-notnotified-reason" placeholder="Why not?…" data-ph-en="Why not?…" data-ph-es="¿Por qué no?…" style="resize:vertical;min-height:50px;"></textarea>
+              </div>
             </div>
           </div>
           <button class="btn-primary" onclick="beginVeritivPacking()"><span data-en>Update Job</span><span data-es>Actualizar Trabajo</span> ✓</button>
@@ -2594,6 +2613,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
             </div>
           </div>
           <button id="cm-data-edit-btn" onclick="_cmToggleDataEdit()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--pink);color:var(--pink);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">✏️ DATA EDIT</button>
+          <button id="cm-ncr-badge-btn" style="display:none;align-self:flex-start;background:#f59e0b;border:none;color:#1a1200;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">⚠️ NCR</button>
+          <button id="cm-ncr-report-btn" style="display:none;align-self:flex-start;background:transparent;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🚩 <span data-en>Report NCR</span><span data-es>Reportar RNC</span></button>
           <button id="cm-delete-job-btn" onclick="_cmDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
           <button class="continue-close" onclick="closeContinueModal()" style="align-self:flex-start;">✕</button>
         </div>
@@ -3108,6 +3129,30 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       </div>
     </div>
 
+    <!-- NCR quick-report path chooser — opened from the 🚩 Report NCR button
+         on a live job's detail popup (Job in Progress / QA Release / Shipping
+         Approval). Picking a path carries the job's info into the NCR form
+         already open to the right step — see openNcrQuickReport(). -->
+    <div class="continue-overlay" id="ncrQuickReportOverlay" onclick="if(event.target===this)closeNcrQuickReport()">
+      <div class="continue-modal" style="max-width:420px;width:100%;">
+        <div class="continue-modal-head">
+          <div><div class="continue-modal-title"><span data-en>Report NCR</span><span data-es>Reportar RNC</span></div>
+          <div class="continue-modal-sub" id="ncr-qr-sub"></div></div>
+          <button class="continue-modal-close" onclick="closeNcrQuickReport()">✕</button>
+        </div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <button type="button" class="btn-primary" style="background:#1e293b;text-align:left;padding:14px 16px;" onclick="_ncrQuickReportChoose('ncr')">
+            📝 <span data-en>Regular Documentation NCR</span><span data-es>RNC de Documentación Regular</span><br>
+            <span style="font-weight:400;font-size:13px;opacity:.8;"><span data-en>Full record — no approval needed</span><span data-es>Registro completo — no necesita aprobación</span></span>
+          </button>
+          <button type="button" class="btn-primary" style="text-align:left;padding:14px 16px;" onclick="_ncrQuickReportChoose('sales')">
+            ✅ <span data-en>Approval NCR</span><span data-es>RNC de Aprobación</span><br>
+            <span style="font-weight:400;font-size:13px;opacity:.85;"><span data-en>Needs Sales / Manager approval</span><span data-es>Necesita aprobación de Ventas / Gerente</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Photo markup / annotation editor — shared by every photo upload spot -->
     <div class="continue-overlay" id="markupOverlay">
       <div class="continue-modal" style="max-width:640px;width:100%;">
@@ -3201,6 +3246,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               </div>
             </div>
           </div>
+          <button id="ship-ncr-badge-btn" style="display:none;align-self:flex-start;background:#f59e0b;border:none;color:#1a1200;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">⚠️ NCR</button>
+          <button id="ship-ncr-report-btn" style="display:none;align-self:flex-start;background:transparent;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🚩 <span data-en>Report NCR</span><span data-es>Reportar RNC</span></button>
           <button id="ship-delete-job-btn" onclick="_shipDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
           <button class="continue-close" onclick="closeShippingModal()" style="align-self:flex-start;">✕</button>
         </div>
@@ -5035,6 +5082,16 @@ function _tryRestoreLocalSession() {
 // same public page's source, same as GOOGLE_CLIENT_ID above, so it was never
 // real protection on its own).
 var DATA_EDIT_ALLOWED_EMAILS = ['anthony.mancino@moquinpress.com', 'mathias@moquinpress.com'];
+// Who can quick-report an NCR straight from a live job's detail popup (see
+// openNcrQuickReport()) — separate roster from DATA_EDIT, since this is a
+// QA/supervisor action, not a data-correction one.
+var NCR_QUICK_REPORT_ALLOWED_EMAILS = [
+  'anthony.mancino@moquinpress.com', 'norma@moquinpress.com', 'mariah.gomez@moquinpress.com',
+  'mathias@moquinpress.com', 'jayro@moquinpress.com'
+];
+function _isNcrQuickReportAllowedUser() {
+  return !!(_signedInUser && NCR_QUICK_REPORT_ALLOWED_EMAILS.indexOf(_signedInUser.email) !== -1);
+}
 function _isDataEditAllowedUser() {
   return !!(_signedInUser && DATA_EDIT_ALLOWED_EMAILS.indexOf(_signedInUser.email) !== -1);
 }
@@ -6254,6 +6311,7 @@ function openContinueModal(id) {
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === id) { job = jobs[i]; break; } }
   if (!job) return;
   continueJobId = id;
+  _wireJobNcrButtons('cm-ncr-report-btn', 'cm-ncr-badge-btn', id, job.jobNumber);
 
   document.getElementById('cm-title').innerHTML = escHtml(jp('jobLabel')) + ' ' + hlId(job.jobNumber);
   var cmIsGluer = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
@@ -6439,7 +6497,9 @@ function openContinueModal(id) {
         '<div><strong>' + (_piEs ? 'Cantidad a Ejecutar:' : 'Qty to Execute:') + '</strong> '  + hlId(String(job.qtyToExecute||0)) + '</div>' +
         (job.finalQty ? '<div><strong>' + (_piEs ? 'Cantidad Final Producida:' : 'Final Qty Produced:') + '</strong> ' + escHtml(job.finalQty) + '</div>' : '') +
         '<div><strong>' + (_piEs ? 'Problema en 1eras 25:' : '1st 25 Issue:') + '</strong> '    + piBadge(job.first25Issue||'—','No')  + '</div>' +
+        ((job.first25QuickIssues||[]).length ? '<div><strong>' + (_piEs ? 'Problemas:' : 'Issues:') + '</strong> ' + escHtml(job.first25QuickIssues.join(', ')) + '</div>' : '') +
         (job.first25Notes ? '<div><strong>' + (_piEs ? 'Notas del Problema:' : 'Issue Notes:') + '</strong> ' + escHtml(job.first25Notes) + '</div>' : '') +
+        (job.first25Notified ? '<div><strong>' + (_piEs ? 'Notificó a Calidad/Gerente:' : 'Notified QA/Manager:') + '</strong> ' + piBadge(job.first25Notified,'Yes') + (job.first25NotNotifiedReason ? ' <span style="font-size:14px;color:var(--text-tertiary);">— ' + escHtml(job.first25NotNotifiedReason) + '</span>' : '') + '</div>' : '') +
         (job.aqlSamplesReady ? '<div><strong>' + (_piEs ? 'Muestras AQL Tomadas:' : 'AQL Samples Pulled:') + '</strong> ' + piBadge(job.aqlSamplesReady,'Yes') + (job.aqlNoReason ? ' <span style="font-size:14px;color:var(--text-tertiary);">— ' + escHtml(job.aqlNoReason) + '</span>' : '') + '</div>' : '') +
         (job.labelsStillNeeded ? '<div><strong>' + (_piEs ? 'Etiquetas de Caja Aún Necesarias:' : 'Box Labels Still Needed:') + '</strong> ' + piBadge(job.labelsStillNeeded,'No') + (job.labelsYesReason ? ' <span style="font-size:14px;color:var(--text-tertiary);">— ' + escHtml(job.labelsYesReason) + '</span>' : '') + '</div>' : '') +
         '</div>' +
@@ -8397,7 +8457,9 @@ function finishJob() {
         'Product: '         + (job.product||'—')    + '\n' +
         'Qty to Execute: '  + (job.qtyToExecute||'—') + '\n' +
         '1st 25 Issue: '    + (job.first25Issue||'—') + '\n' +
+        ((job.first25QuickIssues||[]).length ? 'Issues: ' + job.first25QuickIssues.join(', ') + '\n' : '') +
         (job.first25Notes ? 'Issue Notes: ' + job.first25Notes + '\n' : '') +
+        (job.first25Notified ? 'Notified QA/Manager: ' + job.first25Notified + (job.first25NotNotifiedReason ? ' — ' + job.first25NotNotifiedReason : '') + '\n' : '') +
         'AQL Samples Pulled: ' + aqlSamplesVal + (aqlNoReason ? ' — ' + aqlNoReason : '') + '\n' +
         'Box Labels Still Needed: ' + (labelsBtn.classList.contains('fail') ? 'Yes — ' + labelsYesReason : 'No') + '\n' +
         'Completed: '       + formatTS() + '\n\n' +
@@ -9988,7 +10050,9 @@ function _renderProdSummary(job) {
       '<div><strong>' + (_prodSumEs?'Cantidad a Ejecutar:':'Qty to Execute:') + '</strong> ' + hlId(_pkQtyLines.qtyExec) + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cantidad Final Producida:':'Final Qty Produced:') + '</strong> ' + escHtml(_pkQtyLines.finalQty) + '</div>' +
       '<div><strong>' + (_prodSumEs?'Problema en 1eras 25:':'1st 25 Issue:') + '</strong> '+ escHtml(job.first25Issue||'—')   + '</div>' +
+      ((job.first25QuickIssues||[]).length ? '<div><strong>' + (_prodSumEs?'Problemas:':'Issues:') + '</strong> ' + escHtml(job.first25QuickIssues.join(', ')) + '</div>' : '') +
       (job.first25Notes ? '<div><strong>' + (_prodSumEs?'Notas del Problema:':'Issue Notes:') + '</strong> ' + escHtml(job.first25Notes) + '</div>' : '') +
+      (job.first25Notified ? '<div><strong>' + (_prodSumEs?'Notificó a Calidad/Gerente:':'Notified QA/Manager:') + '</strong> ' + escHtml(job.first25Notified) + (job.first25NotNotifiedReason ? ' — ' + escHtml(job.first25NotNotifiedReason) : '') + '</div>' : '') +
       '<div><strong>' + (_prodSumEs?'Iniciado:':'Started:') + '</strong> '     + escHtml(job.timestamp||'—')      + '</div>' +
       '</div>';
     if (summaryPk) summaryPk.innerHTML = _pkHtml;
@@ -10203,10 +10267,67 @@ function _prefillDcDieNumber(prefix, jobNumber) {
   }
 }
 
+// Quick-pick issue tags for "1st 25 pieces have issue?" — reuses the same
+// per-station category roster the NCR form already uses (NCR_ISSUE_
+// CATEGORIES['Packing']) rather than a separate hardcoded list, so adding/
+// renaming a Packing issue category in one place updates both. Built
+// lazily (idempotent) instead of at page load, since NCR_ISSUE_CATEGORIES
+// is assigned much further down this same script — reading it this early
+// would hit the exact "reads a not-yet-assigned module var" bug fixed
+// elsewhere in this file (see the schedule auto-pull comment).
+function _renderVeritivFirst25Issues() {
+  var wrap = document.getElementById('veritiv-first25-issue-tags');
+  if (!wrap || wrap.children.length) return;
+  var cats = (typeof NCR_ISSUE_CATEGORIES !== 'undefined' && NCR_ISSUE_CATEGORIES['Packing']) || {};
+  Object.keys(cats).forEach(function(name) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tgl';
+    btn.style.cssText = 'flex:1;min-width:120px;';
+    btn.textContent = name;
+    btn.onclick = function(){ btn.classList.toggle('sel'); };
+    wrap.appendChild(btn);
+  });
+}
+function _toggleVeritivFirst25IssuesCollapse(forceOpen) {
+  var body = document.getElementById('veritiv-first25-issues-body');
+  var toggle = document.getElementById('veritiv-first25-issues-toggle');
+  var label = document.getElementById('veritiv-first25-issues-toggle-label');
+  if (!body || !toggle) return;
+  var isEs = isEsLang();
+  var open = (forceOpen === true || forceOpen === false) ? forceOpen : (body.style.display === 'none');
+  body.style.display = open ? 'block' : 'none';
+  toggle.classList.toggle('collapsed', !open);
+  if (label) {
+    label.innerHTML = open
+      ? (isEs ? '▴ Problemas comunes — toque los que apliquen' : '▴ Common issues — tap any that apply')
+      : (isEs ? '▾ Problemas comunes — toque los que apliquen' : '▾ Common issues — tap any that apply');
+  }
+}
 function toggleVeritivFirst25(val, btn) {
   document.querySelectorAll('#veritiv-first25-group .tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
   btn.classList.add(val === 'no' ? 'pass' : 'fail');
   document.getElementById('veritiv-first25-note').style.display = val === 'yes' ? 'block' : 'none';
+  if (val === 'yes') {
+    _renderVeritivFirst25Issues();
+    _toggleVeritivFirst25IssuesCollapse(true); // auto-open the suggestions
+  }
+}
+function setVeritivFirst25Notify(val, btn) {
+  document.querySelectorAll('#veritiv-first25-notify-group .tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+  btn.classList.add(val === 'yes' ? 'pass' : 'fail');
+  document.getElementById('veritiv-first25-notnotified-wrap').style.display = val === 'no' ? 'block' : 'none';
+}
+function _resetVeritivFirst25Detail() {
+  document.querySelectorAll('#veritiv-first25-group .tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+  _safeStyle('veritiv-first25-note', 'display', 'none');
+  _safeSet('veritiv-first25-notes', 'value', '');
+  var tagsWrap = document.getElementById('veritiv-first25-issue-tags');
+  if (tagsWrap) tagsWrap.querySelectorAll('.tgl.sel').forEach(function(b){ b.classList.remove('sel'); });
+  _toggleVeritivFirst25IssuesCollapse(false);
+  document.querySelectorAll('#veritiv-first25-notify-group .tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+  _safeStyle('veritiv-first25-notnotified-wrap', 'display', 'none');
+  _safeSet('veritiv-first25-notnotified-reason', 'value', '');
 }
 
 async function beginVeritivPacking() {
@@ -10222,6 +10343,29 @@ async function beginVeritivPacking() {
   var first25No  = document.querySelector('#veritiv-first25-group .tgl.pass');
   var first25Val = first25Yes ? 'Yes' : (first25No ? 'No' : null);
   if (!first25Val) { showAlert('Answer the "1st 25 pieces have issue?" question.'); _scrollToField(document.getElementById('veritiv-first25-group')); return; }
+  var first25QuickIssues = [];
+  var first25Notes = '';
+  var first25Notified = null;
+  var first25NotNotifiedReason = '';
+  if (first25Val === 'Yes') {
+    first25QuickIssues = Array.prototype.map.call(document.querySelectorAll('#veritiv-first25-issue-tags .tgl.sel'), function(b){ return b.textContent; });
+    first25Notes = document.getElementById('veritiv-first25-notes').value.trim();
+    // Tapping a quick issue already documents "what happened" without
+    // typing — only force the free-text box when nothing was tapped.
+    if (!first25QuickIssues.length && !first25Notes) {
+      showAlert(isEsLang() ? 'Seleccione un problema común o describa el problema.' : 'Select a common issue or describe the issue.');
+      _scrollToField(document.getElementById('veritiv-first25-issues-toggle'));
+      return;
+    }
+    var first25NotifyYes = document.querySelector('#veritiv-first25-notify-group .tgl.pass');
+    var first25NotifyNo  = document.querySelector('#veritiv-first25-notify-group .tgl.fail');
+    first25Notified = first25NotifyYes ? 'Yes' : (first25NotifyNo ? 'No' : null);
+    if (!first25Notified) { showAlert(isEsLang() ? 'Responda: ¿Ha notificado a Calidad o a un Gerente?' : 'Answer: Have you notified QA or a Manager?'); _scrollToField(document.getElementById('veritiv-first25-notify-group')); return; }
+    if (first25Notified === 'No') {
+      first25NotNotifiedReason = document.getElementById('veritiv-first25-notnotified-reason').value.trim();
+      if (!first25NotNotifiedReason) { showAlert(isEsLang() ? 'Explique por qué no se ha notificado.' : 'Explain why QA/a Manager hasn\'t been notified.'); _scrollToField(document.getElementById('veritiv-first25-notnotified-reason')); return; }
+    }
+  }
   var prevImg = document.getElementById('veritiv-photo-preview');
   var photoSrc = (prevImg && prevImg.src && prevImg.style.display !== 'none') ? prevImg.src : null;
   if (!photoSrc) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('veritiv-photo-area')); return; }
@@ -10235,7 +10379,10 @@ async function beginVeritivPacking() {
     product:      product,
     qtyToExecute: qty,
     first25Issue: first25Val,
-    first25Notes: document.getElementById('veritiv-first25-notes').value.trim(),
+    first25QuickIssues: first25QuickIssues,
+    first25Notes: first25Notes,
+    first25Notified: first25Notified,
+    first25NotNotifiedReason: first25NotNotifiedReason,
     mrPhoto:       photoSrc,
     aqlAckVal:     document.querySelector('#veritiv-aql-group .tgl.pass') ? 'understood' : 'clarify',
     aqlClarifyText:document.getElementById('veritiv-aql-clarify-text').value.trim(),
@@ -12480,9 +12627,7 @@ function startNewJob() {
   var vAqlDisp = document.getElementById('veritiv-aql-display');
   if (vAqlDisp) vAqlDisp.innerHTML = '<span style="color:#94a3b8;font-size:15px;">Enter qty above to see AQL requirements</span>';
   document.querySelectorAll('#veritiv-aql-group .tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
-  _safeSet('veritiv-first25-notes', 'value', '');
-  _safeStyle('veritiv-first25-note', 'display', 'none');
-  document.querySelectorAll('#veritiv-first25-group .tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
+  _resetVeritivFirst25Detail();
   _safeStyle('count-card', 'display', 'block');
   _safeStyle('operator-sig-card', 'display', 'none');
   _safeSet('kama-form-number', 'value', '');
@@ -13797,11 +13942,7 @@ function onStationChange(station) {
         if (vAqlClarifyWrap) vAqlClarifyWrap.classList.remove('visible');
         var vAqlClarifyText = document.getElementById('veritiv-aql-clarify-text');
         if (vAqlClarifyText) vAqlClarifyText.value = '';
-        document.querySelectorAll('#veritiv-first25-group .tgl').forEach(function(b){ b.classList.remove('pass','fail'); });
-        var vFirst25Note = document.getElementById('veritiv-first25-note');
-        if (vFirst25Note) vFirst25Note.style.display = 'none';
-        var vFirst25Notes = document.getElementById('veritiv-first25-notes');
-        if (vFirst25Notes) vFirst25Notes.value = '';
+        _resetVeritivFirst25Detail();
         var vProduct = document.getElementById('veritiv-product');
         if (vProduct) vProduct.value = '';
         var vQty = document.getElementById('veritiv-qty');
@@ -15578,6 +15719,61 @@ function ncrPrefillFromQC(jobId){
   renderNCRView();
 }
 
+/* ── NCR quick-report from a live job's detail popup ──
+   The 🚩 Report NCR button (openContinueModal/openShippingModal, allowed-
+   email-gated) opens a path chooser; picking one starts that NCR path
+   fresh and reuses ncrPrefillFromQC() to carry over job #/station/customer/
+   product, same as the manual "Pull from QC job" search already does. */
+var _ncrQuickReportJobId = null;
+function openNcrQuickReport(jobId){
+  if (!_isNcrQuickReportAllowedUser()) return; // backstop — the button itself is hidden for anyone else
+  _ncrQuickReportJobId = jobId;
+  var job = null;
+  ipLoad().forEach(function(x){ if (x.id === jobId) job = x; });
+  var sub = document.getElementById('ncr-qr-sub');
+  if (sub) sub.textContent = job ? ((isEsLang()?'Trabajo ':'Job ') + (job.jobNumber||'—')) : '';
+  document.getElementById('ncrQuickReportOverlay').classList.add('open');
+}
+function closeNcrQuickReport(){
+  document.getElementById('ncrQuickReportOverlay').classList.remove('open');
+}
+function _ncrQuickReportChoose(path){
+  var jobId = _ncrQuickReportJobId;
+  closeNcrQuickReport();
+  switchView('ncr');
+  ncrStart(path);
+  if (jobId) ncrPrefillFromQC(jobId);
+}
+
+// "⚠️ NCR" badge on a job's detail popup — shown when at least one NCR
+// already references this job number, taking straight to that NCR's
+// read-only summary (openRecordNCR — view only, matches how every other
+// Records lookup already works; there's no edit path from here). If more
+// than one NCR exists for the same job, links to the most recently filed
+// one (ncrLoad() is newest-first, see ncrFinalize()'s unshift).
+function _mostRecentNcrIdForJob(jobNumber){
+  if (!jobNumber) return null;
+  var match = ncrLoad().filter(function(n){ return n.jobNumber === jobNumber; })[0];
+  return match ? match.ncrId : null;
+}
+// Shared by both job-detail popups (continue-modal, shipping modal) — sets
+// up the Report NCR button (permission-gated) and the NCR-filed badge
+// (visible to everyone, links to the read-only summary) for whichever job
+// is currently open there.
+function _wireJobNcrButtons(reportBtnId, badgeBtnId, jobId, jobNumber){
+  var reportBtn = document.getElementById(reportBtnId);
+  if (reportBtn) {
+    reportBtn.style.display = _isNcrQuickReportAllowedUser() ? 'inline-block' : 'none';
+    reportBtn.onclick = function(){ openNcrQuickReport(jobId); };
+  }
+  var badgeBtn = document.getElementById(badgeBtnId);
+  if (badgeBtn) {
+    var ncrId = _mostRecentNcrIdForJob(jobNumber);
+    badgeBtn.style.display = ncrId ? 'inline-block' : 'none';
+    badgeBtn.onclick = function(){ openRecordNCR(ncrId); };
+  }
+}
+
 /* Typeahead for "Pull from QC job" — shows matches once 1+ character is
    typed. Searches two sources: real QC entries already recorded in this
    browser (ipLoad(), preferred — has a station and a specific product
@@ -17197,6 +17393,7 @@ function openShippingModal(jobId){
   shipState.data = {};
   cancelShipJobEdit();
   _shipRenderJobHeader(job);
+  _wireJobNcrButtons('ship-ncr-report-btn', 'ship-ncr-badge-btn', jobId, job.jobNumber);
 
   document.querySelectorAll('#shipModal .toggle-group .tgl').forEach(function(b){ b.classList.remove('sel'); b.style.background=''; b.style.color=''; b.style.borderColor=''; });
 
