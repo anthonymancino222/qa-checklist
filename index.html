@@ -1120,7 +1120,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   .menu-btn { display: none !important; }
   .header-right { width: 100%; justify-content: flex-end; }
   .header-group { width: 100%; justify-content: flex-end; }
-  .header-group-actions { padding-left: 0; border-left: none; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.15); }
+  /* Sync/Start New moved ahead of text-size/name/language (order:-1) —
+     mobile-only via flexbox order, desktop's left-to-right arrangement is
+     untouched. At narrow widths the identity group (text size + name +
+     language) can itself wrap onto 2+ sub-rows, pushing whatever comes
+     after it down far enough to read as "not there" without scrolling —
+     a real report of this happening. Actions are the thing someone
+     actually needs in a hurry, so they go right under the title now. */
+  .header-group-actions { order: -1; padding-left: 0; border-left: none; padding-top: 0; border-top: none; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.15); }
+  .header-group-identity { order: 1; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.15); }
 
   /* Sidebar hidden entirely — replaced by bottom nav */
   .sidebar { display: none !important; }
@@ -2615,6 +2623,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <button id="cm-data-edit-btn" onclick="_cmToggleDataEdit()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--pink);color:var(--pink);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">✏️ DATA EDIT</button>
           <button id="cm-ncr-badge-btn" style="display:none;align-self:flex-start;background:#f59e0b;border:none;color:#1a1200;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">⚠️ NCR</button>
           <button id="cm-ncr-report-btn" style="display:none;align-self:flex-start;background:transparent;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🚩 <span data-en>Report NCR</span><span data-es>Reportar RNC</span></button>
+          <button id="cm-pallet-tag-btn" onclick="openPalletTagFromJob(continueJobId)" style="align-self:flex-start;background:transparent;border:1px solid var(--lime);color:var(--lime);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🏷️ <span data-en>Pallet Tag</span><span data-es>Etiqueta de Pallet</span></button>
           <button id="cm-delete-job-btn" onclick="_cmDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
           <button class="continue-close" onclick="closeContinueModal()" style="align-self:flex-start;">✕</button>
         </div>
@@ -3248,6 +3257,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           </div>
           <button id="ship-ncr-badge-btn" style="display:none;align-self:flex-start;background:#f59e0b;border:none;color:#1a1200;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">⚠️ NCR</button>
           <button id="ship-ncr-report-btn" style="display:none;align-self:flex-start;background:transparent;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🚩 <span data-en>Report NCR</span><span data-es>Reportar RNC</span></button>
+          <button id="ship-pallet-tag-btn" onclick="openPalletTagFromJob(shipState.jobId)" style="align-self:flex-start;background:transparent;border:1px solid var(--lime);color:var(--lime);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🏷️ <span data-en>Pallet Tag</span><span data-es>Etiqueta de Pallet</span></button>
           <button id="ship-delete-job-btn" onclick="_shipDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
           <button class="continue-close" onclick="closeShippingModal()" style="align-self:flex-start;">✕</button>
         </div>
@@ -19257,7 +19267,7 @@ window.addEventListener('storage', function(e){
     validate();
   }
 
-  function buildContextLine(d){
+  function buildContextLine(d, sourceLabel){
     var ctx = el('context');
     if (!d) { ctx.textContent = ''; ctx.style.display = 'none'; return; }
     var bits = [];
@@ -19267,7 +19277,7 @@ window.addEventListener('storage', function(e){
     var cust = d.customerFinal || (d.customerIsOther ? d.customerManual : d.customer) || '';
     if (cust) bits.push(cust);
     var ncrDispo = (d.dispositionIsOther ? d.dispositionManual : d.disposition) || '';
-    var line = 'From NCR' + (d.ncrId ? ' ' + d.ncrId : '') + (bits.length ? ' — ' + bits.join(' · ') : '');
+    var line = 'From ' + (sourceLabel || 'NCR') + (d.ncrId ? ' ' + d.ncrId : '') + (bits.length ? ' — ' + bits.join(' · ') : '');
     if (ncrDispo) line += '  |  NCR disposition: ' + ncrDispo;
     ctx.textContent = line;
     ctx.style.display = 'block';
@@ -19291,6 +19301,24 @@ window.addEventListener('storage', function(e){
   };
   window.closePalletTag = function(){
     document.getElementById('ptOverlay').classList.remove('open');
+  };
+
+  // Straight from a live job's detail popup (Job in Progress / QA Release /
+  // Shipping Approval — see the 🏷️ Pallet Tag button there), no NCR
+  // involved. Builds a minimal NCR-shaped object so prefillFromNcr() can be
+  // reused as-is rather than duplicating its station-mapping/product logic.
+  window.openPalletTagFromJob = function(jobId){
+    var job = null;
+    ipLoad().forEach(function(x){ if (x.id === jobId) job = x; });
+    if (!job) return;
+    var pid = job.productNumber || job.formNumber || job.product || '';
+    var d = { jobNumber: job.jobNumber, station: job.station, customer: job.customer, products: pid ? [pid] : [] };
+    ptCtx = { jobId: jobId };
+    resetAll();
+    prefillFromNcr(d);
+    buildContextLine(d, 'Job');
+    document.getElementById('ptOverlay').classList.add('open');
+    document.getElementById('ptOverlay').scrollTop = 0;
   };
 
   // "Quality Issue Pallet Tag" — opens the tag wizard straight from the NCR
