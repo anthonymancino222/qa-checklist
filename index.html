@@ -14272,6 +14272,7 @@ var DISPOSITION_OPTIONS = [
   'Scrap — Do Not Use',
   'Rerun Required',
   'Use for Count only',
+  'Use For Make Ready',
   'Other — Add Comment'
 ];
 var NCR_DISPOSITIONS = DISPOSITION_OPTIONS;
@@ -18211,7 +18212,56 @@ window.addEventListener('storage', function(e){
       "Over Glue": [], "Insufficient / No Glue": [], "Glue Misalignment": [], "Crooked Fold / Misfold": [],
       "Scuffing": [], "Kleenstick Issue": ["Missing","Too short","Too long","Wrong side"],
       "Tearstrip Issue": ["Out of position","Wrinkled","Too short"], "Bursting / Cracking": [], "Other": []
-    }}
+    }},
+    "Shipping": {
+      categories: {
+        "Wrong Product Shipped": [], "Wrong Quantity Shipped": ["Short shipped","Over shipped"],
+        "Damaged in Transit / Handling": ["Crushed corners","Water / wet damage","Forklift damage"],
+        "Wrong Address / Ship-To Error": [],
+        "Missing / Incorrect Paperwork": ["Missing BOL","Wrong BOL info","Missing packing slip"],
+        "Pallet Not Wrapped / Unstable": [],
+        "Mislabeled Pallet / Carton": ["Wrong label","Missing label","Duplicate label"],
+        "Late Shipment / Missed Ship Date": [], "Other": []
+      },
+      dispositions: [
+        "Hold — Do Not Ship", "Reship Correct Product", "Ship Short — Backorder Remainder",
+        "Return to Warehouse Stock", "Repack / Re-palletize Before Ship", "Notify Carrier — File Claim",
+        "Contact Customer — Confirm Resolution", "Use With Approval", "Scrap — Do Not Use",
+        "Use For Make Ready", "Other — Add Comment"
+      ]
+    },
+    "CSR/Sales": {
+      categories: {
+        "Wrong Product Ordered": ["Wrong item number","Wrong description entered"],
+        "Wrong Quantity Entered": [], "Wrong Ship-To / Bill-To Address": [], "Pricing Error": [],
+        "Artwork / Proof Approval Error": [],
+        "Customer Spec Mismatch": ["Wrong size entered","Wrong color / finish entered","Wrong material entered"],
+        "PO Discrepancy": ["PO quantity mismatch","PO pricing mismatch","Missing PO"],
+        "Due Date / Ship Date Miscommunicated": [], "Other": []
+      },
+      dispositions: [
+        "Hold — Confirm With Customer", "Correct Order — Reprocess", "Contact Customer for Clarification",
+        "Cancel and Reorder Correctly", "Notify Production — Update Job Ticket", "Issue Credit / Adjustment",
+        "Use With Approval", "Escalate to Manager", "Use For Make Ready", "Other — Add Comment"
+      ]
+    },
+    "Prepress": {
+      categories: {
+        "File Error / Preflight Issue": ["Missing fonts","Low-resolution images","Wrong bleed / trim marks","Missing die line"],
+        "Wrong File Version Used": ["Outdated file used","Wrong revision approved"],
+        "Proof Not Approved / Missing Approval": [], "Color Profile / Calibration Issue": [],
+        "Plate Error": ["Wrong plate mounted","Damaged / worn plate","Plate registration off","Wrong plate curve / thickness"],
+        "Imposition / Layout Error": ["Wrong step-and-repeat","Wrong orientation","Wrong gang-up"],
+        "Die Line / Cut Line Error": ["Die line missing","Die line misaligned","Wrong die used"],
+        "Wrong Template / Specs Used": [], "Other": []
+      },
+      dispositions: [
+        "Hold — Do Not Release to Press", "Correct File — Reprocess", "Reprint Plate",
+        "Contact Customer — Confirm Proof / Approval", "Notify Production — Update Job Ticket",
+        "Rework Before Use", "Use With Approval", "Scrap — Do Not Use", "Escalate to Manager",
+        "Use For Make Ready", "Other — Add Comment"
+      ]
+    }
   };
   // Exposed globally so the NCR form's quality-issue picker can use this
   // exact taxonomy/wording — the terms crews already know from the pallet
@@ -18234,7 +18284,10 @@ window.addEventListener('storage', function(e){
     'New Die Cutter':'Die Cutter (DC)', 'Old Die Cutter':'Die Cutter (DC)'
   };
   var ES = {
-    stations: { "Die Cutter (DC)":"Troqueladora (DC)", "Press":"Prensa", "Kama Foil":"Kama (Papel Foil)", "Gluer":"Engomadora" },
+    stations: {
+      "Die Cutter (DC)":"Troqueladora (DC)", "Press":"Prensa", "Kama Foil":"Kama (Papel Foil)", "Gluer":"Engomadora",
+      "Shipping":"Envíos", "CSR/Sales":"Servicio al Cliente / Ventas", "Prepress":"Preprensa"
+    },
     categories: {
       "Score Issue":"Problema de Rayado","Cracking":"Agrietado","Bursting":"Reventado",
       "Crooked / Misaligned Cut":"Corte Torcido / Desalineado","Bad Cut":"Corte Defectuoso",
@@ -18249,13 +18302,49 @@ window.addEventListener('storage', function(e){
       "Insufficient / No Glue":"Pegamento Insuficiente / Sin Pegamento","Glue Misalignment":"Pegamento Desalineado",
       "Crooked Fold / Misfold":"Doblado Torcido / Mal Doblado","Scuffing":"Raspado",
       "Kleenstick Issue":"Problema de Kleenstick","Tearstrip Issue":"Problema de Tira de Rasgado",
-      "Bursting / Cracking":"Reventado / Agrietado"
+      "Bursting / Cracking":"Reventado / Agrietado",
+      "Wrong Product Shipped":"Producto Incorrecto Enviado",
+      "Wrong Quantity Shipped":"Cantidad Incorrecta Enviada",
+      "Damaged in Transit / Handling":"Dañado en Tránsito / Manejo",
+      "Wrong Address / Ship-To Error":"Dirección Incorrecta / Error de Destino",
+      "Missing / Incorrect Paperwork":"Papeleo Faltante / Incorrecto",
+      "Pallet Not Wrapped / Unstable":"Tarima Sin Envolver / Inestable",
+      "Mislabeled Pallet / Carton":"Tarima / Caja Mal Etiquetada",
+      "Late Shipment / Missed Ship Date":"Envío Tardío / Fecha de Envío Perdida",
+      "Wrong Product Ordered":"Producto Incorrecto Pedido",
+      "Wrong Quantity Entered":"Cantidad Incorrecta Ingresada",
+      "Wrong Ship-To / Bill-To Address":"Dirección de Envío / Facturación Incorrecta",
+      "Pricing Error":"Error de Precio",
+      "Artwork / Proof Approval Error":"Error de Aprobación de Arte / Prueba",
+      "Customer Spec Mismatch":"Especificación del Cliente No Coincide",
+      "PO Discrepancy":"Discrepancia en la Orden de Compra",
+      "Due Date / Ship Date Miscommunicated":"Fecha de Entrega / Envío Mal Comunicada",
+      "File Error / Preflight Issue":"Error de Archivo / Problema de Preflight",
+      "Wrong File Version Used":"Versión de Archivo Incorrecta Usada",
+      "Proof Not Approved / Missing Approval":"Prueba No Aprobada / Falta Aprobación",
+      "Color Profile / Calibration Issue":"Problema de Perfil de Color / Calibración",
+      "Plate Error":"Error de Placa",
+      "Imposition / Layout Error":"Error de Imposición / Diseño",
+      "Die Line / Cut Line Error":"Error de Línea de Troquel / Corte",
+      "Wrong Template / Specs Used":"Plantilla / Especificaciones Incorrectas Usadas"
     },
     subOptions: {
       "Missing score":"Falta rayado","Soft / weak score":"Rayado suave / débil","Score wrong position":"Rayado en posición incorrecta",
       "Ragged edge":"Borde irregular","Incomplete cut":"Corte incompleto","Too deep":"Demasiado profundo",
       "Missing":"Falta","Too short":"Muy corto","Too long":"Muy largo","Wrong side":"Lado incorrecto",
-      "Out of position":"Fuera de posición","Wrinkled":"Arrugado"
+      "Out of position":"Fuera de posición","Wrinkled":"Arrugado",
+      "Short shipped":"Envío incompleto","Over shipped":"Envío en exceso",
+      "Crushed corners":"Esquinas aplastadas","Water / wet damage":"Daño por agua / humedad","Forklift damage":"Daño por montacargas",
+      "Missing BOL":"Falta conocimiento de embarque (BOL)","Wrong BOL info":"Información incorrecta en el BOL","Missing packing slip":"Falta lista de empaque",
+      "Wrong label":"Etiqueta incorrecta","Missing label":"Falta etiqueta","Duplicate label":"Etiqueta duplicada",
+      "Wrong item number":"Número de artículo incorrecto","Wrong description entered":"Descripción incorrecta ingresada",
+      "Wrong size entered":"Tamaño incorrecto ingresado","Wrong color / finish entered":"Color / acabado incorrecto ingresado","Wrong material entered":"Material incorrecto ingresado",
+      "PO quantity mismatch":"Cantidad de la orden de compra no coincide","PO pricing mismatch":"Precio de la orden de compra no coincide","Missing PO":"Falta orden de compra",
+      "Missing fonts":"Faltan fuentes","Low-resolution images":"Imágenes de baja resolución","Wrong bleed / trim marks":"Sangrado / marcas de corte incorrectas","Missing die line":"Falta línea de troquel",
+      "Outdated file used":"Se usó archivo desactualizado","Wrong revision approved":"Se aprobó revisión incorrecta",
+      "Wrong plate mounted":"Placa incorrecta montada","Damaged / worn plate":"Placa dañada / desgastada","Plate registration off":"Registro de placa desalineado","Wrong plate curve / thickness":"Curva / grosor de placa incorrecto",
+      "Wrong step-and-repeat":"Paso y repetición incorrecto","Wrong orientation":"Orientación incorrecta","Wrong gang-up":"Combinación de trabajos incorrecta",
+      "Die line missing":"Falta línea de troquel","Die line misaligned":"Línea de troquel desalineada","Wrong die used":"Troquel incorrecto usado"
     },
     dispositions: {
       "Continue Run — Monitor Issue":"Continuar Corriendo — Monitorear el Problema",
@@ -18264,14 +18353,33 @@ window.addEventListener('storage', function(e){
       "Keep Separate — Do Not Use":"Mantener Separado — No Usar",
       "Keep Separate — Inspect Before Use":"Mantener Separado — Inspeccionar Antes de Usar",
       "Sort — Remove Defects":"Clasificar — Retirar Defectos",
-      "100% Inspect — Remove Defects":"Inspección al 100% — Retirar Defectos",
+      "100% Inspect — Remove Defects":"Inspección 100% — Retirar Defectos",
       "Pull & Discard When Found":"Retirar y Desechar al Encontrarlo",
-      "Rework Before Use":"Retrabajar Antes de Usar",
+      "Rework Before Use":"Reprocesar Antes de Usar",
       "Use for Makeready Only":"Usar Solo para Preparación (Make Ready)",
       "Save as Extra Quantity":"Guardar como Cantidad Extra",
       "Scrap — Do Not Use":"Desechar — No Usar",
-      "Rerun Required":"Se Requiere Correr de Nuevo",
+      "Rerun Required":"Se Requiere Volver a Correr",
       "Use for Count only":"Usar Solo para Conteo",
+      "Use For Make Ready":"POR FAVOR, USAR PARA LA PUESTA A PUNTO",
+      "Hold — Do Not Ship":"Detener — No Enviar",
+      "Reship Correct Product":"Reenviar Producto Correcto",
+      "Ship Short — Backorder Remainder":"Enviar Incompleto — Pedido Pendiente por el Resto",
+      "Return to Warehouse Stock":"Regresar a Existencias del Almacén",
+      "Repack / Re-palletize Before Ship":"Reempacar / Re-paletizar Antes de Enviar",
+      "Notify Carrier — File Claim":"Notificar a la Transportista — Presentar Reclamo",
+      "Contact Customer — Confirm Resolution":"Contactar al Cliente — Confirmar Resolución",
+      "Hold — Confirm With Customer":"Detener — Confirmar Con el Cliente",
+      "Correct Order — Reprocess":"Corregir Orden — Reprocesar",
+      "Contact Customer for Clarification":"Contactar al Cliente para Aclaración",
+      "Cancel and Reorder Correctly":"Cancelar y Volver a Pedir Correctamente",
+      "Notify Production — Update Job Ticket":"Notificar a Producción — Actualizar Orden de Trabajo",
+      "Issue Credit / Adjustment":"Emitir Crédito / Ajuste",
+      "Escalate to Manager":"Escalar al Gerente",
+      "Hold — Do Not Release to Press":"Detener — No Liberar a Prensa",
+      "Correct File — Reprocess":"Corregir Archivo — Reprocesar",
+      "Reprint Plate":"Reimprimir Placa",
+      "Contact Customer — Confirm Proof / Approval":"Contactar al Cliente — Confirmar Prueba / Aprobación",
       "Other — Add Comment":"Otro"
     },
     labels: {
@@ -18550,10 +18658,24 @@ window.addEventListener('storage', function(e){
     }
     validate();
   }
+  // Some stations (Shipping, CSR/Sales, Prepress) have their own disposition
+  // roster instead of the generic shared one — mirrors the standalone app's
+  // dispositionsForStation(). Falls back to PT_DISPOSITIONS when a station
+  // has no override (Die Cutter/Press/Kama Foil/Gluer today).
+  function dispositionsForStation(){
+    var station = PT_DATA[state.station];
+    return (station && station.dispositions) || PT_DISPOSITIONS;
+  }
   function buildDispositionStep(){
     var grid = el('dispoGrid');
-    if(grid.children.length) return;
-    PT_DISPOSITIONS.forEach(function(dis){
+    // Previously only ever built once (grid.children.length guard) — fine
+    // while every station shared one generic list, but once a station has
+    // its own list (see dispositionsForStation above) that guard would make
+    // the grid "stick" to whichever station was selected first and never
+    // rebuild for a station with a different list. Standalone rebuilds
+    // fresh every time buildDispositionStep() runs — do the same here.
+    grid.innerHTML = '';
+    dispositionsForStation().forEach(function(dis){
       var b = document.createElement('button');
       b.type='button'; b.className='opt'; b.textContent=dis; b.dataset.dis=dis;
       b.setAttribute('aria-pressed','false');
@@ -19332,6 +19454,16 @@ window.addEventListener('storage', function(e){
     document.getElementById('ptOverlay').classList.add('open');
     document.getElementById('ptOverlay').scrollTop = 0;
   };
+
+  // Job #/Product ID: strip non-digits as you type, matching the standalone
+  // app — inputmode/pattern alone only hint the on-screen keyboard, they
+  // don't block a physical/desktop keyboard from typing letters.
+  ['jobNumber','productId'].forEach(function(id){
+    el(id).addEventListener('input', function(){
+      var cleaned = el(id).value.replace(/[^0-9]/g,'');
+      if (cleaned !== el(id).value) el(id).value = cleaned;
+    });
+  });
 
   resetAll(); // initialize grids + disabled buttons once at load
 })();
