@@ -1326,7 +1326,24 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .continue-modal-head {
   background: var(--black); color: #fff;
   padding: 16px 18px; display: flex; align-items: center; justify-content: space-between;
+  /* This row now holds a growing cluster of action buttons (DATA EDIT, NCR
+     badge, Report NCR, Pallet Tag, Delete Job, …) on top of the title and
+     close button — with no wrap, a narrow modal (or just enough buttons)
+     had nowhere to put the overflow but visually on top of its neighbors
+     (flex-shrink squeezing a button's box near zero while its own text
+     kept its natural width, drawing over the adjacent button — a real
+     reported bug). flex-wrap + a real gap replaces the old per-button
+     inline margin-right, so spacing stays even everywhere this header is
+     used (every .continue-overlay popup in the app) instead of drifting
+     apart differently depending on how many buttons happen to be present. */
+  flex-wrap: wrap; gap: 8px; row-gap: 10px;
 }
+/* Every header action button (DATA EDIT / NCR badge / Report NCR /
+   Pallet Tag / Delete Job / Edit) used to set its own margin-right:8px —
+   now redundant and actively harmful once the container has a real gap
+   (double spacing after wrapping). Centralized here instead of removing
+   it from every inline style individually. */
+.continue-modal-head [id$="-btn"] { margin-right: 0 !important; }
 .continue-modal-title { font-size: 16px; font-weight: 800; }
 .continue-modal-sub { font-size: 14px; color: rgba(255,255,255,.55); margin-top: 2px; }
 .continue-close { background: none; border: none; color: rgba(255,255,255,.7); font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px; }
@@ -2581,7 +2598,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <div class="continue-overlay" id="continueOverlay">
       <div class="continue-modal" id="continueModal">
         <div class="continue-modal-head">
-          <div style="flex:1;min-width:0;">
+          <!-- min-width was 0 (a common "let flex text truncate" trick), but
+               combined with flex-basis:0 (the "1" in flex:1) that let this
+               whole title block collapse toward zero width once the action-
+               button cluster next to it grew past ~4 buttons — its own text
+               (Job # + the ✎ Edit button) then rendered on top of the
+               neighboring button instead of forcing a wrap (a real reported
+               bug). A real min-width means the buttons wrap to their own
+               row once there isn't room, instead of squeezing this to 0. -->
+          <div style="flex:1;min-width:200px;">
             <div style="display:flex;align-items:center;gap:8px;">
               <div class="continue-modal-title" id="cm-title">Job —</div>
               <button id="cm-edit-btn" onclick="openJobEditPanel()" style="display:none;background:rgba(255,255,255,.15);border:none;border-radius:5px;color:#fff;font-size:15px;padding:2px 8px;cursor:pointer;white-space:nowrap;">✎ Edit</button>
@@ -3216,7 +3241,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <div class="continue-overlay" id="shipOverlay">
       <div class="continue-modal" id="shipModal">
         <div class="continue-modal-head">
-          <div style="flex:1;min-width:0;">
+          <!-- See continueOverlay's matching comment — min-width:0 combined
+               with flex-basis:0 let this collapse toward zero width once
+               enough action buttons sat next to it, overlapping its own
+               text on top of the neighboring button instead of wrapping. -->
+          <div style="flex:1;min-width:200px;">
             <div style="display:flex;align-items:center;gap:8px;">
               <div class="continue-modal-title" id="ship-title">Job —</div>
               <button id="ship-edit-btn" onclick="openShipJobEditPanel()" style="display:none;background:rgba(255,255,255,.15);border:none;border-radius:5px;color:#fff;font-size:15px;padding:2px 8px;cursor:pointer;white-space:nowrap;">✎ Edit</button>
