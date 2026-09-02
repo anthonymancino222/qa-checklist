@@ -1368,6 +1368,17 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 }
 .continue-modal-close:active { background: rgba(255,255,255,.32); }
 .continue-modal-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+/* The 3 continue-modal panels (cm-panel-op/qa/prod) hold ~4-26 .card
+   elements each. Every .card inside them already sets inline margin:0
+   (clearly meant to rely on a gap-based parent), but the panel itself was
+   plain display:block with no gap — so cards ended up touching each other
+   with zero space, while the one manually-margined "Cancel" button per
+   panel got spacing nothing else did. That mismatch is what read as
+   unprofessional/inconsistent spacing. display + gap here (JS toggles
+   visibility by switching this class, not an inline display:none/flex —
+   see cm-panel show/hide call sites) restores one consistent 14px rhythm
+   between every direct child, matching .continue-modal-body's own gap. */
+.cm-body-panel { flex-direction: column; gap: 14px; } /* display itself stays inline-toggled (none/flex) by the existing show/hide JS */
 
 /* ── RCA module (scoped under #view-rca) ── */
 #view-rca .rca-page-wrap{max-width:700px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;padding:2rem 1rem}
@@ -2655,7 +2666,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         <div class="continue-modal-body">
 
           <!-- ── PANEL A: Operator fills checklist (status = makeready) ── -->
-          <div id="cm-panel-op" style="display:none;">
+          <div id="cm-panel-op" class="cm-body-panel" style="display:none;">
             <div class="card" style="margin:0;">
               <div class="card-label"><span data-en>Photo</span><span data-es>Foto</span></div>
               <img id="cm-op-photo" style="width:100%;border-radius:8px;display:none;" alt="">
@@ -2698,11 +2709,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <textarea id="cm-op-notes" class="input" placeholder="Operator notes…" data-ph-en="Operator notes…" data-ph-es="Notas del operador…"></textarea>
             </div>
             <button class="btn-primary" style="background:var(--pink)" onclick="submitForQAApproval()">Submit for QA Approval →</button>
-            <button class="btn" style="width:100%;margin-top:8px;" onclick="cancelContinueModal()">Cancel — discard changes</button>
+            <button class="btn" style="width:100%;margin-top:0;" onclick="cancelContinueModal()">Cancel — discard changes</button>
           </div>
 
           <!-- ── PANEL B: QA reviews + signs (status = qa_pending) ── -->
-          <div id="cm-panel-qa" style="display:none;">
+          <div id="cm-panel-qa" class="cm-body-panel" style="display:none;">
             <div class="card" style="margin:0;background:var(--amber-soft);border-color:var(--amber);">
               <div id="cm-qa-banner-title" style="font-size:15px;font-weight:700;color:var(--amber-ink);">⏳ Awaiting QA sign-off</div>
               <div id="cm-qa-banner-text" style="font-size:14px;color:var(--amber-ink);margin-top:3px;">Review operator checklist below, then sign to approve.</div>
@@ -2752,11 +2763,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               <div id="cm-qa-review-summary" style="font-size:14px;line-height:1.8;"></div>
             </div>
             <button id="cm-qa-approve-btn" class="btn-primary" onclick="approveStartProduction()">Approve — Start Production →</button>
-            <button class="btn" style="width:100%;margin-top:8px;" onclick="cancelContinueModal()"><span data-en>Cancel — discard changes</span><span data-es>Cancelar — descartar cambios</span></button>
+            <button class="btn" style="width:100%;margin-top:0;" onclick="cancelContinueModal()"><span data-en>Cancel — discard changes</span><span data-es>Cancelar — descartar cambios</span></button>
           </div>
 
           <!-- ── PANEL C: In Production → Finish (status = production) ── -->
-          <div id="cm-panel-prod" style="display:none;">
+          <div id="cm-panel-prod" class="cm-body-panel" style="display:none;">
             <div class="card" style="margin:0;background:var(--green-soft);border-color:var(--green);">
               <div style="font-size:15px;font-weight:700;color:var(--green);">✅ <span data-en>In Production</span><span data-es>En Producción</span></div>
               <div style="font-size:14px;color:var(--green);margin-top:3px;"><span data-en>Tap Finish Job when the production run is complete.</span><span data-es>Toque Terminar Trabajo cuando la corrida de producción esté completa.</span></div>
@@ -3010,21 +3021,28 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
               </div>
             </div>
             <button id="cm-prod-finish-btn" class="btn-primary" style="background:var(--green)" onclick="finishJob()"><span data-en>Finish Job ✓</span><span data-es>Terminar Trabajo ✓</span></button>
-            <button class="btn" style="width:100%;margin:8px 0 0;" onclick="cancelContinueModal()"><span data-en>Cancel — discard changes</span><span data-es>Cancelar — descartar cambios</span></button>
+            <button class="btn" style="width:100%;margin-top:0;" onclick="cancelContinueModal()"><span data-en>Cancel — discard changes</span><span data-es>Cancelar — descartar cambios</span></button>
             <!-- QA Notes — single shared station for every station type (previously
                  duplicated as two near-identical cards, one gated to Gluer/general
                  stations and one to Kama/Die Cutter, which could both end up
                  rendering at once). -->
             <div id="cm-prod-general-notes">
+              <!-- gap:10px on this inner wrapper replaces what used to be a
+                   mix of margin-bottom:12px (list), no margin at all
+                   (select-wrap → textarea, a real 0px gap), and margin-
+                   top:8px (button) — three different values for what should
+                   read as one consistent rhythm (a reported issue). -->
               <div class="card" style="margin:0;">
                 <div class="card-label"><span data-en>QA Notes</span><span data-es>Notas de Calidad</span></div>
-                <div id="cm-prod-general-notes-list" style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px;"></div>
-                <div id="cm-prod-general-note-select-wrap"></div>
-                <div class="qa-note-wrap">
-                  <textarea id="cm-prod-general-note-input" class="input" placeholder="Type QA note here…" data-ph-en="Type QA note here…" data-ph-es="Escriba la nota de calidad aquí…" style="width:100%;box-sizing:border-box;min-height:80px;resize:vertical;font-size:14px;line-height:1.5;"></textarea>
-                  <div class="qa-note-suggest" id="cm-prod-general-note-suggest"></div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div id="cm-prod-general-notes-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+                  <div id="cm-prod-general-note-select-wrap"></div>
+                  <div class="qa-note-wrap">
+                    <textarea id="cm-prod-general-note-input" class="input" placeholder="Type QA note here…" data-ph-en="Type QA note here…" data-ph-es="Escriba la nota de calidad aquí…" style="width:100%;box-sizing:border-box;min-height:80px;resize:vertical;font-size:14px;line-height:1.5;"></textarea>
+                    <div class="qa-note-suggest" id="cm-prod-general-note-suggest"></div>
+                  </div>
+                  <button class="btn-primary" style="background:#0ea5e9;width:100%;margin-top:0;" onclick="addGeneralQANote()"><span data-en>Add Note ↵</span><span data-es>Agregar Nota ↵</span></button>
                 </div>
-                <button class="btn-primary" style="background:#0ea5e9;width:100%;margin-top:8px;" onclick="addGeneralQANote()"><span data-en>Add Note ↵</span><span data-es>Agregar Nota ↵</span></button>
               </div>
             </div>
           </div>
@@ -6387,7 +6405,7 @@ function openContinueModal(id) {
 
   if (job.process === 'makeready' || job.process === 'inspection') {
     // Operator panel: checklist + op sig
-    document.getElementById('cm-panel-op').style.display = 'block';
+    document.getElementById('cm-panel-op').style.display = 'flex';
 
     // Show Make Ready photo
     var opPhoto = document.getElementById('cm-op-photo');
@@ -6492,7 +6510,7 @@ function openContinueModal(id) {
     }, 200);
 
   } else if (job.process === 'qa_pending' || job.process === 'qa_release') {
-    document.getElementById('cm-panel-qa').style.display = 'block';
+    document.getElementById('cm-panel-qa').style.display = 'flex';
 
     var qaPhoto = document.getElementById('cm-qa-photo');
     if (job.mrPhoto) { qaPhoto.src = job.mrPhoto; qaPhoto.style.display = 'block'; }
@@ -6878,7 +6896,7 @@ function openContinueModal(id) {
 
   } else if (job.process === 'production') {
     // Production panel: summary + finish
-    document.getElementById('cm-panel-prod').style.display = 'block';
+    document.getElementById('cm-panel-prod').style.display = 'flex';
 
     // Always reset button to Finish Job (guards against stale text from a prior modal opening)
     var prodFinishBtn = document.getElementById('cm-prod-finish-btn');
@@ -6989,7 +7007,7 @@ function openContinueModal(id) {
   } else if (job.process === 'on_hold') {
     if (job.shipmentType === 'split') {
       // Split ship hold — simplified QA release for this split
-      document.getElementById('cm-panel-qa').style.display = 'block';
+      document.getElementById('cm-panel-qa').style.display = 'flex';
       document.getElementById('cm-qa-banner-title').textContent = isEsLang() ? '✅ Se Requiere Liberación de Calidad' : '✅ QA Release Required';
       document.getElementById('cm-qa-banner-text').textContent = isEsLang() ? ('Envío Dividido ' + (job.splitShipNum||2) + ' — confirme la cantidad y firme para liberar.') : ('Split Ship ' + (job.splitShipNum||2) + ' — confirm qty and sign to release.');
       document.getElementById('cm-qa-checklist-hint').textContent = '';
@@ -7026,7 +7044,7 @@ function openContinueModal(id) {
       }, 200);
     } else {
       // Partial run on_hold — show info + resume action so operator can continue and QA can approve
-      document.getElementById('cm-panel-prod').style.display = 'block';
+      document.getElementById('cm-panel-prod').style.display = 'flex';
       document.getElementById('cm-prod-veritiv-qs').style.display = 'none';
       document.getElementById('cm-prod-gluer-qs').style.display = 'none';
 
@@ -7091,7 +7109,7 @@ function openContinueModal(id) {
   } else if (job.process === '2nd_pass_ready') {
     // 1st pass finished and was released — this linked job just waits here
     // until someone sends it back to Make Ready for the 2nd/final pass.
-    document.getElementById('cm-panel-prod').style.display = 'block';
+    document.getElementById('cm-panel-prod').style.display = 'flex';
     document.getElementById('cm-prod-veritiv-qs').style.display = 'none';
     document.getElementById('cm-prod-gluer-qs').style.display = 'none';
     var _spFqCard = document.getElementById('cm-prod-finalqty-card');
@@ -12302,8 +12320,8 @@ function _cmToggleDataEdit() {
   toggleDataEditMode(function(){
     var f = _findJobById(continueJobId);
     if (f) {
-      if (document.getElementById('cm-panel-prod').style.display === 'block') _renderProdSummary(f.job);
-      if (document.getElementById('cm-panel-qa').style.display === 'block') _renderQaJobSummary(f.job);
+      if (document.getElementById('cm-panel-prod').style.display === 'flex') _renderProdSummary(f.job);
+      if (document.getElementById('cm-panel-qa').style.display === 'flex') _renderQaJobSummary(f.job);
     }
     var btn = document.getElementById('cm-data-edit-btn');
     if (btn) btn.textContent = _dataEditMode ? (isEsLang()?'🔒 Desactivar Edición':'🔒 Turn Off Editing') : (isEsLang()?'✏️ EDITAR DATOS':'✏️ DATA EDIT');
