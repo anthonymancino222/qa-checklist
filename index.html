@@ -14129,20 +14129,22 @@ function _applyScheduleJobHint(jobNumber) {
 // Missing this was the bug: every prefill was silently writing into
 // #setup-product even when picking a Gluer/DC/Kama job, where that field
 // exists in the DOM but is hidden and never read on submit.
-function _productFieldIdForStation(station) {
-  if (station === 'New Die Cutter' || station === 'Old Die Cutter') return 'dc-form-number';
-  if (station === 'Kama Foil Press') return 'kama-form-number';
-  if (station === 'Long Gluer' || station === 'Short Gluer') return 'gluer-product-0';
-  // Packing has a second split the others don't: answering "Is this a
-  // Veritiv job?" Yes swaps the visible product field from #setup-product
-  // to #veritiv-product (see onPackingCustomerChange) — same missing-field
-  // bug as the comment above describes, just one station further in. Check
-  // which one is actually on screen right now rather than assuming.
-  if (station === 'Packing') {
-    var veritivFields = document.getElementById('veritiv-fields');
-    if (veritivFields && veritivFields.style.display !== 'none') return 'veritiv-product';
-  }
-  return 'setup-product';
+// Returns every product-field id that could end up being the visible one
+// for this station — usually just one, but Packing has two (#setup-product
+// vs #veritiv-product, swapped by the "Is this a Veritiv job?" toggle — see
+// onPackingCustomerChange) and, on the real form, the job number/schedule
+// pull happens BEFORE that toggle is answered. Checking which one is
+// visible "right now" at prefill time was still wrong just as often as
+// right, since at that point neither may have been decided yet. Filling
+// every candidate id instead sidesteps the ordering question entirely:
+// whichever one ends up visible when the toggle is answered already has
+// the value, and the hidden one is never read on submit anyway.
+function _productFieldIdsForStation(station) {
+  if (station === 'New Die Cutter' || station === 'Old Die Cutter') return ['dc-form-number'];
+  if (station === 'Kama Foil Press') return ['kama-form-number'];
+  if (station === 'Long Gluer' || station === 'Short Gluer') return ['gluer-product-0'];
+  if (station === 'Packing') return ['setup-product', 'veritiv-product'];
+  return ['setup-product'];
 }
 
 function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
@@ -14157,8 +14159,10 @@ function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
   var product = chosenProduct || (entry.products.length === 1 ? entry.products[0] : null);
   if (product) {
     var station = document.getElementById('setup-station').value;
-    var productEl = document.getElementById(_productFieldIdForStation(station));
-    if (productEl && (chosenProduct || !productEl.value)) productEl.value = product;
+    _productFieldIdsForStation(station).forEach(function(fieldId){
+      var productEl = document.getElementById(fieldId);
+      if (productEl && (chosenProduct || !productEl.value)) productEl.value = product;
+    });
   }
 }
 
