@@ -5378,9 +5378,11 @@ function _renderSignedInUser() {
   if (el && _signedInUser) el.textContent = _signedInUser.name || _signedInUser.email || '';
   _updateHomeGreeting();
 }
-// Time-of-day greeting on the Home landing screen, personalized with the
-// signed-in user's first name where available. Re-run on sign-in and on
-// every language toggle (see toggleAppLang) so it never goes stale.
+// Time-of-day greeting on the Home landing screen. Deliberately NOT
+// personalized with a name — these tablets are shared between shifts/
+// operators, and showing whoever's account happened to sign in last caused
+// confusion over whose name it was. Re-run on sign-in and on every language
+// toggle (see toggleAppLang) so it never goes stale.
 function _updateHomeGreeting() {
   var el = document.getElementById('home-greeting-text');
   if (!el) return;
@@ -5388,10 +5390,9 @@ function _updateHomeGreeting() {
   var hour = new Date().getHours();
   var period = hour < 12 ? 0 : (hour < 18 ? 1 : 2);
   var GREETINGS = isEs
-    ? ['Buenos días', 'Buenas tardes', 'Buenas noches']
-    : ['Good morning', 'Good afternoon', 'Good evening'];
-  var first = (_signedInUser && _signedInUser.name) ? _signedInUser.name.split(' ')[0] : '';
-  el.textContent = GREETINGS[period] + (first ? ', ' + first + '.' : '.');
+    ? ['Buenos días.', 'Buenas tardes.', 'Buenas noches.']
+    : ['Good morning.', 'Good afternoon.', 'Good evening.'];
+  el.textContent = GREETINGS[period];
 }
 
 // Fires once someone picks a Moquin account. Reveals the real app, decodes
