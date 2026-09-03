@@ -584,6 +584,14 @@ select.input.station-select-picked {
   white-space: normal; text-align: center; line-height: 1.25;
   display: flex; align-items: center; justify-content: center;
 }
+/* Operator name buttons (kama/dc/gluer) hit the exact same problem as
+   station buttons above — a full name like "Fernando Paulino" or "Sam
+   Vilayphone" spilled past the button's own border at narrower widths
+   instead of wrapping onto a second line. Same fix. */
+#kama-operator-group .tgl, #dc-operator-group .tgl, #gluer-operator-group .tgl {
+  white-space: normal; text-align: center; line-height: 1.25;
+  display: flex; align-items: center; justify-content: center;
+}
 .tgl.pass { background: #16a34a; border-color: #15803d; color: #fff; }
 .tgl.fail { background: #dc2626; border-color: #b91c1c; color: #fff; }
 .tgl.na   { background: var(--amber-soft); border-color: #f0d090; color: var(--amber-ink); }
@@ -4304,8 +4312,8 @@ try {
           <div class="faq-group-title"><span data-en>🗂️ Misc</span><span data-es>🗂️ Otros</span></div>
 
           <div class="card" style="margin:0;">
-            <div class="card-label"><span data-en>📷 The "Take Photo" button for scanning a tag doesn't fill in the job — why?</span><span data-es>📷 El botón de "Tomar Foto" para escanear una etiqueta no llena el trabajo — ¿por qué?</span></div>
-            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>That auto-fill-from-photo feature is turned off for now while we make it work better with slower internet. For now, please type the job number and other details by hand. This will come back in a future update.</span><span data-es>Esa función de llenado automático desde una foto está apagada por ahora mientras la mejoramos para internet más lento. Por ahora, escriba a mano el número de trabajo y los demás datos. Esto regresará en una actualización futura.</span></p>
+            <div class="card-label"><span data-en>🔄 What does the "Pull Schedule" button do?</span><span data-es>🔄 ¿Qué hace el botón "Actualizar Programa"?</span></div>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>It brings in the latest job schedule Anthony exported from the system, so you can tap to pick your job instead of typing it in. It always grabs the newest file — it only takes a few seconds. The app also refreshes this on its own every day at <b>5am and 5pm</b>, so you only need to tap this button yourself if you need the very latest schedule right now.</span><span data-es>Trae el programa de trabajos más reciente que Anthony exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre trae el archivo más nuevo — solo toma unos segundos. La aplicación también se actualiza sola cada día a las <b>5am y 5pm</b>, así que solo necesita tocar este botón si necesita el programa más reciente en este momento.</span></p>
           </div>
 
           <div class="card" style="margin:0;">
