@@ -6245,10 +6245,18 @@ function _renderFilterPopoverContents(sectionPrefix, kind) {
     pop.innerHTML = '<div class="filter-pop-empty">' + (isEs ? 'Nada disponible.' : 'Nothing available.') + '</div>';
     return;
   }
+  // The option's raw value goes in a data-value attribute (escHtml-escaped,
+  // safe for any characters) rather than being inlined as a JSON.stringify()
+  // literal inside the onchange string — JSON.stringify wraps the value in
+  // its OWN double quotes, which collided with the onchange attribute's
+  // double-quote delimiters and truncated it mid-attribute. That silently
+  // broke every checkbox in every filter popover (Station and CAD Style,
+  // all four screens) — checking one visibly ticked the box but never
+  // called _toggleFilterOption at all, so the list never actually filtered.
   var rows = options.map(function(opt){
     var checked = selected.indexOf(opt) >= 0;
-    return '<label class="filter-chk-row"><input type="checkbox" ' + (checked ? 'checked' : '') +
-      ' onchange="_toggleFilterOption(\'' + sectionPrefix + '\',\'' + kind + '\',' + JSON.stringify(opt) + ',this.checked)">' +
+    return '<label class="filter-chk-row"><input type="checkbox" data-value="' + escHtml(opt) + '" ' + (checked ? 'checked' : '') +
+      ' onchange="_toggleFilterOption(\'' + sectionPrefix + '\',\'' + kind + '\', this.dataset.value, this.checked)">' +
       escHtml(_filterOptionLabel(kind, opt)) + '</label>';
   }).join('');
   pop.innerHTML = rows +
