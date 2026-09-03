@@ -2552,7 +2552,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         </div>
       </div>
       <div style="padding:0 16px;">
-        <input type="text" id="ip-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderInProgress()" style="margin-bottom:14px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <input type="text" id="ip-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderInProgress()" style="flex:1;margin-bottom:0;">
+          <select id="ip-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setIPSortMode(this.value)">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="station">By station (A-Z)</option>
+            <option value="customer">By customer (A-Z)</option>
+            <option value="cad">By CAD style (A-Z)</option>
+          </select>
+        </div>
       </div>
       <!-- Was a mirrored horizontal scrollbar for ip-kanban-wrap — obsolete
            now that the board wraps columns onto new rows instead of
@@ -3416,7 +3425,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         </div>
       </div>
       <div style="padding:0 16px;">
-        <input type="text" id="qa-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderQARelease()" style="margin-bottom:14px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <input type="text" id="qa-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderQARelease()" style="flex:1;margin-bottom:0;">
+          <select id="qa-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setQASortMode(this.value)">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="station">By station (A-Z)</option>
+            <option value="customer">By customer (A-Z)</option>
+            <option value="cad">By CAD style (A-Z)</option>
+          </select>
+        </div>
       </div>
       <div id="qa-release-list" style="padding:0 16px 24px;"></div>
     </div>
@@ -3432,7 +3450,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
         </div>
       </div>
       <div style="padding:0 16px;">
-        <input type="text" id="ship-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderShipping()" style="margin-bottom:14px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <input type="text" id="ship-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderShipping()" style="flex:1;margin-bottom:0;">
+          <select id="ship-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setShipSortMode(this.value)">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="station">By station (A-Z)</option>
+            <option value="customer">By customer (A-Z)</option>
+            <option value="cad">By CAD style (A-Z)</option>
+          </select>
+        </div>
       </div>
       <div id="shipping-list" style="padding:0 16px 24px;"></div>
     </div>
@@ -3938,7 +3965,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     <div id="view-records" class="screen">
       <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div><div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div></div>
       <div style="padding:0 16px 24px;">
-        <input type="text" id="records-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderRecords()" style="margin-bottom:14px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <input type="text" id="records-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderRecords()" style="flex:1;margin-bottom:0;">
+          <select id="records-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setRecordsSortMode(this.value)">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="station">By station (A-Z)</option>
+            <option value="customer">By customer (A-Z)</option>
+            <option value="cad">By CAD style (A-Z)</option>
+          </select>
+        </div>
         <div id="records-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button type="button" class="tgl sel" data-recfilter="all" onclick="setRecordsFilter('all',this)"><span data-en>All</span><span data-es>Todos</span></button>
           <button type="button" class="tgl" data-recfilter="job" onclick="setRecordsFilter('job',this)"><span data-en>Jobs</span><span data-es>Trabajos</span></button>
@@ -5812,6 +5848,89 @@ function _syncViewToggle(tileBtnId, listBtnId, mode) {
   if (l) l.classList.toggle('active', mode === 'list');
 }
 
+// Sort/order controls next to the Job in Progress / QA Release / Shipping
+// Approval / Records search boxes — same consolidated-JSON-key pattern as
+// VIEW_MODE_KEY above, so the chosen order survives a reload/tab switch.
+var SORT_MODE_KEY = 'moquin-qa-sort-modes';
+function _getSortModes() {
+  try { return JSON.parse(localStorage.getItem(SORT_MODE_KEY)) || {}; } catch(e) { return {}; }
+}
+function _setSortMode(key, mode) {
+  var modes = _getSortModes();
+  modes[key] = mode;
+  try { localStorage.setItem(SORT_MODE_KEY, JSON.stringify(modes)); } catch(e) {}
+}
+function getIPSortMode() { return _getSortModes().inprogress || 'newest'; }
+function getQASortMode() { return _getSortModes().qarelease || 'newest'; }
+function getShipSortMode() { return _getSortModes().shipping || 'newest'; }
+function getRecordsSortMode() { return _getSortModes().records || 'newest'; }
+function setIPSortMode(mode) { _setSortMode('inprogress', mode); renderInProgress(); }
+function setQASortMode(mode) { _setSortMode('qarelease', mode); renderQARelease(); }
+function setShipSortMode(mode) { _setSortMode('shipping', mode); renderShipping(); }
+function setRecordsSortMode(mode) { _setSortMode('records', mode); renderRecords(); }
+// Keeps a sort <select>'s displayed value in sync with the stored mode —
+// same reasoning as _syncViewToggle: the render function is the single
+// source of truth for what's currently selected, not stray DOM state.
+function _syncSortSelect(selectId, mode) {
+  var sel = document.getElementById(selectId);
+  if (sel && sel.value !== mode) sel.value = mode;
+}
+// Bilingual option labels for every sort <select> — mirrors the
+// _translateStationSelects() pattern (static <option> markup, English by
+// default, re-labeled here on language toggle) since <option> can't hold
+// data-en/data-es spans the way buttons/divs do.
+var _SORT_OPTION_LABELS = {
+  newest:   ['Newest first', 'Más reciente primero'],
+  oldest:   ['Oldest first', 'Más antiguo primero'],
+  station:  ['By station (A-Z)', 'Por estación (A-Z)'],
+  customer: ['By customer (A-Z)', 'Por cliente (A-Z)'],
+  cad:      ['By CAD style (A-Z)', 'Por estilo CAD (A-Z)']
+};
+function _translateSortSelects() {
+  var isEs = isEsLang();
+  ['ip-sort', 'qa-sort', 'ship-sort', 'records-sort'].forEach(function(id) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    Array.prototype.forEach.call(sel.options, function(opt) {
+      var pair = _SORT_OPTION_LABELS[opt.value];
+      if (pair) opt.textContent = pair[isEs ? 1 : 0];
+    });
+  });
+}
+// Shared comparator for the sort/order controls — takes small accessor
+// functions so it works across the differently-shaped job records (Job in
+// Progress/QA Release/Shipping) and the normalized Records rows alike.
+// Station/customer/CAD-style modes sort alphabetically (case-insensitive)
+// with a stable newest-first secondary sort so equal values don't look
+// shuffled; a record with no value for the field sorts to one end via ''.
+function _applySortMode(list, mode, getTs, getStation, getCustomer, getCad) {
+  var arr = list.slice();
+  function tsNum(x) {
+    var t = getTs(x);
+    if (!t) return 0;
+    var d = new Date(String(t).replace(' at ', ' '));
+    var n = d.getTime();
+    return isNaN(n) ? 0 : n;
+  }
+  function byDateDesc(a, b) { return tsNum(b) - tsNum(a); }
+  function byDateAsc(a, b) { return tsNum(a) - tsNum(b); }
+  function byField(getField) {
+    return function(a, b) {
+      var fa = (getField(a) || '').toString().toLowerCase();
+      var fb = (getField(b) || '').toString().toLowerCase();
+      if (fa < fb) return -1;
+      if (fa > fb) return 1;
+      return byDateDesc(a, b);
+    };
+  }
+  if (mode === 'oldest') arr.sort(byDateAsc);
+  else if (mode === 'station') arr.sort(byField(getStation));
+  else if (mode === 'customer') arr.sort(byField(getCustomer));
+  else if (mode === 'cad') arr.sort(byField(getCad));
+  else arr.sort(byDateDesc); // 'newest' (default) — matches prior behavior
+  return arr;
+}
+
 /* Flat list row: one job per row, no batch grouping, always individually tappable */
 // Per-job delete from the Job in Progress kanban — only reachable while
 // DATA EDIT mode is on, which is itself passcode-gated, so this doesn't
@@ -5923,6 +6042,13 @@ function renderQARelease() {
     return (j.process === 'qa_pending' && isVeritivPack) || (j.process === 'qa_release' && isGluer);
   });
   jobs = _filterJobsBySearch(jobs, 'qa-search');
+  var qaSortMode = getQASortMode();
+  _syncSortSelect('qa-sort', qaSortMode);
+  jobs = _applySortMode(jobs, qaSortMode,
+    function(j){ return j.timestamp; },
+    function(j){ return stationLabel(j.station); },
+    function(j){ return j.customer; },
+    function(j){ return _currentCadStyle(j); });
   var el = document.getElementById('qa-release-list');
   if (!el) return;
   var viewMode = getQAReleaseViewMode();
@@ -6096,10 +6222,19 @@ function _syncKanbanScrollWidth() {
 function renderInProgress() {
   updateQAReleaseBadge();
   var jobs = _filterJobsBySearch(ipLoad(), 'ip-search');
+  var ipSortMode = getIPSortMode();
+  _syncSortSelect('ip-sort', ipSortMode);
+  jobs = _applySortMode(jobs, ipSortMode,
+    function(j){ return j.timestamp; },
+    function(j){ return stationLabel(j.station); },
+    function(j){ return j.customer; },
+    function(j){ return _currentCadStyle(j); });
   var viewMode = getInProgressViewMode();
   _syncViewToggle('ip-view-tile-btn', 'ip-view-list-btn', viewMode);
 
-  // Distribute jobs into columns; exclude anything that belongs in QA Release
+  // Distribute jobs into columns; exclude anything that belongs in QA Release.
+  // Sorting happens above, before the split, so each column (and the
+  // "needs next product" list derived from it) preserves the chosen order.
   var cols = _computeIPCols(jobs);
 
   // Within a column, group 2+ members of the same batch into one stacked card;
@@ -8947,6 +9082,7 @@ function toggleAppLang(){
   // no editable state, so it's safe to refresh immediately.
   if (typeof renderNCRPie === 'function') renderNCRPie();
   _translateStationSelects();
+  _translateSortSelects();
   if (_lastGluerBatchSheet) openGluerBatchSheet(_lastGluerBatchSheet.batchId, _lastGluerBatchSheet.context);
   // An alert/confirm popup left open across a language switch would
   // otherwise freeze on whatever language it first opened in — re-run
@@ -17322,6 +17458,16 @@ function renderShipping(){
     el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' + jp('noJobsShipping') + '</div>';
     return;
   }
+  // Sort the FULL filtered set before paginating so "Page 1 of N" reflects
+  // the chosen order, not just whatever order the current page happened to
+  // land in.
+  var shipSortMode = getShipSortMode();
+  _syncSortSelect('ship-sort', shipSortMode);
+  allJobs = _applySortMode(allJobs, shipSortMode,
+    function(j){ return j.timestamp; },
+    function(j){ return stationLabel(j.station); },
+    function(j){ return j.customer; },
+    function(j){ return _currentCadStyle(j); });
   var totalPages = Math.max(1, Math.ceil(allJobs.length / _SHIPPING_PAGE_SIZE));
   if (_shippingPage > totalPages) _shippingPage = totalPages; // e.g. a search just shrank the result set
   if (_shippingPage < 1) _shippingPage = 1;
@@ -17910,7 +18056,16 @@ function renderRecords(){
     return;
   }
 
-  all.sort(function(a,b){ return String(b.ts).localeCompare(String(a.ts)); });
+  var recordsSortMode = getRecordsSortMode();
+  _syncSortSelect('records-sort', recordsSortMode);
+  all = _applySortMode(all, recordsSortMode,
+    function(r){ return r.ts; },
+    function(r){ return stationLabel(r.station); },
+    function(r){ return r.customer; },
+    // CAD Style only really exists on gluer job records — everything else
+    // (NCR/NCR draft/RCA) has no such field, so it best-effort falls back
+    // to '' and sorts to one end rather than the option doing nothing.
+    function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; });
 
   if (!all.length){
     el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' +
