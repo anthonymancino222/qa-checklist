@@ -14133,6 +14133,15 @@ function _productFieldIdForStation(station) {
   if (station === 'New Die Cutter' || station === 'Old Die Cutter') return 'dc-form-number';
   if (station === 'Kama Foil Press') return 'kama-form-number';
   if (station === 'Long Gluer' || station === 'Short Gluer') return 'gluer-product-0';
+  // Packing has a second split the others don't: answering "Is this a
+  // Veritiv job?" Yes swaps the visible product field from #setup-product
+  // to #veritiv-product (see onPackingCustomerChange) — same missing-field
+  // bug as the comment above describes, just one station further in. Check
+  // which one is actually on screen right now rather than assuming.
+  if (station === 'Packing') {
+    var veritivFields = document.getElementById('veritiv-fields');
+    if (veritivFields && veritivFields.style.display !== 'none') return 'veritiv-product';
+  }
   return 'setup-product';
 }
 
