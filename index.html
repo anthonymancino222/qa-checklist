@@ -1790,7 +1790,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
     </div>
     <div class="header-group header-group-actions">
       <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
-      <button id="header-start-new-btn" class="header-pill-btn header-pill-btn-solid" onclick="headerStartNewClick()" title="Refresh the app and return to the landing page">↻ <span data-en>Start New</span><span data-es>Empezar de Nuevo</span></button>
+      <button id="header-home-btn" class="header-pill-btn header-pill-btn-solid" onclick="switchView('home')" title="Go to the home dashboard">🏠 <span data-en>Home</span><span data-es>Inicio</span></button>
     </div>
   </div>
 </header>
@@ -5670,16 +5670,6 @@ function headerSyncNowClick() {
 // reachable from anywhere in the app regardless of scroll position since it
 // lives in the sticky black banner. Confirms first: a reload discards any
 // in-progress, not-yet-submitted form the user was mid-typing.
-function headerStartNewClick() {
-  var isEs = isEsLang();
-  showConfirm(
-    isEs ? '¿Actualizar la aplicación y volver a la página de inicio? Se perderá cualquier trabajo en curso no guardado.' : 'Refresh the app and return to the landing page? Any in-progress, unsaved entry will be lost.',
-    function(ok) {
-      if (ok) location.reload();
-    }
-  );
-}
-
 // Shares ONE saved entry with the other devices, on explicit request from the
 // banner's "Sync to other device" button. Deliberately a single-record PUT
 // rather than a store added to _syncPushAll/_syncRetryPending:
