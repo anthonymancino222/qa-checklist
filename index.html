@@ -2066,8 +2066,8 @@ try {
             <div class="home-card-sub"><span data-en>Final gate before shipping.</span><span data-es>Última revisión antes del envío.</span></div>
           </div>
         </div>
-        <div class="home-card" style="border-left-color:var(--black);" onclick="switchView('qa')" title="QA">
-          <div class="home-card-icon" style="color:var(--black);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+        <div class="home-card" style="border-left-color:var(--steel);" onclick="switchView('qa')" title="QA">
+          <div class="home-card-icon" style="color:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
           <div class="home-card-text">
             <div class="home-card-title"><span data-en>QA</span><span data-es>Calidad</span></div>
             <div class="home-card-sub"><span data-en>Nonconformance, root cause &amp; records</span><span data-es>No conformidades, causa raíz y registros</span></div>
@@ -8707,6 +8707,7 @@ function logVeritivSpotCheck() {
   ipUpdate(continueJobId, { veritivSpotChecks: existing });
   if (qtyInput) qtyInput.value = '';
   renderVeritivSpotCheckLog(existing);
+  _renderPkLatestSpotCheckLine(existing);
   showToast('Spot check logged', 'pass');
 }
 
@@ -8746,6 +8747,7 @@ function logSpotCheckBox() {
   existing.push({ ts: formatTS(), epoch: Date.now(), qty: runningTotal + boxSize, viaBox: true });
   ipUpdate(continueJobId, { veritivSpotChecks: existing, spotCheckPiecesPerBox: boxSize });
   renderVeritivSpotCheckLog(existing);
+  _renderPkLatestSpotCheckLine(existing);
   showToast('+1 box logged', 'pass');
 }
 
@@ -8786,7 +8788,7 @@ function _boxCheckConfirmResolve(ok) {
   if (idx < 0) return;
   existing[idx].qty = qty;
   ipUpdate(pending.jobId, { veritivSpotChecks: existing });
-  if (pending.jobId === continueJobId) renderVeritivSpotCheckLog(existing);
+  if (pending.jobId === continueJobId) { renderVeritivSpotCheckLog(existing); _renderPkLatestSpotCheckLine(existing); }
   showToast('Spot check updated', 'pass');
 }
 
@@ -8805,6 +8807,7 @@ function undoLastSpotCheck() {
   existing.splice(lastIdx, 1);
   ipUpdate(continueJobId, { veritivSpotChecks: existing });
   renderVeritivSpotCheckLog(existing);
+  _renderPkLatestSpotCheckLine(existing);
   showToast('Last spot check removed', 'pass');
 }
 
@@ -8813,6 +8816,23 @@ function _spotCheckGaps(checks) {
   var gaps = [];
   for (var i = 1; i < sorted.length; i++) { gaps.push((sorted[i].qty||0) - (sorted[i-1].qty||0)); }
   return { sorted: sorted, gaps: gaps, worstGap: gaps.length ? Math.max.apply(null, gaps) : 0 };
+}
+
+// Job Summary card (top of the popup) only ever showed the job's static
+// fields — Started, Qty to Execute, etc. — so a spot check logged further
+// down never showed up anywhere visible without scrolling into the Spot
+// Check Log card itself. This mirrors just the most recent one up top too,
+// and is called from every place a check gets logged/edited/undone so it
+// never goes stale mid-session.
+function _renderPkLatestSpotCheckLine(checks) {
+  var el = document.getElementById('cm-prod-summary-pk-latest-spotcheck');
+  if (!el) return;
+  checks = checks || [];
+  if (!checks.length) { el.innerHTML = ''; return; }
+  var latest = checks.reduce(function(a, b){ return (b.epoch||0) > (a.epoch||0) ? b : a; });
+  var isEs = isEsLang();
+  el.innerHTML = '<strong>' + (isEs ? 'Última Verificación:' : 'Latest Spot Check:') + '</strong> ' +
+    (latest.qty||0).toLocaleString() + ' ' + (isEs ? 'pzs' : 'pcs') + ' — ' + escHtml(latest.ts||'');
 }
 
 function renderVeritivSpotCheckLog(checks) {
@@ -10829,10 +10849,12 @@ function _renderProdSummary(job) {
       (job.first25Notes ? '<div><strong>' + (_prodSumEs?'Notas del Problema:':'Issue Notes:') + '</strong> ' + escHtml(job.first25Notes) + '</div>' : '') +
       (job.first25Notified ? '<div><strong>' + (_prodSumEs?'Notificó a Calidad/Gerente:':'Notified QA/Manager:') + '</strong> ' + escHtml(job.first25Notified) + (job.first25NotNotifiedReason ? ' — ' + escHtml(job.first25NotNotifiedReason) : '') + '</div>' : '') +
       '<div><strong>' + (_prodSumEs?'Iniciado:':'Started:') + '</strong> '     + escHtml(job.timestamp||'—')      + '</div>' +
+      '<div id="cm-prod-summary-pk-latest-spotcheck"></div>' +
       '</div>';
     if (summaryPk) summaryPk.innerHTML = _pkHtml;
     _prodSumClear(summaryPk);
     renderVeritivSpotCheckLog(job.veritivSpotChecks || []);
+    _renderPkLatestSpotCheckLine(job.veritivSpotChecks || []);
     var _boxSizeInput = document.getElementById('cm-prod-spotcheck-box-size');
     if (_boxSizeInput) _boxSizeInput.value = job.spotCheckPiecesPerBox || '';
   } else {
