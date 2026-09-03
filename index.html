@@ -17824,11 +17824,82 @@ function setShippingViewMode(mode){
 }
 
 var SHIPPING_APPROVAL_STATIONS = ['Bindery Cutter', 'Pressroom Cutter', 'Long Gluer', 'Short Gluer', 'Packing'];
+
+// ══════════════════════════════════════════════════════════════════════
+// TEMPORARY — TESTING ONLY. While true, every job that reaches Shipping
+// Approval is approved automatically in the background (no modal, no
+// human review) with a generic "everything passed" record — Transport
+// Rate: Freight, one generic black-squiggle signature — and lands
+// straight in Records. This exists purely so testing/demo data can move
+// through the app without hand-approving each shipment.
+//
+// Shipping Approval is normally the app's real, human, "final and
+// irreversible" sign-off gate before a job ships (see the confirm text in
+// submitShippingApproval below) — this flag bypasses that gate entirely.
+//
+// >>> SET THIS BACK TO false BEFORE THE APP GOES LIVE. <<<
+// ══════════════════════════════════════════════════════════════════════
+var SHIP_AUTO_APPROVE_TESTING = true;
+
+// Cached so every auto-approved job gets the literal same signature image
+// (one generic squiggle), rather than regenerating a new one per job.
+var _genericShipSignatureCache = null;
+function _genericShipSignatureDataURL(){
+  if (_genericShipSignatureCache) return _genericShipSignatureCache;
+  var c = document.createElement('canvas');
+  c.width = 500; c.height = 160;
+  var ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(55, 100);
+  ctx.bezierCurveTo(105, 40, 135, 145, 185, 80);
+  ctx.bezierCurveTo(225, 30, 255, 125, 300, 90);
+  ctx.bezierCurveTo(340, 58, 375, 112, 425, 85);
+  ctx.stroke();
+  _genericShipSignatureCache = c.toDataURL('image/png');
+  return _genericShipSignatureCache;
+}
+// Mirrors the shipping object submitShippingApproval() builds by hand, so
+// an auto-approved job looks identical to a normally-approved one anywhere
+// it's later displayed (job detail popup, Records, NCR summary, etc.) —
+// just with SHIP_AUTO_APPROVE_TESTING-flagged values.
+function _shipAutoApproveJob(job){
+  var shipping = {
+    passFail: 'pass',
+    transportRate: 'Freight',
+    vehicleCondition: 'Satisfactory',
+    sealLock: 'Yes',
+    dimensionApproval: 'Yes',
+    labelApplied: 'Yes',
+    productIdMatch: 'Yes',
+    cutterPicture: job.mrPhoto || null,
+    signature: _genericShipSignatureDataURL(),
+    signatureAt: formatTS(),
+    _autoApprovedTesting: true
+  };
+  ipUpdate(job.id, { shippingApproved: true, shippingApprovedAt: formatTS(), shipping: shipping,
+    stageHistory: _stageSnapshot(_getJobStageHistory(job.id), 'shipping_approval', 'Shipping Approval — Auto-Approved (Testing)', {
+      passFail: shipping.passFail, transportRate: shipping.transportRate, vehicleCondition: shipping.vehicleCondition,
+      sealLock: shipping.sealLock, dimensionApproval: shipping.dimensionApproval, labelApplied: shipping.labelApplied,
+      productIdMatch: shipping.productIdMatch, cutterPicture: shipping.cutterPicture, signature: shipping.signature
+    })
+  });
+}
 function _shippingPendingJobs(){
-  return ipLoad().filter(function(j){
+  var pending = ipLoad().filter(function(j){
     return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
       SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
   });
+  if (SHIP_AUTO_APPROVE_TESTING && pending.length){
+    pending.forEach(_shipAutoApproveJob);
+    return [];
+  }
+  return pending;
 }
 
 function updateShippingBadge(){
