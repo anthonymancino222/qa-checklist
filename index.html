@@ -17884,13 +17884,16 @@ function _genericShipSignatureDataURL(){
 // it's later displayed (job detail popup, Records, NCR summary, etc.) —
 // just with SHIP_AUTO_APPROVE_TESTING-flagged values.
 //
-// Mutates `job` IN PLACE and does NOT call ipUpdate/ipSave itself — a job
-// that just froze the entire app (and took the machine down with it) came
-// from calling ipUpdate() once per pending job here: every ipSave()
-// re-JSON.stringifies + localStorage-writes + network-POSTs the ENTIRE
-// jobs array (photos and all) AND triggers a full renderRecords(), so N
-// pending jobs meant N of all that back-to-back in one synchronous tick.
-// _shippingPendingJobs() below now does ONE ipSave() for the whole batch.
+// Mutates `job` IN PLACE and does NOT call ipUpdate/ipSave itself — batched
+// by _shipAutoApproveInChunks() below, not called per-job directly.
+//
+// Deliberately does NOT copy job.mrPhoto into shipping.cutterPicture (the
+// normal manual flow does — see submitShippingApproval — since a real
+// approver is reviewing that specific photo). For an auto-approved test
+// record that's just a second full copy of the same base64 image sitting
+// inside the same job object for no reason; the job's own mrPhoto is still
+// there for anything that wants to show a picture. Cutting this out roughly
+// halves the added weight per auto-approved job.
 function _shipAutoApproveJob(job){
   var shipping = {
     passFail: 'pass',
@@ -17900,7 +17903,7 @@ function _shipAutoApproveJob(job){
     dimensionApproval: 'Yes',
     labelApplied: 'Yes',
     productIdMatch: 'Yes',
-    cutterPicture: job.mrPhoto || null,
+    cutterPicture: null,
     signature: _genericShipSignatureDataURL(),
     signatureAt: formatTS(),
     _autoApprovedTesting: true
@@ -17914,15 +17917,41 @@ function _shipAutoApproveJob(job){
     productIdMatch: shipping.productIdMatch, cutterPicture: shipping.cutterPicture, signature: shipping.signature
   });
 }
+// A single batched ipSave() (see prior commit) fixed the "one massive save
+// per job" freeze, but a big enough backlog is still one massive save,
+// period — JSON.stringify + localStorage.setItem + a full network POST of
+// the ENTIRE jobs array, still done synchronously in one go, still enough
+// to hang the tab (and, at real scale, the machine) for a long stretch.
+//
+// This processes the backlog in small chunks with a setTimeout between each
+// one, handing control back to the browser after every chunk so it never
+// goes unresponsive — same total work, just spread out instead of dumped
+// in one tick. _shipAutoApproveRunning guards against starting a second
+// overlapping sweep if the Shipping screen gets revisited mid-sweep.
+var SHIP_AUTO_APPROVE_CHUNK_SIZE = 10;
+var _shipAutoApproveRunning = false;
+function _shipAutoApproveInChunks(){
+  if (_shipAutoApproveRunning) return;
+  _shipAutoApproveRunning = true;
+  (function step(){
+    var all = ipLoad();
+    var pending = all.filter(function(j){
+      return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
+        SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
+    });
+    if (!pending.length){ _shipAutoApproveRunning = false; return; }
+    pending.slice(0, SHIP_AUTO_APPROVE_CHUNK_SIZE).forEach(_shipAutoApproveJob);
+    ipSave(all);
+    setTimeout(step, 60);
+  })();
+}
 function _shippingPendingJobs(){
-  var all = ipLoad();
-  var pending = all.filter(function(j){
+  var pending = ipLoad().filter(function(j){
     return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
       SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
   });
   if (SHIP_AUTO_APPROVE_TESTING && pending.length){
-    pending.forEach(_shipAutoApproveJob);
-    ipSave(all); // one save/push/render for the whole batch, not one per job
+    _shipAutoApproveInChunks(); // runs in the background; doesn't block this call
     return [];
   }
   return pending;
