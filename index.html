@@ -8900,22 +8900,45 @@ function renderVeritivSpotCheckLog(checks) {
   }).join('');
 }
 
+// Read-only spot-check summary shown on the QA review screen (as opposed
+// to renderVeritivSpotCheckLog, the editable version shown to the packer
+// during production). Individual entries used to be crammed into one long
+// " · "-joined paragraph — unreadable once a run had 20+ checks logged.
+// Now each is its own row (same look as the editable list), tucked behind
+// a collapsible toggle that starts CLOSED — the pass/fail badge line above
+// already tells QA what they need to know at a glance; the full list is
+// there to check into, not something that should dominate the screen by
+// default.
+function _toggleSpotCheckSummaryCollapse(btn) {
+  var body = document.getElementById('veritiv-spotcheck-summary-list');
+  if (!body) return;
+  var isEs = isEsLang();
+  var opening = body.style.display === 'none';
+  body.style.display = opening ? 'flex' : 'none';
+  if (btn) btn.textContent = (opening ? '▴ ' : '▾ ') + (isEs ? 'Ver cada verificación' : 'View each check');
+}
 function _veritivSpotCheckSummaryHTML(checks) {
   checks = checks || [];
   if (!checks.length) {
     return '<div style="margin-top:10px;padding:10px 12px;background:#fbeaea;border:1px solid var(--red);border-radius:8px;font-size:15px;font-weight:700;color:var(--red);">⚠ No spot checks logged during this run</div>';
   }
+  var isEs = isEsLang();
   var g = _spotCheckGaps(checks);
   var isGood = g.worstGap <= SPOT_CHECK_TARGET_QTY;
   var bg = isGood ? 'rgba(22,163,74,.08)' : '#fbeaea';
   var border = isGood ? 'var(--green)' : 'var(--red)';
   var color = isGood ? 'var(--green)' : 'var(--red)';
   var icon = isGood ? '✓' : '⚠';
+  var rows = g.sorted.map(function(c){
+    return '<div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--text-primary);">' +
+      escHtml(c.ts) + ' — ' + (c.qty||0).toLocaleString() + (isEs ? ' pzs' : ' pcs') + '</div>';
+  }).join('');
   return '<div style="margin-top:10px;padding:10px 12px;background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;font-size:15px;font-weight:700;color:' + color + ';">' +
     icon + ' ' + g.sorted.length + ' spot check' + (g.sorted.length===1?'':'s') + ' logged' +
     (g.gaps.length ? ' — largest gap ' + g.worstGap.toLocaleString() + ' pcs (target: every ' + SPOT_CHECK_TARGET_QTY.toLocaleString() + ' pcs or 2 boxes)' : '') +
     '</div>' +
-    '<div style="margin-top:6px;font-size:13.5px;color:var(--text-tertiary);">' + g.sorted.map(function(c){ return escHtml(c.ts) + ' (' + (c.qty||0).toLocaleString() + ' pcs)'; }).join(' · ') + '</div>';
+    '<button type="button" class="checklist-collapse-toggle" style="margin:8px 0;" onclick="_toggleSpotCheckSummaryCollapse(this)">▾ ' + (isEs ? 'Ver cada verificación' : 'View each check') + '</button>' +
+    '<div id="veritiv-spotcheck-summary-list" style="display:none;flex-direction:column;gap:6px;">' + rows + '</div>';
 }
 
 var quickNoteJobId = null;
