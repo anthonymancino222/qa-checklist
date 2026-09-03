@@ -3306,19 +3306,18 @@ try {
       </div>
     </div>
 
-    <!-- Box-check confirm — a dedicated small overlay rather than reusing
-         showConfirm() (that one is plain-text-only, no room for an editable
-         field). Shows the computed running total (current total + pieces
-         per box) before it's actually logged, and lets the number be
-         corrected right there — catches an accidental extra tap AND a wrong
-         running-total assumption in the same step, instead of silently
-         logging whatever the math worked out to. -->
+    <!-- Spot-check edit overlay — a dedicated small overlay rather than
+         reusing showConfirm() (that one is plain-text-only, no room for an
+         editable field). Opened by the ✏️ icon on a logged spot-check row
+         (see editSpotCheck) to correct that entry's qty after the fact —
+         +1 Box Checked itself logs immediately with no confirm step, this
+         is purely the "fix a mistake" path. -->
     <div class="continue-overlay" id="boxCheckConfirmOverlay" onclick="if(event.target===this)_boxCheckConfirmResolve(false)">
       <div class="continue-modal" style="max-width:380px;width:100%;">
         <div style="padding:24px 20px 6px;">
-          <div style="font-size:17px;font-weight:800;color:var(--text-primary);margin-bottom:10px;"><span data-en>Log this spot check?</span><span data-es>¿Registrar esta verificación?</span></div>
+          <div id="box-check-confirm-title" style="font-size:17px;font-weight:800;color:var(--text-primary);margin-bottom:10px;"><span data-en>Edit spot check</span><span data-es>Editar verificación</span></div>
           <div id="box-check-confirm-detail" style="font-size:14px;color:var(--text-secondary);line-height:1.55;margin-bottom:14px;"></div>
-          <div class="card-label"><span data-en>Total pieces checked so far</span><span data-es>Total de piezas verificadas hasta ahora</span></div>
+          <div class="card-label"><span data-en>Total pieces checked</span><span data-es>Total de piezas verificadas</span></div>
           <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
             <button class="qty-btn" onclick="stepQty('box-check-confirm-qty',-1)">−</button>
             <input class="input qty-input" id="box-check-confirm-qty" type="text" inputmode="numeric" value="0" oninput="_qtyFormatLive(this)" style="text-align:center;flex:1;font-family:var(--mono);font-size:18px;font-weight:700;">
@@ -8728,12 +8727,11 @@ function saveSpotCheckBoxSize(val) {
 // logged in strict chronological order if a mistake gets corrected), so a
 // tap always adds one box on top of the real current total either way.
 //
-// Doesn't log immediately — opens boxCheckConfirmOverlay showing the
-// computed total with a chance to correct it first. Two things this
-// catches: an accidental extra tap of the button, and the total being
-// wrong because the running-total assumption above didn't match reality
-// (e.g. a check was logged out of band some other way).
-var _pendingBoxCheck = null; // { jobId, boxSize } while the confirm overlay is open
+// Logs immediately, one tap = one box — no confirm step. A pre-log confirm
+// dialog was tried first but made the button itself feel like it wasn't
+// actually doing anything on tap, which was more confusing than helpful.
+// Mistakes get fixed after the fact instead, via the ✏️ edit icon on each
+// logged row (see editSpotCheck below) or Undo Last Check.
 function logSpotCheckBox() {
   if (!continueJobId) return;
   var boxSizeInput = document.getElementById('cm-prod-spotcheck-box-size');
@@ -8743,21 +8741,39 @@ function logSpotCheckBox() {
   var job = null;
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === continueJobId) { job = jobs[i]; break; } }
   if (!job) return;
-  var existing = job.veritivSpotChecks || [];
+  var existing = job.veritivSpotChecks ? JSON.parse(JSON.stringify(job.veritivSpotChecks)) : [];
   var runningTotal = existing.length ? Math.max.apply(null, existing.map(function(c){ return c.qty || 0; })) : 0;
-  var proposedTotal = runningTotal + boxSize;
-  _pendingBoxCheck = { jobId: continueJobId, boxSize: boxSize };
+  existing.push({ ts: formatTS(), epoch: Date.now(), qty: runningTotal + boxSize, viaBox: true });
+  ipUpdate(continueJobId, { veritivSpotChecks: existing, spotCheckPiecesPerBox: boxSize });
+  renderVeritivSpotCheckLog(existing);
+  showToast('+1 box logged', 'pass');
+}
+
+// ✏️ edit icon on a logged spot-check row (see renderVeritivSpotCheckLog) —
+// reuses the same boxCheckConfirmOverlay markup, repurposed here to correct
+// an existing entry's qty rather than propose a new one. Confirm just saves
+// straight away, no second "are you sure" on top of it.
+var _editingSpotCheck = null; // { jobId, epoch } while the edit overlay is open
+function editSpotCheck(epoch) {
+  if (!continueJobId) return;
+  var jobs = ipLoad();
+  var job = null;
+  for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === continueJobId) { job = jobs[i]; break; } }
+  var entry = job && (job.veritivSpotChecks || []).filter(function(c){ return c.epoch === epoch; })[0];
+  if (!entry) return;
+  _editingSpotCheck = { jobId: continueJobId, epoch: epoch };
   var isEs = isEsLang();
+  document.getElementById('box-check-confirm-title').textContent = isEs ? 'Editar verificación' : 'Edit spot check';
   document.getElementById('box-check-confirm-detail').textContent = isEs
-    ? ('Total actual: ' + runningTotal.toLocaleString() + ' pzs + ' + boxSize.toLocaleString() + ' pzs por caja.')
-    : ('Current total: ' + runningTotal.toLocaleString() + ' pcs + ' + boxSize.toLocaleString() + ' pcs per box.');
-  document.getElementById('box-check-confirm-qty').value = proposedTotal.toLocaleString('en-US');
+    ? ('Registrado ' + entry.ts)
+    : ('Logged ' + entry.ts);
+  document.getElementById('box-check-confirm-qty').value = (entry.qty || 0).toLocaleString('en-US');
   document.getElementById('boxCheckConfirmOverlay').classList.add('open');
 }
 function _boxCheckConfirmResolve(ok) {
   document.getElementById('boxCheckConfirmOverlay').classList.remove('open');
-  var pending = _pendingBoxCheck;
-  _pendingBoxCheck = null;
+  var pending = _editingSpotCheck;
+  _editingSpotCheck = null;
   if (!ok || !pending) return;
   var qty = _qtyClean(document.getElementById('box-check-confirm-qty').value);
   if (!qty || qty < 1) { showAlert('Enter a quantity greater than 0.'); return; }
@@ -8766,10 +8782,12 @@ function _boxCheckConfirmResolve(ok) {
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === pending.jobId) { job = jobs[i]; break; } }
   if (!job) return;
   var existing = job.veritivSpotChecks ? JSON.parse(JSON.stringify(job.veritivSpotChecks)) : [];
-  existing.push({ ts: formatTS(), epoch: Date.now(), qty: qty, viaBox: true });
-  ipUpdate(pending.jobId, { veritivSpotChecks: existing, spotCheckPiecesPerBox: pending.boxSize });
+  var idx = existing.length ? existing.map(function(c){return c.epoch;}).indexOf(pending.epoch) : -1;
+  if (idx < 0) return;
+  existing[idx].qty = qty;
+  ipUpdate(pending.jobId, { veritivSpotChecks: existing });
   if (pending.jobId === continueJobId) renderVeritivSpotCheckLog(existing);
-  showToast('+1 box logged', 'pass');
+  showToast('Spot check updated', 'pass');
 }
 
 // Removes whichever spot check was logged most recently — regardless of
@@ -8814,7 +8832,10 @@ function renderVeritivSpotCheckLog(checks) {
   listEl.innerHTML = g.sorted.slice().reverse().map(function(c, idx) {
     var realIdx = g.sorted.length - 1 - idx;
     var gapText = realIdx > 0 ? ' <span style="color:var(--text-tertiary);">(+' + ((g.sorted[realIdx].qty||0) - (g.sorted[realIdx-1].qty||0)).toLocaleString() + ' pcs since prior)</span>' : '';
-    return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:15px;">🔒 ' + escHtml(c.ts) + ' — ' + (c.qty||0).toLocaleString() + ' pcs' + gapText + '</div>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:15px;">' +
+      '<div>🔒 ' + escHtml(c.ts) + ' — ' + (c.qty||0).toLocaleString() + ' pcs' + gapText + '</div>' +
+      '<button type="button" onclick="editSpotCheck(' + (c.epoch||0) + ')" title="Edit this spot check" aria-label="Edit this spot check" style="flex-shrink:0;background:transparent;border:none;font-size:16px;cursor:pointer;padding:2px 4px;opacity:.6;">✏️</button>' +
+      '</div>';
   }).join('');
 }
 
