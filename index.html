@@ -1192,6 +1192,20 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .home-card-sub { font-size: 13.5px; color: var(--text-secondary); line-height: 1.4; }
 @media (min-width: 620px) {
   .home-card-list { display: grid; grid-template-columns: 1fr 1fr; }
+  .home-card-start { grid-column: 1 / -1; }
+}
+/* QC Approval is where every new job/product entry actually starts — made
+   visually distinct (not just another tile in the grid) so a new or
+   unsure operator's eye lands there first, full-width on wider screens. */
+.home-card-start {
+  border: 2px solid var(--pink) !important;
+  border-left-width: 6px !important;
+  background: var(--pink-soft);
+  box-shadow: 0 0 0 3px rgba(255,31,143,.1);
+}
+.home-card-start-badge {
+  display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: #fff; background: var(--pink); padding: 3px 10px; border-radius: 999px; margin-bottom: 6px;
 }
 .bnav-alert-dot { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; display: none; }
 
@@ -2015,11 +2029,12 @@ try {
         <div class="home-hero-sub"><span data-en>Where would you like to go?</span><span data-es>¿A dónde le gustaría ir?</span></div>
       </div>
       <div class="home-card-list">
-        <div class="home-card" style="border-left-color:var(--steel);" onclick="switchView('qc')" title="QC Approval">
-          <div class="home-card-icon" style="color:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
+        <div class="home-card home-card-start" style="border-left-color:var(--pink);" onclick="switchView('qc')" title="QC Approval — start here for a new job or product">
+          <div class="home-card-icon" style="color:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
           <div class="home-card-text">
+            <div class="home-card-start-badge">👉 <span data-en>Start Here</span><span data-es>Empiece Aquí</span></div>
             <div class="home-card-title"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></div>
-            <div class="home-card-sub"><span data-en>Enter job details, then inspect each product.</span><span data-es>Ingrese los detalles del trabajo y luego inspeccione cada producto.</span></div>
+            <div class="home-card-sub"><span data-en>New job or new product? Enter job details, then inspect each product.</span><span data-es>¿Trabajo o producto nuevo? Ingrese los detalles del trabajo y luego inspeccione cada producto.</span></div>
           </div>
         </div>
         <div class="home-card" style="border-left-color:var(--amber);" onclick="switchView('inprogress')" title="Job in Progress">
