@@ -1773,7 +1773,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 
 <!-- Header -->
 <header class="app-header">
-  <div>
+  <div onclick="switchView('home')" style="cursor:pointer;" title="Home">
     <div class="brand-co">Moquin Press · Quality</div>
     <div class="brand-name">QA System</div>
   </div>
@@ -1876,8 +1876,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   <nav class="sidebar" id="sidebar">
     <div class="menu-btn" onclick="toggleSidebar()" title="Expand menu" aria-label="Toggle menu">☰</div>
     <div class="nav-group">
+      <div class="nav-item active" id="nav-home" onclick="switchView('home')" title="Home">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg></span><span class="nav-label"><span data-en>Home</span><span data-es>Inicio</span></span>
+      </div>
+    </div>
+    <div class="nav-group">
       <div class="nav-group-label"><span data-en>Approvals</span><span data-es>Aprobaciones</span></div>
-      <div class="nav-item active" id="nav-qc" onclick="switchView('qc')" title="QC Approval">
+      <div class="nav-item" id="nav-qc" onclick="switchView('qc')" title="QC Approval">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></span><span class="nav-label"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></span>
       </div>
       <div class="nav-item" id="nav-inprogress" onclick="switchView('inprogress')" title="Job in Progress">
@@ -1907,8 +1912,46 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   <!-- Main content -->
   <main class="main" id="mainContent">
 
+    <!-- ══ HOME ══ — landing screen after sign-in. Just a launcher grid of
+         tiles to the real screens below; reuses the .qa-dash-grid pattern
+         from view-qa so the app doesn't invent a second visual language for
+         "pick where to go". Keeps the first tap after sign-in low-stakes
+         instead of dropping straight into QC data entry. -->
+    <div id="view-home" class="screen active">
+      <div class="view-header">
+        <div class="view-title"><span data-en>Welcome</span><span data-es>Bienvenido</span></div>
+        <div class="view-sub"><span data-en>Where would you like to go?</span><span data-es>¿A dónde le gustaría ir?</span></div>
+      </div>
+      <div class="qa-dash-grid">
+        <div class="qa-dash-icon" onclick="switchView('qc')" title="QC Approval">
+          <div class="qa-dash-icon-tile" style="background:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('inprogress')" title="Job in Progress">
+          <div class="qa-dash-icon-tile" style="background:var(--amber);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>Job in Progress</span><span data-es>Trabajo en Progreso</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('qarelease')" title="QA Release">
+          <div class="qa-dash-icon-tile" style="background:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>QA Release</span><span data-es>Liberación de Calidad</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('shipping')" title="Shipping Approval">
+          <div class="qa-dash-icon-tile" style="background:var(--red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>Shipping Approval</span><span data-es>Aprobación de Envío</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('qa')" title="QA">
+          <div class="qa-dash-icon-tile" style="background:var(--black);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>QA</span><span data-es>Calidad</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('faq')" title="Help / FAQ">
+          <div class="qa-dash-icon-tile" style="background:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>Help / FAQ</span><span data-es>Ayuda / Preguntas</span></span>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ QC APPROVAL ══ -->
-    <div id="view-qc" class="screen active">
+    <div id="view-qc" class="screen">
 
       <!-- Screen: Setup -->
       <div id="qc-setup" class="screen active">
@@ -19921,7 +19964,11 @@ window.addEventListener('storage', function(e){
 <!-- Mobile bottom navigation -->
 <nav class="bottom-nav" id="bottomNav">
   <div class="bnav-row">
-    <button class="bnav-item active" id="bnav-qc" onclick="switchView('qc')">
+    <button class="bnav-item active" id="bnav-home" onclick="switchView('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>
+      <span class="bnav-label">Home</span>
+    </button>
+    <button class="bnav-item" id="bnav-qc" onclick="switchView('qc')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
       <span class="bnav-label">QC</span>
     </button>
