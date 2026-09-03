@@ -8403,7 +8403,7 @@ function renderSplitQtyInputs(n) {
   wrap.appendChild(header);
   for (var i = 0; i < n; i++) {
     var block = document.createElement('div');
-    block.style.cssText = 'border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc;display:flex;flex-direction:column;gap:8px;';
+    block.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface-raised);display:flex;flex-direction:column;gap:8px;';
     block.innerHTML =
       '<div style="font-size:15px;font-weight:700;color:var(--text-primary);">' + (isEs?'Envío ':'Shipment ') + (i+1) + '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -8653,7 +8653,7 @@ function renderQANotesList(notes, containerId) {
     return;
   }
   el.innerHTML = notes.map(function(n) {
-    return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;">' +
+    return '<div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">' +
       '<div style="font-size:13.5px;color:var(--text-tertiary);margin-bottom:4px;display:flex;justify-content:space-between;">' +
         '<span style="color:#0ea5e9;font-weight:700;">🔒 Locked</span>' +
         '<span>' + n.ts + '</span>' +
@@ -9077,7 +9077,7 @@ function renderPkSplitQtyInputs(n) {
   wrap.appendChild(header);
   for (var i = 0; i < n; i++) {
     var block = document.createElement('div');
-    block.style.cssText = 'border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;background:#f8fafc;display:flex;flex-direction:column;gap:8px;';
+    block.style.cssText = 'border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface-raised);display:flex;flex-direction:column;gap:8px;';
     block.innerHTML =
       '<div style="font-size:15px;font-weight:700;color:var(--text-primary);">' + (isEs?'Envío ':'Shipment ') + (i+1) + '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
