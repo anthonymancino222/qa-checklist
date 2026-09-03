@@ -731,6 +731,42 @@ textarea.input {
 .cust-no-results { padding: 10px 13px; font-size: 15px; color: var(--text-tertiary); }
 .customer-other-wrap { margin-top: 7px; display: none; }
 
+/* ── List filter popovers (Station / CAD Style — Job in Progress, QA
+   Release, Shipping Approval, Records) — a checkbox-list popover instead of
+   a native <select multiple>, since ctrl/cmd-click multi-select doesn't
+   work on the shop-floor tablets this app runs on. ── */
+.filter-pop-wrap { position: relative; flex: 0 0 auto; }
+.filter-pop-btn {
+  flex: 0 0 auto; padding: 9px 12px; font-size: 13.5px; font-weight: 700;
+  font-family: var(--font);
+  background: var(--surface); border: 1.5px solid var(--border-mid); border-radius: var(--radius);
+  color: var(--text-primary); cursor: pointer; white-space: nowrap;
+}
+.filter-pop-btn.active { background: var(--pink-soft); border-color: var(--pink); color: var(--pink); }
+.filter-pop-badge {
+  display: inline-block; min-width: 16px; padding: 0 4px; margin-left: 4px; border-radius: 8px;
+  background: var(--pink); color: #fff; font-size: 11px; font-weight: 800; line-height: 16px; text-align: center;
+}
+.filter-popover {
+  position: absolute; top: calc(100% + 4px); right: 0; min-width: 220px; max-width: 280px;
+  background: var(--surface); border: 1.5px solid var(--border-mid);
+  border-radius: var(--radius); box-shadow: 0 6px 20px rgba(0,0,0,.15);
+  max-height: 320px; overflow-y: auto; z-index: 200; padding: 8px;
+}
+.filter-chk-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 6px; font-size: 14px; font-weight: 500;
+  color: var(--text-primary); cursor: pointer; border-radius: 6px;
+}
+.filter-chk-row:hover { background: var(--pink-soft); }
+.filter-chk-row input[type=checkbox] { width: 17px; height: 17px; flex: 0 0 auto; }
+.filter-pop-actions { display: flex; gap: 6px; padding: 6px 6px 2px; border-top: 1px solid var(--border); margin-top: 4px; }
+.filter-pop-actions button {
+  flex: 1; padding: 6px 8px; font-size: 12.5px; font-weight: 700; border-radius: 6px; cursor: pointer;
+  font-family: var(--font);
+  background: var(--surface-raised); border: 1px solid var(--border-mid); color: var(--text-secondary);
+}
+.filter-pop-empty { padding: 10px 6px; font-size: 13px; color: var(--text-tertiary); }
+
 /* ── Job picker (tap-only job/product selection) ── */
 .job-picker-row {
   display: block; width: 100%; text-align: left; font-family: var(--font);
@@ -2557,10 +2593,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <select id="ip-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setIPSortMode(this.value)">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
-            <option value="station">By station (A-Z)</option>
-            <option value="customer">By customer (A-Z)</option>
-            <option value="cad">By CAD style (A-Z)</option>
           </select>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="ip-station-filter-btn" onclick="toggleFilterPopover('ip','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="ip-station-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="ip-station-filter-pop" style="display:none;"></div>
+          </div>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="ip-cad-filter-btn" onclick="toggleFilterPopover('ip','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="ip-cad-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="ip-cad-filter-pop" style="display:none;"></div>
+          </div>
         </div>
       </div>
       <!-- Was a mirrored horizontal scrollbar for ip-kanban-wrap — obsolete
@@ -3430,10 +3471,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <select id="qa-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setQASortMode(this.value)">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
-            <option value="station">By station (A-Z)</option>
-            <option value="customer">By customer (A-Z)</option>
-            <option value="cad">By CAD style (A-Z)</option>
           </select>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="qa-station-filter-btn" onclick="toggleFilterPopover('qa','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="qa-station-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="qa-station-filter-pop" style="display:none;"></div>
+          </div>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="qa-cad-filter-btn" onclick="toggleFilterPopover('qa','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="qa-cad-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="qa-cad-filter-pop" style="display:none;"></div>
+          </div>
         </div>
       </div>
       <div id="qa-release-list" style="padding:0 16px 24px;"></div>
@@ -3455,10 +3501,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <select id="ship-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setShipSortMode(this.value)">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
-            <option value="station">By station (A-Z)</option>
-            <option value="customer">By customer (A-Z)</option>
-            <option value="cad">By CAD style (A-Z)</option>
           </select>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="ship-station-filter-btn" onclick="toggleFilterPopover('ship','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="ship-station-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="ship-station-filter-pop" style="display:none;"></div>
+          </div>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="ship-cad-filter-btn" onclick="toggleFilterPopover('ship','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="ship-cad-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="ship-cad-filter-pop" style="display:none;"></div>
+          </div>
         </div>
       </div>
       <div id="shipping-list" style="padding:0 16px 24px;"></div>
@@ -3970,10 +4021,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <select id="records-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setRecordsSortMode(this.value)">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
-            <option value="station">By station (A-Z)</option>
-            <option value="customer">By customer (A-Z)</option>
-            <option value="cad">By CAD style (A-Z)</option>
           </select>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="records-station-filter-btn" onclick="toggleFilterPopover('records','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="records-station-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="records-station-filter-pop" style="display:none;"></div>
+          </div>
+          <div class="filter-pop-wrap">
+            <button type="button" class="filter-pop-btn" id="records-cad-filter-btn" onclick="toggleFilterPopover('records','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="records-cad-filter-badge"></span> ▾</button>
+            <div class="filter-popover" id="records-cad-filter-pop" style="display:none;"></div>
+          </div>
         </div>
         <div id="records-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button type="button" class="tgl sel" data-recfilter="all" onclick="setRecordsFilter('all',this)"><span data-en>All</span><span data-es>Todos</span></button>
@@ -5879,12 +5935,16 @@ function _syncSortSelect(selectId, mode) {
 // _translateStationSelects() pattern (static <option> markup, English by
 // default, re-labeled here on language toggle) since <option> can't hold
 // data-en/data-es spans the way buttons/divs do.
+// station/customer/cad used to be sort-order options here too, but station
+// and CAD style are now real filters (see LIST FILTERS below, which narrow
+// what's shown instead of just reordering it) — customer sort was removed
+// alongside them since narrowing to just Newest/Oldest keeps this control
+// doing one job. _applySortMode below still accepts those mode values
+// (harmless, just unreachable from the UI now) rather than being trimmed,
+// so nothing else that calls it needs to change.
 var _SORT_OPTION_LABELS = {
-  newest:   ['Newest first', 'Más reciente primero'],
-  oldest:   ['Oldest first', 'Más antiguo primero'],
-  station:  ['By station (A-Z)', 'Por estación (A-Z)'],
-  customer: ['By customer (A-Z)', 'Por cliente (A-Z)'],
-  cad:      ['By CAD style (A-Z)', 'Por estilo CAD (A-Z)']
+  newest: ['Newest first', 'Más reciente primero'],
+  oldest: ['Oldest first', 'Más antiguo primero']
 };
 function _translateSortSelects() {
   var isEs = isEsLang();
@@ -5897,6 +5957,169 @@ function _translateSortSelects() {
     });
   });
 }
+/* ══════════════════════════════════
+   LIST FILTERS (Station / CAD Style) — Job in Progress, QA Release,
+   Shipping Approval, Records. These NARROW which records show (unlike the
+   sort control above, which only reorders); layered on top of the existing
+   search box, applied AFTER search but BEFORE sort, and — for Shipping —
+   before the page-size slice. A checkbox-list popover is used instead of a
+   native <select multiple> since ctrl/cmd-click multi-select doesn't work
+   on the shop-floor tablets this app runs on (see .filter-popover CSS).
+   Persisted separately from SORT_MODE_KEY (different shape — arrays, not a
+   single string) but same consolidated-JSON-in-localStorage pattern.
+   Default/empty selection means "no filter, show all" for that field.
+══════════════════════════════════ */
+var LIST_FILTER_KEY = 'moquin-qa-list-filters';
+function _getListFilters() {
+  try { return JSON.parse(localStorage.getItem(LIST_FILTER_KEY)) || {}; } catch(e) { return {}; }
+}
+function _getSectionFilters(storeKey) {
+  var f = _getListFilters()[storeKey] || {};
+  return { stations: f.stations || [], cad: f.cad || [] };
+}
+function _setSectionFilters(storeKey, filters) {
+  var all = _getListFilters();
+  all[storeKey] = filters;
+  try { localStorage.setItem(LIST_FILTER_KEY, JSON.stringify(all)); } catch(e) {}
+}
+// Maps each screen's short DOM-id prefix ('ip','qa','ship','records') to
+// its SORT_MODE_KEY-style storage key, its render function, and the
+// accessors used to read station/CAD-style off whatever shape of record
+// that screen deals in (plain job objects vs. Records' normalized rows).
+var _FILTER_SECTIONS = {
+  ip:      { storeKey: 'inprogress', render: function(){ renderInProgress(); },
+             station: function(j){ return j.station; }, cad: function(j){ return _currentCadStyle(j); } },
+  qa:      { storeKey: 'qarelease',  render: function(){ renderQARelease(); },
+             station: function(j){ return j.station; }, cad: function(j){ return _currentCadStyle(j); } },
+  ship:    { storeKey: 'shipping',   render: function(){ renderShipping(); },
+             station: function(j){ return j.station; }, cad: function(j){ return _currentCadStyle(j); } },
+  records: { storeKey: 'records',    render: function(){ renderRecords(); },
+             station: function(r){ return r.station; },
+             cad: function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; } }
+};
+// Base (unfiltered-by-station/CAD, pre-sort) list each render*() function
+// currently has for its screen — stashed here so the CAD popover can build
+// its option list from "whatever distinct CAD styles are actually present
+// right now" without every render function needing its own popover logic.
+var _filterBaseLists = { ip: [], qa: [], ship: [], records: [] };
+function _applyListFilters(list, sectionPrefix) {
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  _filterBaseLists[sectionPrefix] = list;
+  var f = _getSectionFilters(sec.storeKey);
+  var arr = list;
+  if (f.stations.length) arr = arr.filter(function(x){ return f.stations.indexOf(sec.station(x)) >= 0; });
+  if (f.cad.length) arr = arr.filter(function(x){ return f.cad.indexOf(sec.cad(x)) >= 0; });
+  return arr;
+}
+// Keeps each filter button's badge (selection count) and active/inactive
+// look in sync with stored state — same reasoning as _syncSortSelect:
+// called from the render function itself so it's never stale.
+function _updateFilterBadge(sectionPrefix, kind) {
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  var f = _getSectionFilters(sec.storeKey);
+  var arr = kind === 'station' ? f.stations : f.cad;
+  var badge = document.getElementById(sectionPrefix + '-' + kind + '-filter-badge');
+  var btn = document.getElementById(sectionPrefix + '-' + kind + '-filter-btn');
+  if (badge) badge.textContent = arr.length ? String(arr.length) : '';
+  if (btn) btn.classList.toggle('active', arr.length > 0);
+}
+function _updateAllFilterBadges(sectionPrefix) {
+  _updateFilterBadge(sectionPrefix, 'station');
+  _updateFilterBadge(sectionPrefix, 'cad');
+}
+// All four screens realistically only ever see the canonical station set
+// (STATION_LABELS) — jobs/records aren't scoped to a narrower list per
+// screen — so the same option list is used everywhere.
+function _stationFilterOptions() { return Object.keys(STATION_LABELS); }
+// CAD styles are free-typed per job (gl-cad-style, gluer jobs only), not a
+// fixed enum — so this is rebuilt from the section's current base list
+// every time the popover opens, deduped and sorted A-Z.
+function _cadFilterOptions(sectionPrefix) {
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  var seen = {}, out = [];
+  (_filterBaseLists[sectionPrefix] || []).forEach(function(x){
+    var v = sec.cad(x);
+    if (v && !seen[v]) { seen[v] = true; out.push(v); }
+  });
+  out.sort(function(a,b){ return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0); });
+  return out;
+}
+function _filterPopoverOptions(sectionPrefix, kind) {
+  return kind === 'station' ? _stationFilterOptions() : _cadFilterOptions(sectionPrefix);
+}
+function _filterOptionLabel(kind, opt) {
+  return kind === 'station' ? stationLabel(opt) : opt;
+}
+function _renderFilterPopoverContents(sectionPrefix, kind) {
+  var pop = document.getElementById(sectionPrefix + '-' + kind + '-filter-pop');
+  if (!pop) return;
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  var f = _getSectionFilters(sec.storeKey);
+  var selected = kind === 'station' ? f.stations : f.cad;
+  var options = _filterPopoverOptions(sectionPrefix, kind);
+  var isEs = isEsLang();
+  if (!options.length) {
+    pop.innerHTML = '<div class="filter-pop-empty">' + (isEs ? 'Nada disponible.' : 'Nothing available.') + '</div>';
+    return;
+  }
+  var rows = options.map(function(opt){
+    var checked = selected.indexOf(opt) >= 0;
+    return '<label class="filter-chk-row"><input type="checkbox" ' + (checked ? 'checked' : '') +
+      ' onchange="_toggleFilterOption(\'' + sectionPrefix + '\',\'' + kind + '\',' + JSON.stringify(opt) + ',this.checked)">' +
+      escHtml(_filterOptionLabel(kind, opt)) + '</label>';
+  }).join('');
+  pop.innerHTML = rows +
+    '<div class="filter-pop-actions">' +
+      '<button type="button" onclick="_clearFilterOptions(\'' + sectionPrefix + '\',\'' + kind + '\')">' + (isEs ? 'Limpiar' : 'Clear') + '</button>' +
+      '<button type="button" onclick="_closeFilterPopover()">' + (isEs ? 'Cerrar' : 'Close') + '</button>' +
+    '</div>';
+}
+var _openFilterPopover = null; // {prefix, kind} of whatever popover is currently open, for outside-click close
+function _closeFilterPopover() {
+  if (!_openFilterPopover) return;
+  var pop = document.getElementById(_openFilterPopover.prefix + '-' + _openFilterPopover.kind + '-filter-pop');
+  if (pop) pop.style.display = 'none';
+  _openFilterPopover = null;
+}
+function toggleFilterPopover(sectionPrefix, kind) {
+  var wasOpenSame = _openFilterPopover && _openFilterPopover.prefix === sectionPrefix && _openFilterPopover.kind === kind;
+  _closeFilterPopover();
+  if (wasOpenSame) return; // it was open — the close above is the whole toggle
+  _renderFilterPopoverContents(sectionPrefix, kind);
+  var pop = document.getElementById(sectionPrefix + '-' + kind + '-filter-pop');
+  if (pop) pop.style.display = 'block';
+  _openFilterPopover = { prefix: sectionPrefix, kind: kind };
+}
+// Outside-click close. Can't use a blur/timer like the customer dropdown
+// does (openCustomerDrop/scheduleCloseCustomerDrop) because clicking a
+// checkbox inside the popover would itself trigger a "blur" of nothing in
+// particular — a capture-phase document listener that checks whether the
+// click landed inside a .filter-pop-wrap is simpler and side-effect-free.
+document.addEventListener('mousedown', function(e){
+  if (!_openFilterPopover) return;
+  var wrap = e.target && e.target.closest ? e.target.closest('.filter-pop-wrap') : null;
+  if (!wrap) _closeFilterPopover();
+}, true);
+function _toggleFilterOption(sectionPrefix, kind, value, checked) {
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  var f = _getSectionFilters(sec.storeKey);
+  var arr = kind === 'station' ? f.stations : f.cad;
+  var idx = arr.indexOf(value);
+  if (checked && idx < 0) arr.push(value);
+  else if (!checked && idx >= 0) arr.splice(idx, 1);
+  if (kind === 'station') f.stations = arr; else f.cad = arr;
+  _setSectionFilters(sec.storeKey, f);
+  sec.render();
+}
+function _clearFilterOptions(sectionPrefix, kind) {
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  var f = _getSectionFilters(sec.storeKey);
+  if (kind === 'station') f.stations = []; else f.cad = [];
+  _setSectionFilters(sec.storeKey, f);
+  sec.render();
+  _renderFilterPopoverContents(sectionPrefix, kind); // stay open, checkboxes now cleared
+}
+
 // Shared comparator for the sort/order controls — takes small accessor
 // functions so it works across the differently-shaped job records (Job in
 // Progress/QA Release/Shipping) and the normalized Records rows alike.
@@ -6042,6 +6265,8 @@ function renderQARelease() {
     return (j.process === 'qa_pending' && isVeritivPack) || (j.process === 'qa_release' && isGluer);
   });
   jobs = _filterJobsBySearch(jobs, 'qa-search');
+  jobs = _applyListFilters(jobs, 'qa');
+  _updateAllFilterBadges('qa');
   var qaSortMode = getQASortMode();
   _syncSortSelect('qa-sort', qaSortMode);
   jobs = _applySortMode(jobs, qaSortMode,
@@ -6222,6 +6447,8 @@ function _syncKanbanScrollWidth() {
 function renderInProgress() {
   updateQAReleaseBadge();
   var jobs = _filterJobsBySearch(ipLoad(), 'ip-search');
+  jobs = _applyListFilters(jobs, 'ip');
+  _updateAllFilterBadges('ip');
   var ipSortMode = getIPSortMode();
   _syncSortSelect('ip-sort', ipSortMode);
   jobs = _applySortMode(jobs, ipSortMode,
@@ -17450,6 +17677,8 @@ function renderShipping(){
   var q = searchEl ? searchEl.value : '';
   if (q !== _shippingLastSearchQuery) { _shippingLastSearchQuery = q; _shippingPage = 1; }
   var allJobs = _filterJobsBySearch(_shippingPendingJobs(), 'ship-search');
+  allJobs = _applyListFilters(allJobs, 'ship');
+  _updateAllFilterBadges('ship');
   var el = document.getElementById('shipping-list');
   if (!el) return;
   var viewMode = getShippingViewMode();
@@ -18022,6 +18251,7 @@ function renderRecords(){
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
 
   var all = [].concat(jobs, ncrs, ncrDrafts, rcas);
+  _updateAllFilterBadges('records'); // update regardless of which branch below returns early
 
   if (recordsFilter !== 'all'){
     all = all.filter(function(r){
@@ -18055,6 +18285,8 @@ function renderRecords(){
       '</div>';
     return;
   }
+
+  all = _applyListFilters(all, 'records');
 
   var recordsSortMode = getRecordsSortMode();
   _syncSortSelect('records-sort', recordsSortMode);
