@@ -17868,6 +17868,14 @@ function _genericShipSignatureDataURL(){
 // an auto-approved job looks identical to a normally-approved one anywhere
 // it's later displayed (job detail popup, Records, NCR summary, etc.) —
 // just with SHIP_AUTO_APPROVE_TESTING-flagged values.
+//
+// Mutates `job` IN PLACE and does NOT call ipUpdate/ipSave itself — a job
+// that just froze the entire app (and took the machine down with it) came
+// from calling ipUpdate() once per pending job here: every ipSave()
+// re-JSON.stringifies + localStorage-writes + network-POSTs the ENTIRE
+// jobs array (photos and all) AND triggers a full renderRecords(), so N
+// pending jobs meant N of all that back-to-back in one synchronous tick.
+// _shippingPendingJobs() below now does ONE ipSave() for the whole batch.
 function _shipAutoApproveJob(job){
   var shipping = {
     passFail: 'pass',
@@ -17882,21 +17890,24 @@ function _shipAutoApproveJob(job){
     signatureAt: formatTS(),
     _autoApprovedTesting: true
   };
-  ipUpdate(job.id, { shippingApproved: true, shippingApprovedAt: formatTS(), shipping: shipping,
-    stageHistory: _stageSnapshot(_getJobStageHistory(job.id), 'shipping_approval', 'Shipping Approval — Auto-Approved (Testing)', {
-      passFail: shipping.passFail, transportRate: shipping.transportRate, vehicleCondition: shipping.vehicleCondition,
-      sealLock: shipping.sealLock, dimensionApproval: shipping.dimensionApproval, labelApplied: shipping.labelApplied,
-      productIdMatch: shipping.productIdMatch, cutterPicture: shipping.cutterPicture, signature: shipping.signature
-    })
+  job.shippingApproved = true;
+  job.shippingApprovedAt = formatTS();
+  job.shipping = shipping;
+  job.stageHistory = _stageSnapshot(job.stageHistory, 'shipping_approval', 'Shipping Approval — Auto-Approved (Testing)', {
+    passFail: shipping.passFail, transportRate: shipping.transportRate, vehicleCondition: shipping.vehicleCondition,
+    sealLock: shipping.sealLock, dimensionApproval: shipping.dimensionApproval, labelApplied: shipping.labelApplied,
+    productIdMatch: shipping.productIdMatch, cutterPicture: shipping.cutterPicture, signature: shipping.signature
   });
 }
 function _shippingPendingJobs(){
-  var pending = ipLoad().filter(function(j){
+  var all = ipLoad();
+  var pending = all.filter(function(j){
     return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
       SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
   });
   if (SHIP_AUTO_APPROVE_TESTING && pending.length){
     pending.forEach(_shipAutoApproveJob);
+    ipSave(all); // one save/push/render for the whole batch, not one per job
     return [];
   }
   return pending;
