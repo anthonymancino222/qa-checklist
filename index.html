@@ -8893,8 +8893,8 @@ function renderVeritivSpotCheckLog(checks) {
   listEl.innerHTML = g.sorted.slice().reverse().map(function(c, idx) {
     var realIdx = g.sorted.length - 1 - idx;
     var gapText = realIdx > 0 ? ' <span style="color:var(--text-tertiary);">(+' + ((g.sorted[realIdx].qty||0) - (g.sorted[realIdx-1].qty||0)).toLocaleString() + ' pcs since prior)</span>' : '';
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:15px;">' +
-      '<div>🔒 ' + escHtml(c.ts) + ' — ' + (c.qty||0).toLocaleString() + ' pcs' + gapText + '</div>' +
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:15px;">' +
+      '<div style="color:var(--text-primary);">🔒 ' + escHtml(c.ts) + ' — ' + (c.qty||0).toLocaleString() + ' pcs' + gapText + '</div>' +
       '<button type="button" onclick="editSpotCheck(' + (c.epoch||0) + ')" title="Edit this spot check" aria-label="Edit this spot check" style="flex-shrink:0;background:transparent;border:none;font-size:16px;cursor:pointer;padding:2px 4px;opacity:.6;">✏️</button>' +
       '</div>';
   }).join('');
