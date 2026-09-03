@@ -3042,9 +3042,10 @@ try {
                 <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
                   <input class="input" id="cm-prod-spotcheck-box-size" type="number" inputmode="numeric" min="1"
                          placeholder="Pieces per box" data-ph-en="Pieces per box" data-ph-es="Piezas por caja"
-                         oninput="saveSpotCheckBoxSize(this.value)" style="flex:1;min-width:0;">
-                  <button class="btn-primary" style="background:var(--pink);white-space:nowrap;width:auto;flex-shrink:0;" onclick="logSpotCheckBox()">📦 <span data-en>+1 Box Checked</span><span data-es>+1 Caja Verificada</span></button>
+                         oninput="onSpotCheckBoxSizeInput()" style="flex:1;min-width:0;">
+                  <button type="button" id="cm-prod-spotcheck-box-confirm-btn" onclick="confirmSpotCheckBoxSize()" title="Confirm pieces per box" aria-label="Confirm pieces per box" style="flex-shrink:0;width:44px;height:44px;border-radius:8px;border:1.5px solid var(--pink);background:transparent;color:var(--pink);font-size:18px;font-weight:800;cursor:pointer;">✓</button>
                 </div>
+                <button type="button" class="btn-primary" id="cm-prod-spotcheck-plus1-btn" disabled onclick="logSpotCheckBox()" style="width:100%;margin-bottom:8px;">📦 <span data-en>+1 Box Checked</span><span data-es>+1 Caja Verificada</span></button>
                 <button type="button" onclick="undoLastSpotCheck()" style="width:100%;background:transparent;border:1px solid var(--pink);color:var(--pink);border-radius:8px;font-weight:700;font-size:13.5px;padding:7px;cursor:pointer;margin-bottom:12px;">↩ <span data-en>Undo Last Check</span><span data-es>Deshacer Última Verificación</span></button>
                 <div style="font-size:13px;color:var(--text-tertiary);text-align:center;margin:-6px 0 10px;"><span data-en>— or —</span><span data-es>— o —</span></div>
                 <select class="input" id="cm-prod-spotcheck-qty-preset" onchange="applySpotCheckPreset(this)" style="margin-bottom:8px;">
@@ -8720,6 +8721,28 @@ function saveSpotCheckBoxSize(val) {
   ipUpdate(continueJobId, { spotCheckPiecesPerBox: (n > 0 ? n : null) });
 }
 
+// Pieces per box has its own explicit confirm step (✓ button next to the
+// field), separate from +1 Box Checked — typing a number no longer
+// silently saves it on every keystroke. +1 Box Checked stays disabled
+// until this is confirmed, and re-locks itself the moment the number is
+// edited again, so a stale/half-typed value can never get used for a real
+// spot check.
+function _setSpotCheckPlus1Enabled(enabled) {
+  var btn = document.getElementById('cm-prod-spotcheck-plus1-btn');
+  if (btn) btn.disabled = !enabled;
+}
+function onSpotCheckBoxSizeInput() {
+  _setSpotCheckPlus1Enabled(false);
+}
+function confirmSpotCheckBoxSize() {
+  var input = document.getElementById('cm-prod-spotcheck-box-size');
+  var n = input ? parseInt(input.value) : NaN;
+  if (!n || n < 1) { showAlert('Enter pieces per box first.'); _scrollToField(input); return; }
+  saveSpotCheckBoxSize(n);
+  _setSpotCheckPlus1Enabled(true);
+  showToast('Pieces per box confirmed', 'pass');
+}
+
 // The quick box-tally version of logVeritivSpotCheck() above — same
 // veritivSpotChecks array, same cumulative-qty semantics (each entry is the
 // running total checked so far, not a per-entry delta), just computed from
@@ -10857,6 +10880,10 @@ function _renderProdSummary(job) {
     _renderPkLatestSpotCheckLine(job.veritivSpotChecks || []);
     var _boxSizeInput = document.getElementById('cm-prod-spotcheck-box-size');
     if (_boxSizeInput) _boxSizeInput.value = job.spotCheckPiecesPerBox || '';
+    // Already confirmed in an earlier session (job.spotCheckPiecesPerBox is
+    // only ever set by confirmSpotCheckBoxSize) — +1 Box Checked can start
+    // enabled; otherwise it stays locked until confirmed fresh.
+    _setSpotCheckPlus1Enabled(!!job.spotCheckPiecesPerBox);
   } else {
     var _summaryQty = 0;
     if (cmIsGluer && job.checklist) {
