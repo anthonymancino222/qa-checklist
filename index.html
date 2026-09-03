@@ -48,6 +48,16 @@
   --green-mid: #3a9e65;
   --steel: #5c6b7a;
 
+  /* Pale informational banners (production/shipping notes, "meets target"
+     confirmations) — same "-soft" tinted-background pattern as red/amber/
+     green above, just for blue/indigo info callouts. */
+  --blue: #1d4ed8;
+  --blue-soft: #eff6ff;
+  --blue-mid: #3b82f6;
+  --indigo: #3730a3;
+  --indigo-soft: #e0e7ff;
+  --indigo-mid: #6366f1;
+
   --radius: 10px;
   --radius-lg: 14px;
   --font: 'IBM Plex Sans', -apple-system, sans-serif;
@@ -58,6 +68,39 @@
   --sidebar-w-expanded: 232px;
 }
 body.sidebar-expanded { --sidebar-w: var(--sidebar-w-expanded); }
+
+/* ── Dark mode ── shop-floor viewing-comfort toggle, explicit user choice
+   only (no OS auto-detect — shared tablet). Light mode above is untouched;
+   this block only redefines the tokens that need to change. Accent colors
+   (--pink/--red/--amber/--green/--steel/--lime) stay the same in both
+   themes — they already have enough contrast on a dark surface. The
+   "-soft" tokens (pale tinted badge/banner backgrounds in light mode) get
+   real dark-but-tinted values here instead of staying near-white. */
+body.dark-mode {
+  --bg: #14171a;
+  --surface: #1e2226;
+  --surface-raised: #262b30;
+
+  --text-primary: #eef1f4;
+  --text-secondary: #a4afba;
+  --text-tertiary: #8b96a3;
+
+  --border: #33393f;
+  --border-mid: #3d444b;
+
+  --pink-soft: #3a1428;
+  --red-soft: #3a1d1d;
+  --amber-soft: #3a2f14;
+  --amber-ink: #f0c05a;
+  --green-soft: #16301f;
+
+  --blue: #7fa8f5;
+  --blue-soft: #16233d;
+  --blue-mid: #3b6fc9;
+  --indigo: #b4c0fa;
+  --indigo-soft: #262a4a;
+  --indigo-mid: #5b63b0;
+}
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -360,7 +403,7 @@ body.sidebar-expanded .nav-status {
   outline: none; transition: border-color .15s, background .15s;
   -webkit-appearance: none;
 }
-.input:focus { border-color: var(--pink); background: #fff; }
+.input:focus { border-color: var(--pink); background: var(--surface); }
 .input.locked {
   background: var(--green-soft); border-color: #b7dfc9;
   color: var(--green); pointer-events: none;
@@ -1106,7 +1149,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    scrolling one long unsorted list. Bypassed entirely while searching. */
 .records-nav-label { font-size: 13px; font-weight: 700; color: var(--text-tertiary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .04em; }
 .records-nav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-bottom: 16px; }
-.records-nav-btn { padding: 14px 8px; font-size: 15px; font-weight: 800; border-radius: 10px; border: 2px solid var(--pink); background: #fff; color: var(--pink); cursor: pointer; }
+.records-nav-btn { padding: 14px 8px; font-size: 15px; font-weight: 800; border-radius: 10px; border: 2px solid var(--pink); background: var(--surface); color: var(--pink); cursor: pointer; }
 .records-nav-btn:hover, .records-nav-btn:active { background: var(--pink); color: #fff; }
 .records-back-btn { background: rgba(255,31,143,.08); color: var(--pink); border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; }
 
@@ -1331,6 +1374,17 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   padding: 2px 8px; border-radius: 10px;
 }
 .kanban-col-count.has-items { background: var(--pink); color: #fff; }
+/* "2nd Pass Ready" / "Partial Shipped" column headers get their own pale
+   accent tint (distinct from the plain --surface used by every other
+   column) to stand out as needing attention — literal light-mode hex since
+   they're not one of the app's existing --*-soft tokens; dark mode gets its
+   own tinted-not-white pair here so they don't stay bright white boxes. */
+.kanban-col-head-2ndpass { background: var(--indigo-soft); }
+.kanban-col-head-2ndpass .kanban-col-title { color: var(--indigo); }
+.kanban-col-head-partial { background: #fef3c7; }
+.kanban-col-head-partial .kanban-col-title { color: #92400e; }
+body.dark-mode .kanban-col-head-partial { background: var(--amber-soft); }
+body.dark-mode .kanban-col-head-partial .kanban-col-title { color: var(--amber-ink); }
 .kanban-cards { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
 .kanban-empty { color: var(--text-tertiary); font-size: 15px; text-align: center; padding: 24px 10px; }
 .jp-card {
@@ -1362,12 +1416,12 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   z-index: 110; padding: 60px 14px 24px; overflow-y: auto;
 }
 .continue-overlay.open { display: flex; }
-#qc-upload-overlay{position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,.98);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
+#qc-upload-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
 #qc-upload-overlay.hidden{display:none}
 .qc-upload-spinner{width:60px;height:60px;border:6px solid #f3d6e6;border-top-color:var(--pink);border-radius:50%;animation:qc-upload-spin .8s linear infinite}
 @keyframes qc-upload-spin{to{transform:rotate(360deg)}}
-.qc-upload-overlay-title{font-size:21px;font-weight:800;color:#1f2937}
-.qc-upload-overlay-sub{font-size:15px;color:#6b7280;max-width:340px;line-height:1.5}
+.qc-upload-overlay-title{font-size:21px;font-weight:800;color:var(--text-primary)}
+.qc-upload-overlay-sub{font-size:15px;color:var(--text-secondary);max-width:340px;line-height:1.5}
 /* The confirm dialog can be triggered from inside another already-open
    modal (e.g. "Add Note" → "Lock this note?"). Same z-index + earlier DOM
    position meant it silently opened *behind* that modal — clicking its
@@ -1763,6 +1817,18 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<script>
+// Applies the saved light/dark preference before anything else paints, so
+// the shop-floor tablet never flashes light mode for an instant on load.
+// Explicit user choice only — no prefers-color-scheme auto-detect, since
+// this is a shared device, not a personal one. Defaults to light (today's
+// look) until someone actually taps the toggle.
+try {
+  if (localStorage.getItem('moquin-qa-theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+  }
+} catch (e) {}
+</script>
 
 <!-- Sign-in gate — shown until a real @moquinpress.com Google account signs
      in; the Worker refuses every /records request without the token this
@@ -1813,6 +1879,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
       <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     </div>
     <div class="header-group header-group-actions">
+      <button id="theme-toggle-btn" class="header-pill-btn" onclick="toggleTheme()" title="Switch between light and dark screen — dark is easier to look at under bright shop-floor lighting">🌙 Dark Mode</button>
       <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
       <button id="header-home-btn" class="header-pill-btn header-pill-btn-solid" onclick="switchView('home')" title="Go to the home dashboard">🏠 <span data-en>Home</span><span data-es>Inicio</span></button>
     </div>
@@ -2718,8 +2785,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="kanban-cards" id="col-production"></div>
         </div>
         <div class="kanban-col" id="col-secondpassready-wrap">
-          <div class="kanban-col-head" onclick="openColJobsSheet('secondpassready','2nd Pass Ready')" style="background:#e0e7ff;cursor:pointer;">
-            <span class="kanban-col-title" style="color:#3730a3;"><span data-en>2nd Pass Ready</span><span data-es>Listo para 2da Pasada</span></span>
+          <div class="kanban-col-head kanban-col-head-2ndpass" onclick="openColJobsSheet('secondpassready','2nd Pass Ready')" style="cursor:pointer;">
+            <span class="kanban-col-title"><span data-en>2nd Pass Ready</span><span data-es>Listo para 2da Pasada</span></span>
             <span class="kanban-col-count" id="count-secondpassready">0</span>
           </div>
           <div class="kanban-cards" id="col-secondpassready"></div>
@@ -2732,8 +2799,8 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
           <div class="kanban-cards" id="col-inspection"></div>
         </div>
         <div class="kanban-col" id="col-onhold-wrap">
-          <div class="kanban-col-head" onclick="openColJobsSheet('onhold','Partial Shipped')" style="background:#fef3c7;cursor:pointer;">
-            <span class="kanban-col-title" style="color:#92400e;"><span data-en>Partial Shipped</span><span data-es>Enviado Parcial</span></span>
+          <div class="kanban-col-head kanban-col-head-partial" onclick="openColJobsSheet('onhold','Partial Shipped')" style="cursor:pointer;">
+            <span class="kanban-col-title"><span data-en>Partial Shipped</span><span data-es>Enviado Parcial</span></span>
             <span class="kanban-col-count" id="count-onhold">0</span>
           </div>
           <div class="kanban-cards" id="col-onhold"></div>
@@ -3027,7 +3094,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
                   </div>
                   <div id="cm-prod-pk-split-qtys" style="display:none;margin-top:14px;flex-direction:column;gap:10px;"></div>
                 </div>
-                <div id="cm-prod-pk-partial-note" style="display:none;margin-top:10px;font-size:14px;color:#1d4ed8;background:#eff6ff;border-radius:6px;padding:10px 12px;">
+                <div id="cm-prod-pk-partial-note" style="display:none;margin-top:10px;font-size:14px;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:10px 12px;">
                   ℹ <span data-en>Partial Run: Final Qty above = qty packed now. QA will review the remaining balance separately.</span><span data-es>Corrida Parcial: Cantidad Final arriba = cantidad empacada ahora. Calidad revisará el saldo restante por separado.</span>
                 </div>
               </div>
@@ -3151,7 +3218,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
                   </div>
                   <div id="cm-prod-split-qtys" style="display:none;margin-top:14px;display:flex;flex-direction:column;gap:10px;"></div>
                 </div>
-                <div id="cm-prod-partial-note" style="display:none;margin-top:10px;font-size:14px;color:#1d4ed8;background:#eff6ff;border-radius:6px;padding:10px 12px;">
+                <div id="cm-prod-partial-note" style="display:none;margin-top:10px;font-size:14px;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:10px 12px;">
                   ℹ <span data-en>Partial Run: Final Qty above = qty running now. The remainder goes to "Partial Shipped" after QA release and returns to the machine for the next run.</span><span data-es>Corrida Parcial: Cantidad Final arriba = cantidad corriendo ahora. El resto pasa a "Enviado Parcial" después de la liberación de calidad y regresa a la máquina para la siguiente corrida.</span>
                 </div>
               </div>
@@ -7114,13 +7181,13 @@ function openContinueModal(id) {
           var ranQty = parseInt(job.gluerFinalQty || job.finalQty || '0') || 0;
           var remQtyDisp = ordQtyDisp > 0 ? Math.max(0, ordQtyDisp - ranQty) : '?';
           var partialBanner = document.createElement('div');
-          partialBanner.style.cssText = 'background:#eff6ff;border:1.5px solid #3b82f6;border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.7;';
+          partialBanner.style.cssText = 'background:var(--blue-soft);border:1.5px solid var(--blue-mid);border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.7;color:var(--text-primary);';
           partialBanner.innerHTML =
-            '<div style="font-weight:800;color:#1d4ed8;font-size:14px;margin-bottom:4px;">⚠ Partial Run — Ship ' + partialShipNum + '</div>' +
+            '<div style="font-weight:800;color:var(--blue);font-size:14px;margin-bottom:4px;">⚠ Partial Run — Ship ' + partialShipNum + '</div>' +
             '<div><strong>Ordered Qty:</strong> ' + (ordQtyDisp || '—') + ' pcs</div>' +
             '<div><strong>Running Now:</strong> <span id="cmqa-partial-running-disp">' + (ranQty || '—') + '</span> pcs</div>' +
-            '<div><strong>Remaining After This:</strong> <span id="cmqa-partial-rem-disp" style="font-weight:800;color:#1d4ed8;">' + remQtyDisp + '</span> pcs <span id="cmqa-partial-rem-note" style="' + (remQtyDisp === 0 ? 'color:var(--green);font-weight:700;' : '') + '">' + (remQtyDisp === 0 ? '(job will be fully complete)' : '(will go to Partial Shipped)') + '</span></div>' +
-            '<div style="margin-top:6px;font-size:14px;color:#1d4ed8;">Partial run — only part of the total order is being shipped now. The remainder will be completed in a future machine run.</div>';
+            '<div><strong>Remaining After This:</strong> <span id="cmqa-partial-rem-disp" style="font-weight:800;color:var(--blue);">' + remQtyDisp + '</span> pcs <span id="cmqa-partial-rem-note" style="' + (remQtyDisp === 0 ? 'color:var(--green);font-weight:700;' : '') + '">' + (remQtyDisp === 0 ? '(job will be fully complete)' : '(will go to Partial Shipped)') + '</span></div>' +
+            '<div style="margin-top:6px;font-size:14px;color:var(--blue);">Partial run — only part of the total order is being shipped now. The remainder will be completed in a future machine run.</div>';
           partialBanner.dataset.orderedQty = String(ordQtyDisp);
           reviewWrap.insertBefore(partialBanner, reviewWrap.firstChild);
         }
@@ -7174,8 +7241,8 @@ function openContinueModal(id) {
           var splitCard = document.createElement('div');
           splitCard.className = 'card';
           splitCard.style.margin = '0';
-          splitCard.style.borderColor = '#3b82f6';
-          splitCard.style.background = '#eff6ff';
+          splitCard.style.borderColor = 'var(--blue-mid)';
+          splitCard.style.background = 'var(--blue-soft)';
           var packerDeclared = job.splitQtys && job.splitQtys.length === splitN;
           var packerOvers = job.splitOvers || [];
           // Ordered qty per split portion (total ordered ÷ number of splits)
@@ -7185,8 +7252,8 @@ function openContinueModal(id) {
           }
           var orderedPerSplit = orderedTotal > 0 ? Math.floor(orderedTotal / splitN) : 0;
           var _splitEs = isEsLang();
-          var splitHTML = '<div class="card-label" style="color:#1d4ed8;">' + (_splitEs ? ('Envío Dividido — Cantidad por Envío (' + splitN + ' envíos)') : ('Split Shipment — Qty per Shipment (' + splitN + ' shipments)')) + '</div>';
-          splitHTML += '<div style="font-size:13.5px;color:' + (packerDeclared ? '#15803d' : 'var(--text-tertiary)') + ';font-weight:' + (packerDeclared ? '600' : '400') + ';margin-top:4px;">' + (packerDeclared ? (_splitEs ? '✓ Cantidades declaradas por el empacador — verifique y confirme' : '✓ Quantities declared by packer — verify and confirm') : (_splitEs ? 'Estimado del total — ajuste según sea necesario' : 'Estimated from total — adjust as needed')) + '</div>';
+          var splitHTML = '<div class="card-label" style="color:var(--blue);">' + (_splitEs ? ('Envío Dividido — Cantidad por Envío (' + splitN + ' envíos)') : ('Split Shipment — Qty per Shipment (' + splitN + ' shipments)')) + '</div>';
+          splitHTML += '<div style="font-size:13.5px;color:' + (packerDeclared ? 'var(--green)' : 'var(--text-tertiary)') + ';font-weight:' + (packerDeclared ? '600' : '400') + ';margin-top:4px;">' + (packerDeclared ? (_splitEs ? '✓ Cantidades declaradas por el empacador — verifique y confirme' : '✓ Quantities declared by packer — verify and confirm') : (_splitEs ? 'Estimado del total — ajuste según sea necesario' : 'Estimated from total — adjust as needed')) + '</div>';
           for (var si = 0; si < splitN; si++) {
             var preQty = packerDeclared ? job.splitQtys[si] : (si === splitN-1 ? (totalProd - perSplit*(splitN-1)) : perSplit);
             var siOvers = packerOvers[si] != null ? String(packerOvers[si]) : (job.oversTarget || '10');
@@ -7195,16 +7262,16 @@ function openContinueModal(id) {
             var siWarning = '';
             if (orderedPerSplit > 0 && preQty > 0) {
               if (preQty < orderedPerSplit) {
-                siWarning = '<div style="margin-top:6px;padding:6px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:13.5px;font-weight:700;color:#dc2626;">⚠ ' + (_splitEs ? ('CORTO — ' + preQty + ' piezas declaradas, se necesitan ' + orderedPerSplit + ' piezas mínimo') : ('SHORT — ' + preQty + ' pcs declared, need ' + orderedPerSplit + ' pcs minimum')) + '</div>' +
+                siWarning = '<div style="margin-top:6px;padding:6px 10px;background:var(--red-soft);border:1px solid var(--red-mid);border-radius:6px;font-size:13.5px;font-weight:700;color:var(--red);">⚠ ' + (_splitEs ? ('CORTO — ' + preQty + ' piezas declaradas, se necesitan ' + orderedPerSplit + ' piezas mínimo') : ('SHORT — ' + preQty + ' pcs declared, need ' + orderedPerSplit + ' pcs minimum')) + '</div>' +
                   _glrReasonPickerHTML('cmqa-split-why-short-'+si, 'cmqa-split-notify-short-'+si, 'var(--red)', 'rgba(220,38,38,.06)', 'var(--red)', (_splitEs ? ('⚠ El Envío ' + (si+1) + ' está Corto') : ('⚠ Shipment ' + (si+1) + ' is Short')), (_splitEs ? '¿Por qué está corto?' : 'Why is it short?'));
               } else if (siOvers !== '0' && preQty < siTarget) {
-                siWarning = '<div style="margin-top:6px;padding:6px 10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:13.5px;font-weight:700;color:#92400e;">⚠ ' + (_splitEs ? ('Sin Sobrantes — ' + preQty + ' piezas declaradas, meta ' + siTarget + ' piezas (' + siOvers + '% sobre ' + orderedPerSplit + ')') : ('No Overs — ' + preQty + ' pcs declared, target ' + siTarget + ' pcs (' + siOvers + '% over ' + orderedPerSplit + ')')) + '</div>' +
+                siWarning = '<div style="margin-top:6px;padding:6px 10px;background:var(--amber-soft);border:1px solid #f0d090;border-radius:6px;font-size:13.5px;font-weight:700;color:var(--amber-ink);">⚠ ' + (_splitEs ? ('Sin Sobrantes — ' + preQty + ' piezas declaradas, meta ' + siTarget + ' piezas (' + siOvers + '% sobre ' + orderedPerSplit + ')') : ('No Overs — ' + preQty + ' pcs declared, target ' + siTarget + ' pcs (' + siOvers + '% over ' + orderedPerSplit + ')')) + '</div>' +
                   _glrReasonPickerHTML('cmqa-split-why-noovers-'+si, 'cmqa-split-notify-noovers-'+si, '#f59e0b', 'rgba(245,158,11,.06)', '#b45309', (_splitEs ? ('⚠ El Envío ' + (si+1) + ' no alcanzó ' + siOvers + '% de sobrantes — no está corto, pero bajo la meta') : ('⚠ Shipment ' + (si+1) + ' did not make ' + siOvers + '% overs — not short, but under target')), (_splitEs ? ('¿Por qué no alcanzamos ' + siOvers + '% de sobrantes?') : ('Why didn\'t we make ' + siOvers + '% overs?')));
               }
             }
             splitHTML +=
-              '<div style="margin-top:12px;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;background:#fff;">' +
-                '<div style="font-size:14px;font-weight:700;color:#1d4ed8;margin-bottom:8px;">' + (_splitEs?'Envío ':'Shipment ') + (si+1) + (packerDeclared ? (' <span style="font-weight:400;color:#15803d;">(' + (_splitEs?'declarado por empacador':'packer declared') + ')</span>') : '') + '</div>' +
+              '<div style="margin-top:12px;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;background:var(--surface-raised);">' +
+                '<div style="font-size:14px;font-weight:700;color:var(--blue);margin-bottom:8px;">' + (_splitEs?'Envío ':'Shipment ') + (si+1) + (packerDeclared ? (' <span style="font-weight:400;color:var(--green);">(' + (_splitEs?'declarado por empacador':'packer declared') + ')</span>') : '') + '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
                   '<button class="qty-btn" onclick="stepQty(\'cmqa-split-qty-' + si + '\',-1);checkSplitQtyWarning(' + si + ')">−</button>' +
                   '<input class="input qty-input" id="cmqa-split-qty-' + si + '" type="text" inputmode="numeric" value="' + preQty.toLocaleString('en-US') + '" data-ordered="' + orderedPerSplit + '" data-overs="' + siOvers + '" oninput="_qtyFormatLive(this);checkSplitQtyWarning(' + si + ')" style="text-align:center;width:max(90px, calc(' + (preQty.toLocaleString('en-US').length + 1.5) + 'ch + 29px));font-family:var(--mono);font-size:18px;font-weight:700;">' +
@@ -7332,7 +7399,7 @@ function openContinueModal(id) {
               var noteText = opItemNotes[item.id] || opComment;
               if (noteText) {
                 var noteDiv = document.createElement('div');
-                noteDiv.style.cssText = 'margin-top:6px;padding:8px 10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:14px;color:#92400e;line-height:1.5;';
+                noteDiv.style.cssText = 'margin-top:6px;padding:8px 10px;background:var(--amber-soft);border:1px solid #f0d090;border-radius:6px;font-size:14px;color:var(--amber-ink);line-height:1.5;';
                 noteDiv.innerHTML = '<span style="font-weight:700;margin-right:4px;">📝 Operator Note:</span>' + String(noteText).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
                 el.appendChild(noteDiv);
               }
@@ -7485,8 +7552,8 @@ function openContinueModal(id) {
       var _cmQaReviewToggle2 = document.getElementById('cm-qa-checklist-review-toggle');
       if (_cmQaReviewToggle2) _cmQaReviewToggle2.classList.remove('collapsed');
       reviewWrap2.innerHTML =
-        '<div class="card" style="margin:0;background:#eff6ff;border-color:#3b82f6;">' +
-          '<div style="font-size:15px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">Split Ship ' + (job.splitShipNum||2) + '</div>' +
+        '<div class="card" style="margin:0;background:var(--blue-soft);border-color:var(--blue-mid);">' +
+          '<div style="font-size:15px;font-weight:700;color:var(--blue);margin-bottom:6px;">Split Ship ' + (job.splitShipNum||2) + '</div>' +
           '<div style="font-size:15px;line-height:1.9;">' +
             '<div><strong>Job:</strong> ' + hlId(job.jobNumber) + '</div>' +
             '<div><strong>Product:</strong> ' + hlId(job.productNumber) + '</div>' +
@@ -7521,10 +7588,10 @@ function openContinueModal(id) {
           '<div><strong>' + (_phEs?'Estación:':'Station:') + '</strong> ' + escHtml(stationLabel(job.station)) + (isPkHold ? ' · Veritiv' : '') + '</div>' +
           (isPkHold ? (job.product ? '<div><strong>' + (_phEs?'Producto:':'Product:') + '</strong> ' + hlId(job.product) + '</div>' : '')
                     : (job.productNumber ? '<div><strong>' + (_phEs?'Producto:':'Product:') + '</strong> ' + hlId(job.productNumber) + '</div>' : '')) +
-          '<div><strong>' + (_phEs ? ('Cantidad Restante por ' + (isPkHold?'Empacar':'Correr')) : ('Remaining Qty to ' + (isPkHold ? 'Pack' : 'Run'))) + ':</strong> <span style="font-family:var(--mono);font-weight:800;color:#1d4ed8;">' + (job.remainingQty||'?') + (_phEs?' piezas':' pcs') + '</span></div>' +
+          '<div><strong>' + (_phEs ? ('Cantidad Restante por ' + (isPkHold?'Empacar':'Correr')) : ('Remaining Qty to ' + (isPkHold ? 'Pack' : 'Run'))) + ':</strong> <span style="font-family:var(--mono);font-weight:800;color:var(--blue);">' + (job.remainingQty||'?') + (_phEs?' piezas':' pcs') + '</span></div>' +
           '<div><strong>' + (_phEs?'Corrida #:':'Run #:') + '</strong> ' + (job.partialShipNum||2) + '</div>' +
         '</div>' +
-        '<div style="padding:12px 14px;background:#eff6ff;border:1.5px solid #3b82f6;border-radius:8px;font-size:15px;font-weight:600;color:#1d4ed8;line-height:1.6;">' +
+        '<div style="padding:12px 14px;background:var(--blue-soft);border:1.5px solid var(--blue-mid);border-radius:8px;font-size:15px;font-weight:600;color:var(--blue);line-height:1.6;">' +
           (_phEs ? ('⏸ Enviado Parcial — Corrida Parcial ' + (job.partialShipNum||2)) : ('⏸ Partial Shipped — Partial Run ' + (job.partialShipNum||2))) + '<br>' +
           '<span style="font-weight:400;">' + (isPkHold
             ? (_phEs ? 'Reanude el empaque para terminar la cantidad restante. Calidad debe aprobar antes de la liberación final.' : 'Resume packing to finish the remaining quantity. QA must approve before final release.')
@@ -7596,7 +7663,7 @@ function openContinueModal(id) {
         (job.productNumber ? '<div><strong>' + (_spEs?'Producto:':'Product:') + '</strong> ' + hlId(job.productNumber) + '</div>' : '') +
         (job.operatorName ? '<div><strong>' + (_spEs?'Operador:':'Operator:') + '</strong> ' + escHtml(job.operatorName) + '</div>' : '') +
       '</div>' +
-      '<div style="padding:12px 14px;background:#e0e7ff;border:1.5px solid #6366f1;border-radius:8px;font-size:15px;font-weight:600;color:#3730a3;line-height:1.6;">' +
+      '<div style="padding:12px 14px;background:var(--indigo-soft);border:1.5px solid var(--indigo-mid);border-radius:8px;font-size:15px;font-weight:600;color:var(--indigo);line-height:1.6;">' +
         (_spEs ? '↻ Listo para 2da Pasada<br>' : '↻ 2nd Pass Ready<br>') +
         '<span style="font-weight:400;">' + (_spEs ? 'La 1ra pasada terminó y fue liberada por Calidad. Envíe este trabajo de vuelta a Preparación para correr la 2da/última pasada por la pegadora.' : 'The 1st pass finished and was released by QA. Send this job back to Make Ready to run the 2nd/final pass through the gluer.') + '</span>' +
       '</div>';
@@ -8309,13 +8376,13 @@ function checkSplitQtyWarning(si) {
   var html = '';
   if (ordered > 0 && qty > 0) {
     if (qty < ordered) {
-      html = '<div style="padding:6px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:13.5px;font-weight:700;color:#dc2626;">⚠ ' + (isEs ? ('CORTO — ' + qty + ' piezas, se necesitan ' + ordered + ' piezas mínimo') : ('SHORT — ' + qty + ' pcs, need ' + ordered + ' pcs minimum')) + '</div>' +
+      html = '<div style="padding:6px 10px;background:var(--red-soft);border:1px solid var(--red-mid);border-radius:6px;font-size:13.5px;font-weight:700;color:var(--red);">⚠ ' + (isEs ? ('CORTO — ' + qty + ' piezas, se necesitan ' + ordered + ' piezas mínimo') : ('SHORT — ' + qty + ' pcs, need ' + ordered + ' pcs minimum')) + '</div>' +
         _glrReasonPickerHTML('cmqa-split-why-short-'+si, 'cmqa-split-notify-short-'+si, 'var(--red)', 'rgba(220,38,38,.06)', 'var(--red)', (isEs ? ('⚠ El Envío ' + (si+1) + ' está Corto') : ('⚠ Shipment ' + (si+1) + ' is Short')), (isEs ? '¿Por qué está corto?' : 'Why is it short?'));
     } else if (overs > 0 && qty < target) {
-      html = '<div style="padding:6px 10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:13.5px;font-weight:700;color:#92400e;">⚠ ' + (isEs ? ('Sin Sobrantes — ' + qty + ' piezas, meta ' + target + ' piezas (' + overs + '% sobre ' + ordered + ')') : ('No Overs — ' + qty + ' pcs, target ' + target + ' pcs (' + overs + '% over ' + ordered + ')')) + '</div>' +
+      html = '<div style="padding:6px 10px;background:var(--amber-soft);border:1px solid #f0d090;border-radius:6px;font-size:13.5px;font-weight:700;color:var(--amber-ink);">⚠ ' + (isEs ? ('Sin Sobrantes — ' + qty + ' piezas, meta ' + target + ' piezas (' + overs + '% sobre ' + ordered + ')') : ('No Overs — ' + qty + ' pcs, target ' + target + ' pcs (' + overs + '% over ' + ordered + ')')) + '</div>' +
         _glrReasonPickerHTML('cmqa-split-why-noovers-'+si, 'cmqa-split-notify-noovers-'+si, '#f59e0b', 'rgba(245,158,11,.06)', '#b45309', (isEs ? ('⚠ El Envío ' + (si+1) + ' no alcanzó ' + overs + '% de sobrantes — no está corto, pero bajo la meta') : ('⚠ Shipment ' + (si+1) + ' did not make ' + overs + '% overs — not short, but under target')), (isEs ? ('¿Por qué no alcanzamos ' + overs + '% de sobrantes?') : ('Why didn\'t we make ' + overs + '% overs?')));
     } else {
-      html = '<div style="padding:6px 10px;background:#f0fdf4;border:1px solid #86efac;border-radius:6px;font-size:13.5px;font-weight:700;color:#15803d;">✓ ' + (isEs?'Cumple la meta':'Meets target') + '</div>';
+      html = '<div style="padding:6px 10px;background:var(--green-soft);border:1px solid var(--green-mid);border-radius:6px;font-size:13.5px;font-weight:700;color:var(--green);">✓ ' + (isEs?'Cumple la meta':'Meets target') + '</div>';
     }
   }
   warnEl.innerHTML = html;
@@ -9339,6 +9406,30 @@ function _scrollMainToTop(){
   if (main) main.scrollTop = 0;
 }
 function isEsLang(){ return document.body.classList.contains('es'); }
+
+/* ── Light / Dark mode ──
+   Explicit user toggle only (no OS auto-detect — shared shop tablet).
+   The class + persisted key are applied as early as possible by the inline
+   script right after <body> so there's no flash of the wrong theme on
+   load; this just keeps the header button's own label in sync and saves
+   the choice for next time, same localStorage pattern as VIEW_MODE_KEY /
+   SORT_MODE_KEY / SHIP_VIEW_KEY etc. above. */
+var THEME_KEY = 'moquin-qa-theme';
+function _applyThemeBtnLabel(){
+  var btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+  var isDark = document.body.classList.contains('dark-mode');
+  var isEs = isEsLang();
+  btn.textContent = isDark
+    ? (isEs ? '☀️ Modo Claro' : '☀️ Light Mode')
+    : (isEs ? '🌙 Modo Oscuro' : '🌙 Dark Mode');
+}
+function toggleTheme(){
+  var isDark = document.body.classList.toggle('dark-mode');
+  try { localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light'); } catch(e) {}
+  _applyThemeBtnLabel();
+}
+_applyThemeBtnLabel();
 // Reads only the currently-active-language span's text out of an element
 // that wraps data-en/data-es pairs — el.textContent would otherwise
 // concatenate both languages regardless of CSS display:none.
@@ -9352,6 +9443,7 @@ function toggleAppLang(){
   const isEs = isEsLang();
   const label = document.getElementById('appLangLabel');
   if (label) label.textContent = isEs ? 'English' : 'Español';
+  _applyThemeBtnLabel();
   // Collapsed sidebar nav items rely on the title attribute as their only
   // visible label (icon-only rail) — keep it in sync with the nav-label text.
   document.querySelectorAll('.nav-item[title]').forEach(function(item){
@@ -11394,7 +11486,7 @@ function buildChecklistItem(item, prefix) {
         '<div id="'+prefix+'-aql-display" style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px 16px;margin-bottom:12px;">' +
           '<span style="color:#94a3b8;font-size:15px;">' + (isEs ? 'Ingrese la cantidad arriba para ver los requisitos de AQL' : 'Enter qty above to see AQL requirements') + '</span>' +
         '</div>' +
-        (prefix === 'cm' ? '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:14px;color:#991b1b;line-height:1.5;font-weight:600;">⚠ ' + (isEs ? '<strong>Empacadores:</strong> Revise el tamaño de muestra arriba y aparte sus muestras de QC antes de iniciar la producción. Las muestras deben coincidir con el programa mostrado.' : '<strong>Packers:</strong> Review the sample size above and set aside your QC samples before starting production. Samples must match the schedule shown.') + '</div>' : '') +
+        (prefix === 'cm' ? '<div style="background:var(--red-soft);border:1px solid var(--red-mid);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:14px;color:var(--red);line-height:1.5;font-weight:600;">⚠ ' + (isEs ? '<strong>Empacadores:</strong> Revise el tamaño de muestra arriba y aparte sus muestras de QC antes de iniciar la producción. Las muestras deben coincidir con el programa mostrado.' : '<strong>Packers:</strong> Review the sample size above and set aside your QC samples before starting production. Samples must match the schedule shown.') + '</div>' : '') +
         '<div style="font-size:14px;color:#94a3b8;margin-bottom:10px;">' + (isEs ? 'Seleccionar ✓ Entendido confirma que tomará muestras según el programa arriba.' : 'Selecting ✓ Understood confirms you will pull samples per the schedule above.') + '</div>' +
         '<div class="toggle-group">' +
           '<button class="tgl" onclick="setCIToggle(\''+prefix+'\',\''+item.id+'\',\'pass\',this)" style="flex:1;">' + (isEs ? '✓ Entendido' : '✓ Understood') + '</button>' +
@@ -18645,7 +18737,7 @@ function _renderStageHistoryCard(entry){
     });
   }
   if (d.releaseNotes){
-    out += '<div style="margin-top:8px;padding:8px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:14px;">' +
+    out += '<div style="margin-top:8px;padding:8px 10px;background:var(--red-soft);border:1px solid var(--red-mid);border-radius:8px;font-size:14px;color:var(--text-primary);">' +
       '<b>' + (d.releaseNotes.state === 'short' ? (_shEs?'Trabajo Corto':'Job Short') : (_shEs?'No Alcanzó Sobrantes':'Did Not Make Overs')) + ':</b> ' + escHtml((d.releaseNotes.reasons||[]).join(', ')) +
       '<br><b>' + (_shEs?'Notificado':'Notified') + ':</b> ' + escHtml((d.releaseNotes.notify||[]).join(', ')) +
       '</div>';
