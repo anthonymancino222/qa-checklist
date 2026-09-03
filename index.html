@@ -1126,6 +1126,30 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .qa-dash-icon-tile svg { width: 30px; height: 30px; }
 .qa-dash-icon:active .qa-dash-icon-tile { transform: scale(.92); }
 .qa-dash-icon-label { font-size: 13px; font-weight: 700; color: var(--text-primary); text-align: center; }
+
+/* ── Home landing screen — deliberately its own visual language (big
+   greeting + a stacked list of full-width cards), not the small icon-tile
+   grid used by the QA sub-dashboard, so Home doesn't read as "just another
+   QA screen". ── */
+.home-hero { text-align: center; padding: 30px 16px 6px; }
+.home-hero-greeting { font-size: 27px; font-weight: 800; color: var(--text-primary); }
+.home-hero-sub { font-size: 15px; color: var(--text-secondary); margin-top: 6px; }
+.home-card-list { display: flex; flex-direction: column; gap: 14px; padding: 22px 16px 28px; max-width: 560px; margin: 0 auto; }
+.home-card {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--surface); border: 0.5px solid var(--border); border-left: 5px solid var(--pink);
+  border-radius: var(--radius-lg); padding: 18px 20px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: transform .1s, box-shadow .1s;
+}
+.home-card:active { transform: scale(.985); }
+.home-card-icon { flex-shrink: 0; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.home-card-icon svg { width: 100%; height: 100%; }
+.home-card-text { min-width: 0; }
+.home-card-title { font-size: 17px; font-weight: 800; color: var(--text-primary); margin-bottom: 3px; }
+.home-card-sub { font-size: 13.5px; color: var(--text-secondary); line-height: 1.4; }
+@media (min-width: 620px) {
+  .home-card-list { display: grid; grid-template-columns: 1fr 1fr; }
+}
 .bnav-alert-dot { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; display: none; }
 
 /* ── Tablet (681–1023 px): sidebar always visible, same as desktop ──
@@ -1912,40 +1936,59 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   <!-- Main content -->
   <main class="main" id="mainContent">
 
-    <!-- ══ HOME ══ — landing screen after sign-in. Just a launcher grid of
-         tiles to the real screens below; reuses the .qa-dash-grid pattern
-         from view-qa so the app doesn't invent a second visual language for
-         "pick where to go". Keeps the first tap after sign-in low-stakes
+    <!-- ══ HOME ══ — landing screen after sign-in. Deliberately its OWN
+         visual language (big greeting + stacked full-width cards), not the
+         .qa-dash-grid icon-tile pattern view-qa uses below — that grid was
+         tried first but read as "just another QA screen" rather than a
+         distinct front door. Keeps the first tap after sign-in low-stakes
          instead of dropping straight into QC data entry. -->
     <div id="view-home" class="screen active">
-      <div class="view-header">
-        <div class="view-title"><span data-en>Welcome</span><span data-es>Bienvenido</span></div>
-        <div class="view-sub"><span data-en>Where would you like to go?</span><span data-es>¿A dónde le gustaría ir?</span></div>
+      <div class="home-hero">
+        <div class="home-hero-greeting" id="home-greeting-text">Good morning.</div>
+        <div class="home-hero-sub"><span data-en>Where would you like to go?</span><span data-es>¿A dónde le gustaría ir?</span></div>
       </div>
-      <div class="qa-dash-grid">
-        <div class="qa-dash-icon" onclick="switchView('qc')" title="QC Approval">
-          <div class="qa-dash-icon-tile" style="background:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></span>
+      <div class="home-card-list">
+        <div class="home-card" style="border-left-color:var(--steel);" onclick="switchView('qc')" title="QC Approval">
+          <div class="home-card-icon" style="color:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
+          <div class="home-card-text">
+            <div class="home-card-title"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></div>
+            <div class="home-card-sub"><span data-en>Enter job details, then inspect each product.</span><span data-es>Ingrese los detalles del trabajo y luego inspeccione cada producto.</span></div>
+          </div>
         </div>
-        <div class="qa-dash-icon" onclick="switchView('inprogress')" title="Job in Progress">
-          <div class="qa-dash-icon-tile" style="background:var(--amber);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>Job in Progress</span><span data-es>Trabajo en Progreso</span></span>
+        <div class="home-card" style="border-left-color:var(--amber);" onclick="switchView('inprogress')" title="Job in Progress">
+          <div class="home-card-icon" style="color:var(--amber);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div>
+          <div class="home-card-text">
+            <div class="home-card-title"><span data-en>Job in Progress</span><span data-es>Trabajo en Progreso</span></div>
+            <div class="home-card-sub"><span data-en>Tap a job to update its status or add production details.</span><span data-es>Toque un trabajo para actualizar su estado o agregar detalles de producción.</span></div>
+          </div>
         </div>
-        <div class="qa-dash-icon" onclick="switchView('qarelease')" title="QA Release">
-          <div class="qa-dash-icon-tile" style="background:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>QA Release</span><span data-es>Liberación de Calidad</span></span>
+        <div class="home-card" style="border-left-color:var(--green);" onclick="switchView('qarelease')" title="QA Release">
+          <div class="home-card-icon" style="color:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+          <div class="home-card-text">
+            <div class="home-card-title"><span data-en>QA Release</span><span data-es>Liberación de Calidad</span></div>
+            <div class="home-card-sub"><span data-en>Tap a job to complete the QA release.</span><span data-es>Toque un trabajo para completar la liberación de calidad.</span></div>
+          </div>
         </div>
-        <div class="qa-dash-icon" onclick="switchView('shipping')" title="Shipping Approval">
-          <div class="qa-dash-icon-tile" style="background:var(--red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>Shipping Approval</span><span data-es>Aprobación de Envío</span></span>
+        <div class="home-card" style="border-left-color:var(--red);" onclick="switchView('shipping')" title="Shipping Approval">
+          <div class="home-card-icon" style="color:var(--red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+          <div class="home-card-text">
+            <div class="home-card-title"><span data-en>Shipping Approval</span><span data-es>Aprobación de Envío</span></div>
+            <div class="home-card-sub"><span data-en>Final gate before shipping.</span><span data-es>Última revisión antes del envío.</span></div>
+          </div>
         </div>
-        <div class="qa-dash-icon" onclick="switchView('qa')" title="QA">
-          <div class="qa-dash-icon-tile" style="background:var(--black);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>QA</span><span data-es>Calidad</span></span>
+        <div class="home-card" style="border-left-color:var(--black);" onclick="switchView('qa')" title="QA">
+          <div class="home-card-icon" style="color:var(--black);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+          <div class="home-card-text">
+            <div class="home-card-title"><span data-en>QA</span><span data-es>Calidad</span></div>
+            <div class="home-card-sub"><span data-en>Nonconformance, root cause &amp; records</span><span data-es>No conformidades, causa raíz y registros</span></div>
+          </div>
         </div>
-        <div class="qa-dash-icon" onclick="switchView('faq')" title="Help / FAQ">
-          <div class="qa-dash-icon-tile" style="background:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>Help / FAQ</span><span data-es>Ayuda / Preguntas</span></span>
+        <div class="home-card" style="border-left-color:var(--pink);" onclick="switchView('faq')" title="Help / FAQ">
+          <div class="home-card-icon" style="color:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div class="home-card-text">
+            <div class="home-card-title"><span data-en>Help / FAQ</span><span data-es>Ayuda / Preguntas</span></div>
+            <div class="home-card-sub"><span data-en>Simple answers for common questions about using this app.</span><span data-es>Respuestas sencillas a preguntas comunes sobre cómo usar esta aplicación.</span></div>
+          </div>
         </div>
       </div>
     </div>
@@ -5333,6 +5376,22 @@ function _authHeaders() {
 function _renderSignedInUser() {
   var el = document.getElementById('signed-in-user-name');
   if (el && _signedInUser) el.textContent = _signedInUser.name || _signedInUser.email || '';
+  _updateHomeGreeting();
+}
+// Time-of-day greeting on the Home landing screen, personalized with the
+// signed-in user's first name where available. Re-run on sign-in and on
+// every language toggle (see toggleAppLang) so it never goes stale.
+function _updateHomeGreeting() {
+  var el = document.getElementById('home-greeting-text');
+  if (!el) return;
+  var isEs = isEsLang();
+  var hour = new Date().getHours();
+  var period = hour < 12 ? 0 : (hour < 18 ? 1 : 2);
+  var GREETINGS = isEs
+    ? ['Buenos días', 'Buenas tardes', 'Buenas noches']
+    : ['Good morning', 'Good afternoon', 'Good evening'];
+  var first = (_signedInUser && _signedInUser.name) ? _signedInUser.name.split(' ')[0] : '';
+  el.textContent = GREETINGS[period] + (first ? ', ' + first + '.' : '.');
 }
 
 // Fires once someone picks a Moquin account. Reveals the real app, decodes
@@ -9343,6 +9402,7 @@ function toggleAppLang(){
   if (typeof renderNCRPie === 'function') renderNCRPie();
   _translateStationSelects();
   _translateSortSelects();
+  _updateHomeGreeting();
   if (_lastGluerBatchSheet) openGluerBatchSheet(_lastGluerBatchSheet.batchId, _lastGluerBatchSheet.context);
   // An alert/confirm popup left open across a language switch would
   // otherwise freeze on whatever language it first opened in — re-run
