@@ -9259,6 +9259,7 @@ function finishJob() {
       });
       closeContinueModal();
       renderInProgress();
+      renderQARelease();
       showToast(isEs?'Empaque completo — Calidad notificada para liberación':'Packing complete — QA notified for release', 'pass');
       var subj = 'QA Release Required — Job ' + job.jobNumber + ' (Veritiv Packing)';
       var body = 'A Veritiv packing job is ready for QA release.\n\n' +
@@ -9273,7 +9274,13 @@ function finishJob() {
         'Box Labels Still Needed: ' + (labelsBtn.classList.contains('fail') ? 'Yes — ' + labelsYesReason : 'No') + '\n' +
         'Completed: '       + formatTS() + '\n\n' +
         'Please open the QA Checklist app to complete the QA release.';
-      window.open('mailto:anthony.mancino@moquinpress.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body));
+      // location.href (not window.open) — window.open() spawns a real new
+      // blank browser tab/window as a side effect of handing off to the
+      // mailto: protocol handler, which is the "blank window" this was
+      // popping up. Setting location.href hands off the same way without
+      // creating a second browsing context.
+      window.location.href = 'mailto:anthony.mancino@moquinpress.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+      switchView('qarelease');
     }, { okLabel: isEs?'Notificar a Calidad':'Notify QA', danger: false });
   } else {
     var isGluerJob = job && (job.station === 'Long Gluer' || job.station === 'Short Gluer');
