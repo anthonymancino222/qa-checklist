@@ -3058,6 +3058,12 @@ try {
                   <input class="input" id="cm-prod-spotcheck-qty" type="number" inputmode="numeric" placeholder="…or type exact qty" data-ph-en="…or type exact qty" data-ph-es="…o escriba la cantidad exacta" style="flex:1;min-width:0;">
                   <button class="btn-primary" style="background:var(--pink);white-space:nowrap;width:auto;flex-shrink:0;" onclick="logVeritivSpotCheck()">📋 <span data-en>Log Check</span><span data-es>Registrar Verificación</span></button>
                 </div>
+                <!-- Same undoLastSpotCheck() as the box-tally section's own Undo
+                     button above — it already removes whichever check was
+                     logged most recently regardless of which entry method
+                     added it, so this is just a second, closer-at-hand way to
+                     reach the same action from the manual-entry side. -->
+                <button type="button" onclick="undoLastSpotCheck()" style="width:100%;background:transparent;border:1px solid var(--pink);color:var(--pink);border-radius:8px;font-weight:700;font-size:13.5px;padding:7px;cursor:pointer;margin-bottom:10px;">↩ <span data-en>Undo Last Check</span><span data-es>Deshacer Última Verificación</span></button>
                 <div id="cm-prod-spotcheck-kpi" style="font-size:14px;font-weight:700;margin-bottom:8px;"></div>
                 <div id="cm-prod-spotcheck-list" style="display:flex;flex-direction:column;gap:6px;"></div>
               </div>
