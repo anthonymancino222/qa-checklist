@@ -4342,7 +4342,7 @@ try {
 
           <div class="card" style="margin:0;">
             <div class="card-label"><span data-en>🔄 What does the "Pull Schedule" button do?</span><span data-es>🔄 ¿Qué hace el botón "Actualizar Programa"?</span></div>
-            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>It brings in the latest job schedule Anthony exported from the system, so you can tap to pick your job instead of typing it in. It always grabs the newest file — it only takes a few seconds. The app also refreshes this on its own every day at <b>5am and 5pm</b>, so you only need to tap this button yourself if you need the very latest schedule right now.</span><span data-es>Trae el programa de trabajos más reciente que Anthony exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre trae el archivo más nuevo — solo toma unos segundos. La aplicación también se actualiza sola cada día a las <b>5am y 5pm</b>, así que solo necesita tocar este botón si necesita el programa más reciente en este momento.</span></p>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>It brings in the latest job schedule QA exported from the system, so you can tap to pick your job instead of typing it in. It always grabs the newest file — it only takes a few seconds. The app also refreshes this on its own every day at <b>5am and 5pm</b>, so you only need to tap this button yourself if you need the very latest schedule right now.</span><span data-es>Trae el programa de trabajos más reciente que Calidad exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre trae el archivo más nuevo — solo toma unos segundos. La aplicación también se actualiza sola cada día a las <b>5am y 5pm</b>, así que solo necesita tocar este botón si necesita el programa más reciente en este momento.</span></p>
           </div>
 
           <div class="card" style="margin:0;">
@@ -14464,8 +14464,8 @@ function showPullScheduleInfo() {
   var isEs = isEsLang();
   showAlert(
     isEs
-      ? 'Trae el programa de trabajos más reciente que Anthony exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre usa el archivo más nuevo — toma unos segundos. La app también se actualiza sola cada día a las 5am y 5pm; toque este botón solo si necesita el programa más reciente en este momento.'
-      : 'Pulls the latest job schedule Anthony exported from the system, so you can tap to pick your job instead of typing it in. Always grabs the newest file — takes a few seconds. The app also refreshes this automatically every day at 5am and 5pm; only tap this if you need the very latest schedule right now.',
+      ? 'Trae el programa de trabajos más reciente que Calidad exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre usa el archivo más nuevo — toma unos segundos. La app también se actualiza sola cada día a las 5am y 5pm; toque este botón solo si necesita el programa más reciente en este momento.'
+      : 'Pulls the latest job schedule QA exported from the system, so you can tap to pick your job instead of typing it in. Always grabs the newest file — takes a few seconds. The app also refreshes this automatically every day at 5am and 5pm; only tap this if you need the very latest schedule right now.',
     isEs ? 'ℹ️ Qué Hace Esto' : 'ℹ️ What This Does',
     showPullScheduleInfo
   );
