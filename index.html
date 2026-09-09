@@ -4250,7 +4250,7 @@ try {
     <div id="view-records" class="screen">
       <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div><div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div></div>
       <div style="padding:0 16px 24px;">
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
           <input type="text" id="records-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderRecords()" style="flex:1;margin-bottom:0;">
           <select id="records-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setRecordsSortMode(this.value)">
             <option value="newest">Newest first</option>
@@ -4264,6 +4264,7 @@ try {
             <button type="button" class="filter-pop-btn" id="records-cad-filter-btn" onclick="toggleFilterPopover('records','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="records-cad-filter-badge"></span> ▾</button>
             <div class="filter-popover" id="records-cad-filter-pop" style="display:none;"></div>
           </div>
+          <button type="button" class="btn-secondary" onclick="exportRecordsCSV()" title="Export every record currently shown below (respects search/filters) as a CSV file — handy for handing a batch of records to an auditor." style="flex:0 0 auto;">⬇️ <span data-en>Export</span><span data-es>Exportar</span></button>
         </div>
         <div id="records-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button type="button" class="tgl sel" data-recfilter="all" onclick="setRecordsFilter('all',this)"><span data-en>All</span><span data-es>Todos</span></button>
@@ -18885,9 +18886,17 @@ function renderRecordsYearMonthNav(all, searching){
     '<div class="records-nav-label">' + monthNames[recordsSelectedMonth] + ' ' + recordsSelectedYear + '</div>';
 }
 
-function renderRecords(){
-  var el = document.getElementById('records-list');
-  if (!el) return;
+// Shared by renderRecords() and exportRecordsCSV() so an export can never
+// drift from what the screen is actually showing — same type/station/CAD
+// filters, search text, year-month drill-down, and sort order, computed
+// exactly once. Returns:
+//   typeFiltered — the list after only the Jobs/NCR/RCA type toggle, which
+//                  is what the year-month nav's own counts are built from
+//   list         — the final filtered+sorted list, or null in the same
+//                  "nothing selected yet" state renderRecords() prompts for
+//   hasSearch    — whether a search term is active (year-month nav wants
+//                  to know this even when list is null)
+function _computeFilteredRecords(){
   var searchEl = document.getElementById('records-search');
   var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
 
@@ -18896,20 +18905,15 @@ function renderRecords(){
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
 
-  var all = [].concat(jobs, ncrs, ncrDrafts, rcas);
-  _updateAllFilterBadges('records'); // update regardless of which branch below returns early
-
+  var typeFiltered = [].concat(jobs, ncrs, ncrDrafts, rcas);
   if (recordsFilter !== 'all'){
-    all = all.filter(function(r){
+    typeFiltered = typeFiltered.filter(function(r){
       if (recordsFilter === 'ncr') return r.type === 'ncr' || r.type === 'ncr_draft';
       return r.type === recordsFilter;
     });
   }
 
-  renderRecordsYearMonthNav(all, !!q);
-
-  var _recEs = isEsLang();
-
+  var all = typeFiltered;
   if (q){
     all = all.filter(function(r){
       return (r.jobNumber||'').toLowerCase().indexOf(q) >= 0 ||
@@ -18922,21 +18926,13 @@ function renderRecords(){
       return d && d.getFullYear() === recordsSelectedYear && d.getMonth() === recordsSelectedMonth;
     });
   } else {
-    // Nothing selected yet and not searching — prompt instead of dumping
-    // every record ever created in one long, unsorted list.
-    el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' +
-      (all.length
-        ? (_recEs ? 'Seleccione un año y mes arriba, o use la búsqueda.' : 'Select a year and month above, or use search.') + ' (' + all.length + (_recEs?' en total)':' total)')
-        : (_recEs ? 'Nada registrado aún.' : 'Nothing recorded yet.')) +
-      '</div>';
-    return;
+    // Nothing selected yet and not searching — caller prompts instead of
+    // dumping every record ever created in one long, unsorted list/export.
+    return { typeFiltered: typeFiltered, list: null, hasSearch: !!q };
   }
 
   all = _applyListFilters(all, 'records');
-
-  var recordsSortMode = getRecordsSortMode();
-  _syncSortSelect('records-sort', recordsSortMode);
-  all = _applySortMode(all, recordsSortMode,
+  all = _applySortMode(all, getRecordsSortMode(),
     function(r){ return r.ts; },
     function(r){ return stationLabel(r.station); },
     function(r){ return r.customer; },
@@ -18944,6 +18940,31 @@ function renderRecords(){
     // (NCR/NCR draft/RCA) has no such field, so it best-effort falls back
     // to '' and sorts to one end rather than the option doing nothing.
     function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; });
+
+  return { typeFiltered: typeFiltered, list: all, hasSearch: !!q };
+}
+
+function renderRecords(){
+  var el = document.getElementById('records-list');
+  if (!el) return;
+  _updateAllFilterBadges('records'); // update regardless of which branch below returns early
+  _syncSortSelect('records-sort', getRecordsSortMode());
+
+  var computed = _computeFilteredRecords();
+  renderRecordsYearMonthNav(computed.typeFiltered, computed.hasSearch);
+
+  var _recEs = isEsLang();
+
+  if (computed.list === null){
+    el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' +
+      (computed.typeFiltered.length
+        ? (_recEs ? 'Seleccione un año y mes arriba, o use la búsqueda.' : 'Select a year and month above, or use search.') + ' (' + computed.typeFiltered.length + (_recEs?' en total)':' total)')
+        : (_recEs ? 'Nada registrado aún.' : 'Nothing recorded yet.')) +
+      '</div>';
+    return;
+  }
+
+  var all = computed.list;
 
   if (!all.length){
     el.innerHTML = '<div style="padding:48px 0;text-align:center;color:var(--text-tertiary);font-size:15px;">' +
@@ -18978,6 +18999,52 @@ function renderRecords(){
       '<button type="button" class="jp-list-delete" onclick="event.stopPropagation();deleteRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')" title="Delete this record" aria-label="Delete this record">🗑️</button>' +
     '</div>';
   }).join('');
+}
+
+// One CSV row per record CURRENTLY ON SCREEN in Records — reuses
+// _computeFilteredRecords() so an export can never show a different set
+// than what someone can see and scroll through, whatever combination of
+// type/station/CAD filters, search text, and year-month they've picked.
+// RCA rows are the one caveat: rcaLoadRecords() only ever holds what THIS
+// device has locally cached (RCA never went through the app's cross-device
+// sync), so an export here reflects only the RCAs this device has seen —
+// the daily "RCA Backups" Drive folder (see RCA_AppScript_v3.gs) is the
+// actual complete history across every device.
+function exportRecordsCSV(){
+  var isEs = isEsLang();
+  var computed = _computeFilteredRecords();
+  if (computed.list === null){
+    showAlert(isEs ? 'Seleccione un año y mes arriba, o use la búsqueda, antes de exportar.' : 'Select a year and month above, or use search, before exporting.');
+    return;
+  }
+  if (!computed.list.length){
+    showAlert(isEs ? 'No hay registros coincidentes para exportar.' : 'No matching records to export.');
+    return;
+  }
+
+  var headers = ['Type','Job #','Product/Form ID','Customer','Station','Status','Date','Operator/QA Tech','Root Cause','Corrective Action'];
+  var rows = computed.list.map(function(r){
+    var raw = r.raw || {};
+    var operator = raw.operatorName || raw.qaTech || '';
+    var rootCause = r.type === 'rca' ? (raw.rootCause || '') : '';
+    var correctiveAction = r.type === 'rca' ? (raw.correctiveAction || '') : (r.type === 'ncr' ? (raw.disposition || '') : '');
+    return [r.type.toUpperCase(), r.jobNumber, r.product, r.customer, stationLabel(r.station), r.status, r.ts, operator, rootCause, correctiveAction];
+  });
+
+  var csv = [headers].concat(rows).map(function(row){
+    return row.map(function(v){ return '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"'; }).join(',');
+  }).join('\n');
+
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = 'QA_Records_' + Date.now() + '.csv';
+  a.click();
+
+  if (computed.list.some(function(r){ return r.type === 'rca'; })) {
+    showToast(isEs
+      ? 'Exportado. Nota: las filas RCA solo incluyen lo que este dispositivo ha visto — vea la carpeta "RCA Backups" en Drive para el historial completo.'
+      : 'Exported. Note: RCA rows only cover what this device has seen — see the "RCA Backups" Drive folder for the complete history.', 'pass');
+  }
 }
 
 /* ══════════════════════════════════
