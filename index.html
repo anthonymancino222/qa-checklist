@@ -3376,15 +3376,18 @@ try {
       </div>
     </div>
 
-    <!-- Global "uploading, please wait" overlay — submitJob()/beginInspection()/
-         submitForQAApproval()/beginVeritivPacking() all await one or more
-         _uploadPhotoToDrive() calls (each a real network round trip to the
-         Cloudflare Worker → Google Drive) before the app can move on. That
-         used to be silent — no spinner, no message — so a multi-product run
-         with several photos could sit unresponsive for many seconds and get
-         mistaken for a frozen app, risking someone force-closing and redoing
-         the whole entry. This is shown/hidden around every one of those
-         upload sites so it's never silent again. -->
+    <!-- Global "uploading, please wait" overlay. Every submit flow that
+         captures a photo used to await its _uploadPhotoToDrive() call (a real
+         network round trip to the Cloudflare Worker → Google Drive) before
+         the record was even saved — a multi-product run with several photos
+         could sit unresponsive for many seconds and get mistaken for a frozen
+         app. Those submit sites (submitJob/beginInspection/
+         submitForQAApproval/beginVeritivPacking) now save the record
+         instantly with the local photo and upload to Drive in the background
+         via _backgroundUploadPhoto() instead, so this overlay no longer
+         appears for them. shareDraft() (share a saved entry to other
+         devices) is the one remaining caller — that sync genuinely has
+         nothing useful to show until it either lands or fails. -->
     <div id="qc-upload-overlay" class="hidden">
       <div class="qc-upload-spinner"></div>
       <div class="qc-upload-overlay-title" id="qc-upload-overlay-title">Uploading photo…</div>
@@ -5632,10 +5635,9 @@ function _signOutOfApp() {
   );
 }
 
-// Shown/hidden around every _uploadPhotoToDrive() call site — see
-// #qc-upload-overlay's own comment for why this exists. msg lets a
-// multi-photo loop (Gluer, Bindery/Pressroom Cutter) show progress
-// ("Uploading photo 2 of 5…") instead of one static line the whole time.
+// See #qc-upload-overlay's own comment — shareDraft() is the sole remaining
+// caller now that every photo-upload submit flow uses _backgroundUploadPhoto
+// instead. msg lets a caller customize the line shown while it's up.
 function _qcShowUploadOverlay(msg){
   var ov = document.getElementById('qc-upload-overlay');
   if (!ov) return;
@@ -5673,6 +5675,32 @@ function _uploadPhotoToDrive(dataUrl) {
     .then(function(resp) { return resp.ok ? resp.json() : null; })
     .then(function(result) { return (result && result.url) ? (QA_BACKEND_URL + result.url) : dataUrl; })
     .catch(function() { return dataUrl; });
+}
+
+// Fire-and-forget version of _uploadPhotoToDrive for a photo that's already
+// been saved to the record using the local data URL (the same value already
+// used as the accepted fallback on outright upload failure — see
+// _uploadPhotoToDrive's own comment above). Swaps in the real Drive link once
+// the upload actually finishes, patching both the top-level field and, when
+// the same photo was also embedded in the record's first stageHistory
+// snapshot, that nested copy too — otherwise the bulky data URL would sit
+// there forever even after the "real" upload succeeded. Lets every submit
+// flow save instantly instead of blocking on this network round trip.
+function _backgroundUploadPhoto(jobId, dataUrl, topField, stageIndex, stageField) {
+  if (!dataUrl || dataUrl.indexOf('data:') !== 0) return;
+  _uploadPhotoToDrive(dataUrl).then(function(url) {
+    if (!url || url === dataUrl) return;
+    var jobs = ipLoad();
+    for (var i = 0; i < jobs.length; i++) {
+      if (jobs[i].id !== jobId) continue;
+      jobs[i][topField] = url;
+      if (stageIndex != null && jobs[i].stageHistory && jobs[i].stageHistory[stageIndex] && jobs[i].stageHistory[stageIndex].data) {
+        jobs[i].stageHistory[stageIndex].data[stageField] = url;
+      }
+      break;
+    }
+    ipSave(jobs);
+  });
 }
 
 // qc_draft (a shared Save Progress entry) keys off plain `id`, same as a job —
@@ -7771,7 +7799,7 @@ function cancelContinueModal() {
 }
 
 // Operator submits checklist + sig → status becomes qa_pending
-async function submitForQAApproval() {
+function submitForQAApproval() {
   if (!continueJobId) return;
   // Same hard requirement as fresh QC Approval intake — but this is the
   // OTHER place a make-ready job actually gets submitted (reopened from the
@@ -7830,12 +7858,10 @@ async function submitForQAApproval() {
     opNotes:     document.getElementById('cm-op-notes').value.trim(),
     lastUpdated: formatTS()
   };
-  if (photoSrc) {
-    _qcShowUploadOverlay();
-    try { updates.mrPhoto = await _uploadPhotoToDrive(photoSrc); } finally { _qcHideUploadOverlay(); }
-  }
+  if (photoSrc) updates.mrPhoto = photoSrc;
 
   ipUpdate(continueJobId, updates);
+  if (photoSrc) _backgroundUploadPhoto(continueJobId, photoSrc, 'mrPhoto');
   closeContinueModal();
   renderInProgress();
   showToast('Submitted for QA approval', 'pass');
@@ -11210,7 +11236,7 @@ function _resetVeritivFirst25Detail() {
   _safeSet('veritiv-first25-notnotified-reason', 'value', '');
 }
 
-async function beginVeritivPacking() {
+function beginVeritivPacking() {
   var job = document.getElementById('setup-job').value.trim();
   if (!job) { showAlert('Enter a job number.'); _scrollToField(document.getElementById('setup-job')); return; }
   var product = document.getElementById('veritiv-product').value.trim();
@@ -11249,10 +11275,9 @@ async function beginVeritivPacking() {
   var prevImg = document.getElementById('veritiv-photo-preview');
   var photoSrc = (prevImg && prevImg.src && prevImg.style.display !== 'none') ? prevImg.src : null;
   if (!photoSrc) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('veritiv-photo-area')); return; }
-  _qcShowUploadOverlay();
-  try { photoSrc = await _uploadPhotoToDrive(photoSrc); } finally { _qcHideUploadOverlay(); }
+  var _vId = 'vpk-' + Date.now();
   var record = {
-    id:           'vpk-' + Date.now(),
+    id:           _vId,
     jobNumber:    job,
     station:      'Packing',
     customer:     'Veritiv',
@@ -11270,6 +11295,7 @@ async function beginVeritivPacking() {
     timestamp:     formatTS()
   };
   ipAdd(record);
+  _backgroundUploadPhoto(_vId, photoSrc, 'mrPhoto');
   showToast('Veritiv Job ' + job + ' → In Production', 'pass');
   startNewJob();
   switchView('inprogress');
@@ -11300,12 +11326,11 @@ async function beginInspection() {
       if (_kUnanswered) return;
       var _kProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
       if (!_kProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
-      _qcShowUploadOverlay();
-      try { _kProdPhoto = await _uploadPhotoToDrive(_kProdPhoto); } finally { _qcHideUploadOverlay(); }
       var _kChecklist = getChecklistValues('setup');
       var _kOperator = getKamaOperatorName();
+      var _kId = 'kama-' + Date.now();
       var _kRecord = {
-        id: 'kama-' + Date.now(),
+        id: _kId,
         jobNumber: job, station: station, formNumber: formNum,
         customer: document.getElementById('setup-customer').value.trim(),
         operatorName: _kOperator,
@@ -11321,6 +11346,7 @@ async function beginInspection() {
         })
       };
       ipAdd(_kRecord);
+      _backgroundUploadPhoto(_kId, _kProdPhoto, 'mrPhoto', 0, 'photo');
       showToast('Job ' + job + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
@@ -11338,11 +11364,10 @@ async function beginInspection() {
     if (!getKamaOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('kama-operator-group')); return; }
     var _kMrPhotoEl = document.getElementById('kama-mr-photo-preview');
     if (!_kMrPhotoEl || _kMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('kama-mr-photo-area')); return; }
-    _qcShowUploadOverlay();
-    var _kMrPhoto;
-    try { _kMrPhoto = await _uploadPhotoToDrive(_kMrPhotoEl.src); } finally { _qcHideUploadOverlay(); }
+    var _kMrPhoto = _kMrPhotoEl.src;
+    var _kMrId = 'kama-' + Date.now();
     var record = {
-      id: 'kama-' + Date.now(),
+      id: _kMrId,
       jobNumber: job, station: station, formNumber: formNum,
       customer: document.getElementById('setup-customer').value.trim(),
       operatorName: getKamaOperatorName(),
@@ -11363,6 +11388,7 @@ async function beginInspection() {
       operatorName: record.operatorName, photo: record.mrPhoto, comments: record.mrComments, checklist: record.checklist
     });
     ipAdd(record);
+    _backgroundUploadPhoto(_kMrId, _kMrPhoto, 'mrPhoto', 0, 'photo');
     showToast('Job ' + job + ' → In Make Ready', 'pass');
     startNewJob();
     switchView('inprogress');
@@ -11381,12 +11407,11 @@ async function beginInspection() {
       if (_requireAllAnswered('setup', CHECKLIST)) return;
       var _dcProdPhoto = (function(){ var p = document.getElementById('setup-photo-preview'); return p && p.style.display !== 'none' ? p.src : null; })();
       if (!_dcProdPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
-      _qcShowUploadOverlay();
-      try { _dcProdPhoto = await _uploadPhotoToDrive(_dcProdPhoto); } finally { _qcHideUploadOverlay(); }
       var _dcChecklist = getChecklistValues('setup');
       var _dcOperator = getDCOperatorName();
+      var _dcId = 'dc-' + Date.now();
       var _dcRecord = {
-        id: 'dc-' + Date.now(),
+        id: _dcId,
         jobNumber: job, station: station, formNumber: formId,
         customer: document.getElementById('setup-customer').value.trim(),
         operatorName: _dcOperator,
@@ -11402,6 +11427,7 @@ async function beginInspection() {
         })
       };
       ipAdd(_dcRecord);
+      _backgroundUploadPhoto(_dcId, _dcProdPhoto, 'mrPhoto', 0, 'photo');
       showToast('Job ' + job + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
@@ -11415,11 +11441,10 @@ async function beginInspection() {
     if (!getDCOperatorName()) { showAlert('Select an operator name.'); _scrollToField(document.getElementById('dc-operator-group')); return; }
     var _dcMrPhotoEl = document.getElementById('dc-mr-photo-preview');
     if (!_dcMrPhotoEl || _dcMrPhotoEl.style.display === 'none') { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('dc-mr-photo-area')); return; }
-    _qcShowUploadOverlay();
-    var _dcMrPhoto;
-    try { _dcMrPhoto = await _uploadPhotoToDrive(_dcMrPhotoEl.src); } finally { _qcHideUploadOverlay(); }
+    var _dcMrPhoto = _dcMrPhotoEl.src;
+    var _dcMrId = 'dc-' + Date.now();
     var record = {
-      id: 'dc-' + Date.now(),
+      id: _dcMrId,
       jobNumber: job, station: station, formNumber: formId,
       customer: document.getElementById('setup-customer').value.trim(),
       operatorName: getDCOperatorName(),
@@ -11433,6 +11458,7 @@ async function beginInspection() {
       operatorName: record.operatorName, photo: record.mrPhoto, comments: record.mrComments, checklist: record.checklist
     });
     ipAdd(record);
+    _backgroundUploadPhoto(_dcMrId, _dcMrPhoto, 'mrPhoto', 0, 'photo');
     showToast('Job ' + job + ' → In Make Ready', 'pass');
     startNewJob();
     switchView('inprogress');
@@ -11476,28 +11502,27 @@ async function beginInspection() {
       // display:none set once by CSS and never toggled inline made the
       // old style.display check always read as "has a photo."
       if (!_gPhotoEl || !_gPhotoEl.src) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('gluer-prod-photo-area-0')); return; }
-      try {
-        _qcShowUploadOverlay(isEsLang() ? 'Subiendo foto…' : 'Uploading photo…');
-        var _gPhotoSrc = await _uploadPhotoToDrive(_gPhotoEl.src);
-        var _gSchedEntry = _scheduleData && _scheduleData.jobs[job];
-        var _gPool = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductPool : ((_gSchedEntry && _gSchedEntry.products) || []);
-        var _gUsedSoFar = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductsUsed : [];
-        ipAdd({
-          id: 'gluer-' + _gNow,
-          jobNumber: job, station: station, productNumber: _gPNum,
-          customer: document.getElementById('setup-customer').value.trim(),
-          operatorName: _gOpName, process: 'production',
-          mrPhoto: _gPhotoSrc, opSignature: getOpSignatureDataURL(), qaSignature: _gSig,
-          checklist: _gChecks, timestamp: _gTs,
-          batchId: _gBatchId, batchSize: gluerProductCount, batchIndex: _gUsedSoFar.length,
-          scheduleProductPool: _gPool,
-          scheduleProductsUsed: _gUsedSoFar.concat([_gPNum]),
-          stageHistory: _stageSnapshot(null, 'make_ready', 'Operator Entry — Make Ready & Production', {
-            operatorName: _gOpName, productId: _gPNum, photo: _gPhotoSrc,
-            opSignature: getOpSignatureDataURL(), qaSignature: _gSig, checklist: _gChecks
-          })
-        });
-      } finally { _qcHideUploadOverlay(); }
+      var _gPhotoSrc = _gPhotoEl.src;
+      var _gId = 'gluer-' + _gNow;
+      var _gSchedEntry = _scheduleData && _scheduleData.jobs[job];
+      var _gPool = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductPool : ((_gSchedEntry && _gSchedEntry.products) || []);
+      var _gUsedSoFar = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductsUsed : [];
+      ipAdd({
+        id: _gId,
+        jobNumber: job, station: station, productNumber: _gPNum,
+        customer: document.getElementById('setup-customer').value.trim(),
+        operatorName: _gOpName, process: 'production',
+        mrPhoto: _gPhotoSrc, opSignature: getOpSignatureDataURL(), qaSignature: _gSig,
+        checklist: _gChecks, timestamp: _gTs,
+        batchId: _gBatchId, batchSize: gluerProductCount, batchIndex: _gUsedSoFar.length,
+        scheduleProductPool: _gPool,
+        scheduleProductsUsed: _gUsedSoFar.concat([_gPNum]),
+        stageHistory: _stageSnapshot(null, 'make_ready', 'Operator Entry — Make Ready & Production', {
+          operatorName: _gOpName, productId: _gPNum, photo: _gPhotoSrc,
+          opSignature: getOpSignatureDataURL(), qaSignature: _gSig, checklist: _gChecks
+        })
+      });
+      _backgroundUploadPhoto(_gId, _gPhotoSrc, 'mrPhoto', 0, 'photo');
       showToast((gluerProductCount > 1 ? 'Product 1 of ' + gluerProductCount : 'Product') + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
@@ -11529,27 +11554,26 @@ async function beginInspection() {
     // Checked by .src — see the matching comment in the production branch
     // above for why style.display isn't a reliable signal for this field.
     if (!photoEl || !photoEl.src) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('gluer-prod-photo-area-0')); return; }
-    try {
-      _qcShowUploadOverlay(isEsLang() ? 'Subiendo foto…' : 'Uploading photo…');
-      var photoSrc = await _uploadPhotoToDrive(photoEl.src);
-      var _schedEntry = _scheduleData && _scheduleData.jobs[job];
-      var _pool = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductPool : ((_schedEntry && _schedEntry.products) || []);
-      var _usedSoFar = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductsUsed : [];
-      ipAdd({
-        id: 'gluer-' + now,
-        jobNumber: job, station: station, productNumber: pNum,
-        customer: document.getElementById('setup-customer').value.trim(),
-        operatorName: opName, process: gluerCurrentProcess,
-        mrPhoto: photoSrc, mrComments: mrComments, timestamp: ts,
-        checklist: mrChecks,
-        batchId: batchId, batchSize: gluerProductCount, batchIndex: _usedSoFar.length,
-        scheduleProductPool: _pool,
-        scheduleProductsUsed: _usedSoFar.concat([pNum]),
-        stageHistory: _stageSnapshot(null, 'make_ready', 'Operator Entry — Make Ready', {
-          operatorName: opName, productId: pNum, photo: photoSrc, comments: mrComments, checklist: mrChecks
-        })
-      });
-    } finally { _qcHideUploadOverlay(); }
+    var photoSrc = photoEl.src;
+    var _gMrId = 'gluer-' + now;
+    var _schedEntry = _scheduleData && _scheduleData.jobs[job];
+    var _pool = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductPool : ((_schedEntry && _schedEntry.products) || []);
+    var _usedSoFar = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductsUsed : [];
+    ipAdd({
+      id: _gMrId,
+      jobNumber: job, station: station, productNumber: pNum,
+      customer: document.getElementById('setup-customer').value.trim(),
+      operatorName: opName, process: gluerCurrentProcess,
+      mrPhoto: photoSrc, mrComments: mrComments, timestamp: ts,
+      checklist: mrChecks,
+      batchId: batchId, batchSize: gluerProductCount, batchIndex: _usedSoFar.length,
+      scheduleProductPool: _pool,
+      scheduleProductsUsed: _usedSoFar.concat([pNum]),
+      stageHistory: _stageSnapshot(null, 'make_ready', 'Operator Entry — Make Ready', {
+        operatorName: opName, productId: pNum, photo: photoSrc, comments: mrComments, checklist: mrChecks
+      })
+    });
+    _backgroundUploadPhoto(_gMrId, photoSrc, 'mrPhoto', 0, 'photo');
     showToast((gluerProductCount > 1 ? 'Product 1 of ' + gluerProductCount : 'Product') + ' → In Make Ready', 'pass');
     startNewJob();
     switchView('inprogress');
@@ -12892,21 +12916,24 @@ async function _submitJobInner() {
     // these stations — single-count included.
     var _anyMissingPhoto = jobState.entries.some(function(entry){ return !(entry.photo || setupPhotoSrc); });
     if (_anyMissingPhoto) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('setup-photo-area')); return; }
-    // Multiple entries commonly share the same setupPhotoSrc fallback — upload
-    // it once and reuse the resulting link rather than re-uploading per entry.
-    var _totalToUpload = jobState.entries.length;
-    _qcShowUploadOverlay(_totalToUpload > 1 ? ((isEsLang() ? 'Subiendo fotos (' : 'Uploading photos (') + _totalToUpload + (isEsLang() ? ' productos)…' : ' products)…')) : undefined);
-    var _uploadedSetupPhotoSrc;
-    try {
-    _uploadedSetupPhotoSrc = setupPhotoSrc ? await _uploadPhotoToDrive(setupPhotoSrc) : null;
+    // Multiple entries commonly share the same setupPhotoSrc fallback — kick
+    // off ONE background upload for it and reuse the resulting link across
+    // every entry that falls back to it, rather than uploading it once per
+    // entry. Every record below is saved immediately with its local photo
+    // (data URL) so the operator never waits on any of these uploads —
+    // _sharedFallbackIds collects which records to patch once the shared
+    // upload resolves; entries with their own photo get patched individually.
+    var _qcTs = Date.now();
+    var _sharedUploadPromise = setupPhotoSrc ? _uploadPhotoToDrive(setupPhotoSrc) : null;
+    var _sharedFallbackIds = [];
     for (var _qcIdx = 0; _qcIdx < jobState.entries.length; _qcIdx++) {
       var entry = jobState.entries[_qcIdx];
       var entryFailed = entry.checks && entry.checks.some(function(c){ return c.val === 'fail'; });
       if (entryFailed) continue;
-      if (_totalToUpload > 1) _qcShowUploadOverlay((isEsLang() ? 'Subiendo foto ' : 'Uploading photo ') + (_qcIdx + 1) + (isEsLang() ? ' de ' : ' of ') + _totalToUpload + '…');
-      var _entryPhoto = entry.photo ? await _uploadPhotoToDrive(entry.photo) : _uploadedSetupPhotoSrc;
+      var _entryPhoto = entry.photo || setupPhotoSrc;
+      var _qcId = 'qc-' + _qcTs + '-' + _qcIdx;
       ipAdd({
-        id: 'qc-' + Date.now() + '-' + _qcIdx,
+        id: _qcId,
         jobNumber: jobState.jobNumber,
         station: jobState.station,
         customer: jobState.customer || '',
@@ -12923,8 +12950,27 @@ async function _submitJobInner() {
           checklist: entry.checks, comments: entry.comments || ''
         })
       });
+      if (entry.photo) {
+        _backgroundUploadPhoto(_qcId, entry.photo, 'mrPhoto', 0, 'photo');
+      } else if (_sharedUploadPromise) {
+        _sharedFallbackIds.push(_qcId);
+      }
     }
-    } finally { _qcHideUploadOverlay(); }
+    if (_sharedUploadPromise) {
+      _sharedUploadPromise.then(function(url) {
+        if (!url || url === setupPhotoSrc || !_sharedFallbackIds.length) return;
+        var jobs = ipLoad();
+        _sharedFallbackIds.forEach(function(id) {
+          for (var i = 0; i < jobs.length; i++) {
+            if (jobs[i].id !== id) continue;
+            jobs[i].mrPhoto = url;
+            if (jobs[i].stageHistory && jobs[i].stageHistory[0] && jobs[i].stageHistory[0].data) jobs[i].stageHistory[0].data.photo = url;
+            break;
+          }
+        });
+        ipSave(jobs);
+      });
+    }
     renderShipping();
   }
 
