@@ -4264,7 +4264,8 @@ try {
             <button type="button" class="filter-pop-btn" id="records-cad-filter-btn" onclick="toggleFilterPopover('records','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="records-cad-filter-badge"></span> ▾</button>
             <div class="filter-popover" id="records-cad-filter-pop" style="display:none;"></div>
           </div>
-          <button type="button" class="btn-secondary" onclick="exportRecordsCSV()" title="Export every record currently shown below (respects search/filters) as a CSV file — handy for handing a batch of records to an auditor." style="flex:0 0 auto;">⬇️ <span data-en>Export</span><span data-es>Exportar</span></button>
+          <button type="button" class="btn-secondary" onclick="exportRecordsCSV()" title="Export every record currently shown below (respects search/filters) as a CSV file — handy for handing a batch of records to an auditor." style="flex:0 0 auto;">⬇️ <span data-en>Export Shown</span><span data-es>Exportar Mostrados</span></button>
+          <button type="button" class="btn-secondary" onclick="exportAllRecordsCSV()" title="Export every record of the selected type (ignores search and the year/month selection) — the full audit-ready set, not just what's currently on screen." style="flex:0 0 auto;">⬇️ <span data-en>Export All</span><span data-es>Exportar Todo</span></button>
         </div>
         <div id="records-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button type="button" class="tgl sel" data-recfilter="all" onclick="setRecordsFilter('all',this)"><span data-en>All</span><span data-es>Todos</span></button>
@@ -19010,20 +19011,13 @@ function renderRecords(){
 // sync), so an export here reflects only the RCAs this device has seen —
 // the daily "RCA Backups" Drive folder (see RCA_AppScript_v3.gs) is the
 // actual complete history across every device.
-function exportRecordsCSV(){
-  var isEs = isEsLang();
-  var computed = _computeFilteredRecords();
-  if (computed.list === null){
-    showAlert(isEs ? 'Seleccione un año y mes arriba, o use la búsqueda, antes de exportar.' : 'Select a year and month above, or use search, before exporting.');
-    return;
-  }
-  if (!computed.list.length){
-    showAlert(isEs ? 'No hay registros coincidentes para exportar.' : 'No matching records to export.');
-    return;
-  }
-
+// Shared by both export functions below — turns a normalized/filtered
+// record list into a CSV file and triggers the browser download. Same
+// Blob + synthetic <a download> pattern the QC-entry screen's own
+// exportCSV() already uses.
+function _downloadRecordsCSV(list, filename){
   var headers = ['Type','Job #','Product/Form ID','Customer','Station','Status','Date','Operator/QA Tech','Root Cause','Corrective Action'];
-  var rows = computed.list.map(function(r){
+  var rows = list.map(function(r){
     var raw = r.raw || {};
     var operator = raw.operatorName || raw.qaTech || '';
     var rootCause = r.type === 'rca' ? (raw.rootCause || '') : '';
@@ -19037,14 +19031,74 @@ function exportRecordsCSV(){
 
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-  a.download = 'QA_Records_' + Date.now() + '.csv';
+  a.download = filename;
   a.click();
 
-  if (computed.list.some(function(r){ return r.type === 'rca'; })) {
+  if (list.some(function(r){ return r.type === 'rca'; })) {
+    var isEs = isEsLang();
     showToast(isEs
       ? 'Exportado. Nota: las filas RCA solo incluyen lo que este dispositivo ha visto — vea la carpeta "RCA Backups" en Drive para el historial completo.'
       : 'Exported. Note: RCA rows only cover what this device has seen — see the "RCA Backups" Drive folder for the complete history.', 'pass');
   }
+}
+
+// Exports exactly what's currently ON SCREEN — see _computeFilteredRecords()
+// for what that respects (type/station/CAD filters, search, year-month).
+function exportRecordsCSV(){
+  var isEs = isEsLang();
+  var computed = _computeFilteredRecords();
+  if (computed.list === null){
+    showAlert(isEs ? 'Seleccione un año y mes arriba, o use la búsqueda, antes de exportar.' : 'Select a year and month above, or use search, before exporting.');
+    return;
+  }
+  if (!computed.list.length){
+    showAlert(isEs ? 'No hay registros coincidentes para exportar.' : 'No matching records to export.');
+    return;
+  }
+  _downloadRecordsCSV(computed.list, 'QA_Records_' + Date.now() + '.csv');
+}
+
+// Exports EVERY record this device knows about, regardless of search text or
+// the year/month drill-down (those exist only to keep the on-screen list
+// from becoming one giant unsorted scroll — they shouldn't also cap what an
+// audit request can pull in one go). Station and CAD Style filters still
+// apply, since those are deliberate scoping choices, not overload
+// prevention, and the type toggle (All/Jobs/NCR/RCA) still applies too.
+function exportAllRecordsCSV(){
+  var isEs = isEsLang();
+  var jobs      = _recNorm(ipLoad(), 'job');
+  var ncrs      = _recNorm(ncrLoad(), 'ncr');
+  var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
+  var rcas      = _recNorm(rcaLoadRecords(), 'rca');
+
+  var all = [].concat(jobs, ncrs, ncrDrafts, rcas);
+  if (recordsFilter !== 'all'){
+    all = all.filter(function(r){
+      if (recordsFilter === 'ncr') return r.type === 'ncr' || r.type === 'ncr_draft';
+      return r.type === recordsFilter;
+    });
+  }
+  all = _applyListFilters(all, 'records');
+  all = _applySortMode(all, getRecordsSortMode(),
+    function(r){ return r.ts; },
+    function(r){ return stationLabel(r.station); },
+    function(r){ return r.customer; },
+    function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; });
+
+  if (!all.length){
+    showAlert(isEs ? 'No hay registros que coincidan con los filtros actuales de Estación/Estilo CAD.' : 'No records match the current Station/CAD Style filters.');
+    return;
+  }
+
+  showConfirm(
+    isEs
+      ? ('Esto exportará ' + all.length + ' registro(s) — todas las fechas, sin importar la búsqueda o el mes seleccionado (los filtros de Estación y Estilo CAD sí se respetan). ¿Continuar?')
+      : ('This will export ' + all.length + ' record(s) — every date, regardless of search or the selected month (Station and CAD Style filters still apply). Continue?'),
+    function(ok){
+      if (!ok) return;
+      _downloadRecordsCSV(all, 'QA_Records_All_' + Date.now() + '.csv');
+    }
+  );
 }
 
 /* ══════════════════════════════════
