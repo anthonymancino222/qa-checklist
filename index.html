@@ -40,12 +40,14 @@
   --red: #c8393a;
   --red-soft: #fbeaea;
   --red-mid: #e05252;
+  --red-ink: #9c2c2e;
   --amber: #e8a020;
   --amber-soft: #fbf1dc;
   --amber-ink: #8a5e0e;
   --green: #2e7d4f;
   --green-soft: #e7f3ec;
   --green-mid: #3a9e65;
+  --green-ink: #1c6b42;
   --steel: #5c6b7a;
 
   /* Pale informational banners (production/shipping notes, "meets target"
@@ -57,6 +59,16 @@
   --indigo: #3730a3;
   --indigo-soft: #e0e7ff;
   --indigo-mid: #6366f1;
+
+  /* Same "-soft"/"-ink" pale-badge pattern as red/amber/green/indigo above,
+     for the process-station kanban column headers (2nd Pass Ready, Partial
+     Shipped). */
+  --orange: #e8791f;
+  --orange-soft: #fde3cc;
+  --orange-ink: #954a12;
+  --purple: #7c3fae;
+  --purple-soft: #f2e6fb;
+  --purple-ink: #6b2f96;
 
   --radius: 10px;
   --radius-lg: 14px;
@@ -90,9 +102,11 @@ body.dark-mode {
 
   --pink-soft: #3a1428;
   --red-soft: #3a1d1d;
+  --red-ink: #f3a0a0;
   --amber-soft: #3a2f14;
   --amber-ink: #f0c05a;
   --green-soft: #16301f;
+  --green-ink: #7ddba1;
 
   --blue: #7fa8f5;
   --blue-soft: #16233d;
@@ -100,6 +114,11 @@ body.dark-mode {
   --indigo: #b4c0fa;
   --indigo-soft: #262a4a;
   --indigo-mid: #5b63b0;
+
+  --orange-soft: #3d2712;
+  --orange-ink: #f0a35e;
+  --purple-soft: #2f2140;
+  --purple-ink: #d3a6ef;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1396,17 +1415,24 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   padding: 2px 8px; border-radius: 10px;
 }
 .kanban-col-count.has-items { background: var(--pink); color: #fff; }
-/* "2nd Pass Ready" / "Partial Shipped" column headers get their own pale
-   accent tint (distinct from the plain --surface used by every other
-   column) to stand out as needing attention — literal light-mode hex since
-   they're not one of the app's existing --*-soft tokens; dark mode gets its
-   own tinted-not-white pair here so they don't stay bright white boxes. */
-.kanban-col-head-2ndpass { background: var(--indigo-soft); }
-.kanban-col-head-2ndpass .kanban-col-title { color: var(--indigo); }
-.kanban-col-head-partial { background: #fef3c7; }
-.kanban-col-head-partial .kanban-col-title { color: #92400e; }
-body.dark-mode .kanban-col-head-partial { background: var(--amber-soft); }
-body.dark-mode .kanban-col-head-partial .kanban-col-title { color: var(--amber-ink); }
+/* Every process-station column header gets its own pale accent tint
+   (distinct from the plain --surface used by every other column) so
+   operators can tell stations apart at a glance: Make Ready=yellow,
+   Production=green, Inspection=red, 2nd Pass Ready=orange, Partial
+   Shipped=purple. Each color's "-soft"/"-ink" pair is redefined for dark
+   mode at the variable level (see body.dark-mode above), so one rule per
+   class here already works in both themes — no separate dark-mode override
+   needed here. */
+.kanban-col-head-makeready  { background: var(--amber-soft); }
+.kanban-col-head-makeready  .kanban-col-title { color: var(--amber-ink); }
+.kanban-col-head-production { background: var(--green-soft); }
+.kanban-col-head-production .kanban-col-title { color: var(--green-ink); }
+.kanban-col-head-inspection { background: var(--red-soft); }
+.kanban-col-head-inspection .kanban-col-title { color: var(--red-ink); }
+.kanban-col-head-2ndpass    { background: var(--orange-soft); }
+.kanban-col-head-2ndpass    .kanban-col-title { color: var(--orange-ink); }
+.kanban-col-head-partial    { background: var(--purple-soft); }
+.kanban-col-head-partial    .kanban-col-title { color: var(--purple-ink); }
 .kanban-cards { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
 .kanban-empty { color: var(--text-tertiary); font-size: 15px; text-align: center; padding: 24px 10px; }
 .jp-card {
@@ -2794,14 +2820,14 @@ try {
            same follow-up bucket as the scanner-title reads above). -->
       <div class="kanban-wrap" id="ip-kanban-wrap" onscroll="_syncKanbanScroll(this, document.getElementById('ip-kanban-scroll-top'))">
         <div class="kanban-col">
-          <div class="kanban-col-head" onclick="openColJobsSheet('makeready','In Make Ready')" style="cursor:pointer;">
+          <div class="kanban-col-head kanban-col-head-makeready" onclick="openColJobsSheet('makeready','In Make Ready')" style="cursor:pointer;">
             <span class="kanban-col-title"><span data-en>In Make Ready</span><span data-es>En Preparación</span></span>
             <span class="kanban-col-count" id="count-makeready">0</span>
           </div>
           <div class="kanban-cards" id="col-makeready"></div>
         </div>
         <div class="kanban-col">
-          <div class="kanban-col-head" onclick="openColJobsSheet('production','In Production')" style="cursor:pointer;">
+          <div class="kanban-col-head kanban-col-head-production" onclick="openColJobsSheet('production','In Production')" style="cursor:pointer;">
             <span class="kanban-col-title"><span data-en>In Production</span><span data-es>En Producción</span></span>
             <span class="kanban-col-count" id="count-production">0</span>
           </div>
@@ -2815,7 +2841,7 @@ try {
           <div class="kanban-cards" id="col-secondpassready"></div>
         </div>
         <div class="kanban-col">
-          <div class="kanban-col-head" onclick="openColJobsSheet('inspection','In Inspection')" style="cursor:pointer;">
+          <div class="kanban-col-head kanban-col-head-inspection" onclick="openColJobsSheet('inspection','In Inspection')" style="cursor:pointer;">
             <span class="kanban-col-title"><span data-en>In Inspection</span><span data-es>En Inspección</span></span>
             <span class="kanban-col-count" id="count-inspection">0</span>
           </div>
