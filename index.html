@@ -2784,19 +2784,21 @@ try {
         </div>
       </div>
       <div style="padding:0 16px;">
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <input type="text" id="ip-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderInProgress()" style="flex:1;margin-bottom:0;">
-          <select id="ip-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setIPSortMode(this.value)">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="ip-station-filter-btn" onclick="toggleFilterPopover('ip','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="ip-station-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="ip-station-filter-pop" style="display:none;"></div>
-          </div>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="ip-cad-filter-btn" onclick="toggleFilterPopover('ip','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="ip-cad-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="ip-cad-filter-pop" style="display:none;"></div>
+        <div style="margin-bottom:14px;">
+          <input type="text" id="ip-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderInProgress()" style="width:100%;margin-bottom:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="ip-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setIPSortMode(this.value)">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="ip-station-filter-btn" onclick="toggleFilterPopover('ip','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="ip-station-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="ip-station-filter-pop" style="display:none;"></div>
+            </div>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="ip-cad-filter-btn" onclick="toggleFilterPopover('ip','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="ip-cad-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="ip-cad-filter-pop" style="display:none;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -3700,19 +3702,21 @@ try {
         </div>
       </div>
       <div style="padding:0 16px;">
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <input type="text" id="qa-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderQARelease()" style="flex:1;margin-bottom:0;">
-          <select id="qa-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setQASortMode(this.value)">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="qa-station-filter-btn" onclick="toggleFilterPopover('qa','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="qa-station-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="qa-station-filter-pop" style="display:none;"></div>
-          </div>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="qa-cad-filter-btn" onclick="toggleFilterPopover('qa','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="qa-cad-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="qa-cad-filter-pop" style="display:none;"></div>
+        <div style="margin-bottom:14px;">
+          <input type="text" id="qa-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderQARelease()" style="width:100%;margin-bottom:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="qa-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setQASortMode(this.value)">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="qa-station-filter-btn" onclick="toggleFilterPopover('qa','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="qa-station-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="qa-station-filter-pop" style="display:none;"></div>
+            </div>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="qa-cad-filter-btn" onclick="toggleFilterPopover('qa','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="qa-cad-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="qa-cad-filter-pop" style="display:none;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -3730,19 +3734,21 @@ try {
         </div>
       </div>
       <div style="padding:0 16px;">
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <input type="text" id="ship-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderShipping()" style="flex:1;margin-bottom:0;">
-          <select id="ship-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setShipSortMode(this.value)">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="ship-station-filter-btn" onclick="toggleFilterPopover('ship','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="ship-station-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="ship-station-filter-pop" style="display:none;"></div>
-          </div>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="ship-cad-filter-btn" onclick="toggleFilterPopover('ship','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="ship-cad-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="ship-cad-filter-pop" style="display:none;"></div>
+        <div style="margin-bottom:14px;">
+          <input type="text" id="ship-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderShipping()" style="width:100%;margin-bottom:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="ship-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setShipSortMode(this.value)">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="ship-station-filter-btn" onclick="toggleFilterPopover('ship','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="ship-station-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="ship-station-filter-pop" style="display:none;"></div>
+            </div>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="ship-cad-filter-btn" onclick="toggleFilterPopover('ship','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="ship-cad-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="ship-cad-filter-pop" style="display:none;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -4250,22 +4256,24 @@ try {
     <div id="view-records" class="screen">
       <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div><div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div></div>
       <div style="padding:0 16px 24px;">
-        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-          <input type="text" id="records-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderRecords()" style="flex:1;margin-bottom:0;">
-          <select id="records-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setRecordsSortMode(this.value)">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="records-station-filter-btn" onclick="toggleFilterPopover('records','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="records-station-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="records-station-filter-pop" style="display:none;"></div>
+        <div style="margin-bottom:14px;">
+          <input type="text" id="records-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderRecords()" style="width:100%;margin-bottom:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="records-sort" class="input" style="flex:0 0 auto;width:auto;margin-bottom:0;" onchange="setRecordsSortMode(this.value)">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="records-station-filter-btn" onclick="toggleFilterPopover('records','station')"><span data-en>Station</span><span data-es>Estación</span><span class="filter-pop-badge" id="records-station-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="records-station-filter-pop" style="display:none;"></div>
+            </div>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="records-cad-filter-btn" onclick="toggleFilterPopover('records','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="records-cad-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="records-cad-filter-pop" style="display:none;"></div>
+            </div>
+            <button type="button" class="btn-secondary" onclick="exportRecordsCSV()" title="Export every record currently shown below (respects search/filters) as a CSV file — handy for handing a batch of records to an auditor." style="flex:0 0 auto;">⬇️ <span data-en>Export Shown</span><span data-es>Exportar Mostrados</span></button>
+            <button type="button" class="btn-secondary" onclick="exportAllRecordsCSV()" title="Export every record of the selected type (ignores search and the year/month selection) — the full audit-ready set, not just what's currently on screen." style="flex:0 0 auto;">⬇️ <span data-en>Export All</span><span data-es>Exportar Todo</span></button>
           </div>
-          <div class="filter-pop-wrap">
-            <button type="button" class="filter-pop-btn" id="records-cad-filter-btn" onclick="toggleFilterPopover('records','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="records-cad-filter-badge"></span> ▾</button>
-            <div class="filter-popover" id="records-cad-filter-pop" style="display:none;"></div>
-          </div>
-          <button type="button" class="btn-secondary" onclick="exportRecordsCSV()" title="Export every record currently shown below (respects search/filters) as a CSV file — handy for handing a batch of records to an auditor." style="flex:0 0 auto;">⬇️ <span data-en>Export Shown</span><span data-es>Exportar Mostrados</span></button>
-          <button type="button" class="btn-secondary" onclick="exportAllRecordsCSV()" title="Export every record of the selected type (ignores search and the year/month selection) — the full audit-ready set, not just what's currently on screen." style="flex:0 0 auto;">⬇️ <span data-en>Export All</span><span data-es>Exportar Todo</span></button>
         </div>
         <div id="records-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button type="button" class="tgl sel" data-recfilter="all" onclick="setRecordsFilter('all',this)"><span data-en>All</span><span data-es>Todos</span></button>
