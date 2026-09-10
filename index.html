@@ -5745,22 +5745,20 @@ function _syncMarkPending(type, isPending) {
     localStorage.setItem(SYNC_PENDING_KEY, JSON.stringify(pending));
   } catch(e) {}
 }
-// Pushes the WHOLE current list for a store via the bulk upsert endpoint —
-// simpler and far lower-risk than trying to diff "just what changed" across
-// every call site that touches ipSave/ncrSave/ncrDraftSave (there are
-// several for NCR, not one central add/update pair). Re-sending unchanged
-// records is a non-issue at this app's job volume (see the Cloudflare
-// free-tier sizing discussion) — this can be optimized to per-record pushes
-// later if payload size ever becomes a real problem (e.g. once photos are
-// included in what gets synced).
+// Pushes an EXACT given list of records for a store via the bulk upsert
+// endpoint. Internal primitive now — every real call site goes through
+// _syncPushDelta() below instead of calling this directly, so it only ever
+// gets handed the records that actually need pushing, not the whole store.
+// Resolves true/false (not just "didn't throw") so a caller can tell
+// whether it's actually safe to treat these records as synced.
 function _syncPushAll(type, list) {
-  if (!QA_BACKEND_URL) return;
+  if (!QA_BACKEND_URL) return Promise.resolve(false);
   var idField = _syncIdField(type);
   var records = (list || []).map(function(r){
     var id = r[idField];
     return id != null ? { id: String(id), type: type, data: r } : null;
   }).filter(Boolean);
-  if (!records.length) { _syncMarkPending(type, false); return; }
+  if (!records.length) { _syncMarkPending(type, false); return Promise.resolve(true); }
   _syncMarkPending(type, true);
   return fetch(QA_BACKEND_URL + '/records/bulk', {
     method: 'POST',
@@ -5768,14 +5766,83 @@ function _syncPushAll(type, list) {
     body: JSON.stringify({ records: records })
   }).then(function(res){
     if (res.ok) _syncMarkPending(type, false);
-  }).catch(function(){ /* offline — stays pending, retried below */ });
+    return res.ok;
+  }).catch(function(){ return false; /* offline — stays pending, retried below */ });
 }
+
+// Snapshot of the last version of each record THIS device has actually
+// confirmed the server holds (id -> JSON.stringify'd data) — either from a
+// push that succeeded, or a pull that just handed back that exact data.
+// _syncPushDelta diffs the current list against this to find what's
+// genuinely new/changed, instead of re-sending every record in the store on
+// every single save. That full-resend approach (the comment this replaced
+// used to say "re-sending unchanged records is a non-issue at this app's
+// job volume") is exactly what burned through Cloudflare's daily D1
+// write-row quota once this store grew past a few hundred jobs — a single
+// small edit was writing one D1 row per EXISTING record, not per changed
+// one.
+function _syncSnapshotKey(type){ return 'qa_sync_snapshot_' + type + '_v1'; }
+function _syncSnapshotGet(type){
+  try { return JSON.parse(localStorage.getItem(_syncSnapshotKey(type))) || {}; } catch(e){ return {}; }
+}
+function _syncSnapshotSet(type, snap){
+  try { localStorage.setItem(_syncSnapshotKey(type), JSON.stringify(snap)); } catch(e){}
+}
+
+// The real entry point every save/retry goes through now. Diffs `list`
+// against the snapshot to find what's new/changed (pushed) and what
+// disappeared (soft-deleted), and only sends that. An empty snapshot means
+// this device has never run this delta logic before (migrating off the old
+// always-resend approach) — the safe one-time move there is a single real
+// full push of everything (identical to the old behavior, just once) so the
+// server is definitely caught up, then seed the snapshot from it; every
+// save after that is the normal small delta.
+function _syncPushDelta(type, list){
+  if (!QA_BACKEND_URL) return Promise.resolve();
+  var idField = _syncIdField(type);
+  var snap = _syncSnapshotGet(type);
+
+  if (!Object.keys(snap).length) {
+    return _syncPushAll(type, list).then(function(ok){
+      if (!ok) return; // couldn't confirm — leave the snapshot empty, try the same one-time catch-up again next time
+      var seeded = {};
+      (list || []).forEach(function(r){ var id = r[idField]; if (id != null) seeded[String(id)] = JSON.stringify(r); });
+      _syncSnapshotSet(type, seeded);
+    });
+  }
+
+  var seen = {};
+  var dirty = []; // [{id, json, data}]
+  (list || []).forEach(function(r){
+    var id = r[idField];
+    if (id == null) return;
+    var idStr = String(id);
+    seen[idStr] = true;
+    var json = JSON.stringify(r);
+    if (snap[idStr] !== json) dirty.push({ id: idStr, json: json, data: r });
+  });
+  var removedIds = Object.keys(snap).filter(function(id){ return !seen[id]; });
+  if (removedIds.length) {
+    // Disappeared from the list since the last confirmed snapshot — a real
+    // delete, not just "hasn't loaded yet." Soft-deletes on the server (see
+    // _syncDeleteRecord below); this is also what makes a plain ipRemove()
+    // or an array-filter delete actually remove the server copy now,
+    // instead of only ever removing it locally.
+    removedIds.forEach(function(id){ _syncDeleteRecord(type, id); delete snap[id]; });
+    _syncSnapshotSet(type, snap);
+  }
+  if (!dirty.length) return Promise.resolve();
+  return _syncPushAll(type, dirty.map(function(d){ return d.data; })).then(function(ok){
+    if (!ok) return; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
+    dirty.forEach(function(d){ snap[d.id] = d.json; });
+    _syncSnapshotSet(type, snap);
+  });
+}
+
 function _syncRetryPending() {
-  var pending;
-  try { pending = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '{}'); } catch(e) { pending = {}; }
-  if (pending.job) _syncPushAll('job', ipLoad());
-  if (pending.ncr) _syncPushAll('ncr', ncrLoad());
-  if (pending.ncr_draft) _syncPushAll('ncr_draft', ncrDraftLoad());
+  _syncPushDelta('job', ipLoad());
+  _syncPushDelta('ncr', ncrLoad());
+  _syncPushDelta('ncr_draft', ncrDraftLoad());
 }
 window.addEventListener('resize', function(){
   if (typeof _syncKanbanScrollWidth === 'function') _syncKanbanScrollWidth();
@@ -5837,6 +5904,20 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // `deleted` on conflict). Pruning locally-held records the server has
       // since deleted closes that loop.
       var pruned = currentList.filter(function(r){ return !deletedIds[String(r[idField])]; });
+
+      // Seed the delta-push snapshot (see _syncPushDelta) with whatever the
+      // server just handed back — this device now KNOWS the server holds
+      // exactly this data for these ids, so the very next save shouldn't
+      // treat a freshly-pulled record as "new" and re-push it right back.
+      // Safe even for an id whose local copy actually differs (an unsynced
+      // local edit): the snapshot gets the REMOTE version, which still
+      // won't match that local record's own JSON, so it correctly stays
+      // "dirty" and gets pushed for real on the next delta pass.
+      var snap = _syncSnapshotGet(type);
+      remote.forEach(function(r){ snap[String(r.id)] = JSON.stringify(r.data); });
+      Object.keys(deletedIds).forEach(function(id){ delete snap[id]; });
+      _syncSnapshotSet(type, snap);
+
       if (additions.length || pruned.length !== currentList.length) saveFn(pruned.concat(additions));
     })
     .catch(function(){ /* offline at startup — just use what's local */ });
@@ -5856,7 +5937,7 @@ function _syncInitialPull() {
 function _syncNowAll() {
   var jobs = ipLoad(), ncrs = ncrLoad(), drafts = ncrDraftLoad(), qcDrafts = loadDrafts();
   var tasks = [
-    _syncPushAll('job', jobs), _syncPushAll('ncr', ncrs), _syncPushAll('ncr_draft', drafts),
+    _syncPushDelta('job', jobs), _syncPushDelta('ncr', ncrs), _syncPushDelta('ncr_draft', drafts),
     _syncPullAndMerge('job', jobs, ipSave), _syncPullAndMerge('ncr', ncrs, ncrSave), _syncPullAndMerge('ncr_draft', drafts, ncrDraftSave),
     // qc_draft is PULL-ONLY here on purpose: a Save Progress entry is local
     // until the operator explicitly hands it off (see _syncShareDraft), so
@@ -5961,7 +6042,7 @@ function ipSave(jobs) {
   // Returned (previously fire-and-forget) so a caller that needs the push to
   // actually land before doing something else — e.g. deleting the very
   // record it just audit-logged — can wait on it instead of racing it.
-  return _syncPushAll('job', jobs);
+  return _syncPushDelta('job', jobs);
 }
 function ipAdd(record) {
   var jobs = ipLoad();
@@ -15135,7 +15216,7 @@ function ncrDraftSave(list){
   try {
     localStorage.setItem(NCR_DRAFT_KEY, JSON.stringify(list));
     if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
-    _syncPushAll('ncr_draft', list);
+    _syncPushDelta('ncr_draft', list);
     return true;
   } catch(e){
     return false; // quota exceeded (usually photo-heavy drafts)
@@ -15204,7 +15285,7 @@ function ncrSave(list) {
   _ncrMem = list;
   try { localStorage.setItem(NCR_KEY, JSON.stringify(list)); } catch(e) {}
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
-  _syncPushAll('ncr', list);
+  _syncPushDelta('ncr', list);
 }
 function ncrNextId() {
   var max = 0;
