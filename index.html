@@ -1146,15 +1146,37 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   background: var(--surface); border: 1px solid var(--green); border-radius: var(--radius);
   padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
   transition: box-shadow .15s, transform .1s;
+  flex-wrap: wrap;
 }
 .jp-list-row:active { transform: scale(.99); }
 .jp-list-row:hover { box-shadow: 0 3px 12px rgba(0,0,0,.1); }
 .jp-list-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--bg); flex-shrink: 0; }
 .jp-list-thumb-empty { width: 44px; height: 44px; border-radius: 8px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--text-tertiary); flex-shrink: 0; }
-.jp-list-info { flex: 1; min-width: 0; }
+/* flex-basis (not just flex:1) so this actually wraps onto its own row
+   instead of getting squeezed to a sliver next to .jp-list-badges on a
+   narrow phone — a fixed-width status pill (e.g. "SHIPPING APPROVED")
+   refusing to shrink used to just overflow visually on top of the job
+   number/type badge here instead of the row wrapping like it should. */
+.jp-list-info { flex: 1 1 180px; min-width: 0; }
 .jp-list-job { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .jp-list-sub { font-size: 14px; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.jp-list-badges { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+.jp-list-badges { display: flex; gap: 6px; flex-shrink: 0; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Records' "Tile" view — a grid of self-contained cards instead of one row
+   per record, so nothing has to squeeze horizontally at all on a narrow
+   phone (see the jp-list-row fix above for the List-view side of the same
+   overlap complaint). */
+.records-tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.records-tile {
+  background: var(--surface); border: 1px solid var(--green); border-radius: var(--radius);
+  padding: 12px; cursor: pointer; transition: box-shadow .15s, transform .1s;
+}
+.records-tile:active { transform: scale(.99); }
+.records-tile:hover { box-shadow: 0 3px 12px rgba(0,0,0,.1); }
+.records-tile-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.records-tile-job { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.records-tile-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+.records-tile-date { font-size: 12.5px; color: var(--text-tertiary); margin-top: 5px; }
 .jp-list-delete {
   flex-shrink: 0; background: none; border: none; cursor: pointer;
   font-size: 18px; padding: 8px; border-radius: 8px; opacity: .55;
@@ -1502,7 +1524,6 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .continue-modal-head [id$="-btn"] { margin-right: 0 !important; }
 .continue-modal-title { font-size: 16px; font-weight: 800; }
 .continue-modal-sub { font-size: 14px; color: rgba(255,255,255,.55); margin-top: 2px; }
-.continue-close { background: none; border: none; color: rgba(255,255,255,.7); font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px; }
 /* Was previously unstyled and fell back to a tiny default browser button —
    now a clearly visible circular tap target so it's obvious at a glance. */
 .continue-modal-close {
@@ -1939,7 +1960,7 @@ try {
   <div class="continue-modal" style="max-width:640px;">
     <div class="continue-modal-head">
       <div style="font-size:17px;font-weight:800;">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></div>
-      <button class="continue-close" onclick="closeDeletedItemsView()">✕</button>
+      <button class="continue-modal-close" onclick="closeDeletedItemsView()">✕</button>
     </div>
     <div class="continue-modal-body">
       <div style="font-size:13.5px;color:var(--text-secondary);margin-bottom:10px;"><span data-en>Deleted jobs and NCRs are never actually erased — restoring one just makes it visible again.</span><span data-es>Los trabajos y NCR eliminados nunca se borran realmente — restaurar uno solo lo hace visible de nuevo.</span></div>
@@ -1958,7 +1979,7 @@ try {
   <div class="continue-modal" style="max-width:560px;">
     <div class="continue-modal-head">
       <div style="font-size:17px;font-weight:800;" id="job-picker-title">📋 Select a Job</div>
-      <button class="continue-close" onclick="closeJobPicker()">✕</button>
+      <button class="continue-modal-close" onclick="closeJobPicker()">✕</button>
     </div>
     <div class="continue-modal-body">
       <div id="job-picker-job-panel">
@@ -1990,7 +2011,7 @@ try {
   <div class="continue-modal" style="max-width:420px;">
     <div class="continue-modal-head">
       <div style="font-size:17px;font-weight:800;">▶ <span data-en>Start Next Product</span><span data-es>Iniciar Siguiente Producto</span></div>
-      <button class="continue-close" onclick="closeGluerNextProductPicker()">✕</button>
+      <button class="continue-modal-close" onclick="closeGluerNextProductPicker()">✕</button>
     </div>
     <div class="continue-modal-body">
       <div style="font-size:14.5px;color:var(--text-secondary);margin-bottom:12px;" id="gluer-next-product-heading"></div>
@@ -2909,7 +2930,7 @@ try {
           <button id="cm-ncr-report-btn" style="display:none;align-self:flex-start;background:transparent;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🚩 <span data-en>Report NCR</span><span data-es>Reportar RNC</span></button>
           <button id="cm-pallet-tag-btn" onclick="openPalletTagFromJob(continueJobId)" style="align-self:flex-start;background:transparent;border:1px solid var(--lime);color:var(--lime);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🏷️ <span data-en>Pallet Tag</span><span data-es>Etiqueta de Pallet</span></button>
           <button id="cm-delete-job-btn" onclick="_cmDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
-          <button class="continue-close" onclick="closeContinueModal()" style="align-self:flex-start;">✕</button>
+          <button class="continue-modal-close" onclick="closeContinueModal()" style="align-self:flex-start;">✕</button>
         </div>
         <div class="continue-modal-body">
 
@@ -3440,7 +3461,7 @@ try {
             <div class="continue-modal-title" id="rv-title">Record</div>
             <div class="continue-modal-sub" id="rv-sub"></div>
           </div>
-          <button class="continue-close" onclick="closeRecordView()" style="align-self:flex-start;">✕</button>
+          <button class="continue-modal-close" onclick="closeRecordView()" style="align-self:flex-start;">✕</button>
         </div>
         <div class="continue-modal-body" id="rv-body"></div>
       </div>
@@ -3592,7 +3613,7 @@ try {
           <button id="ship-ncr-report-btn" style="display:none;align-self:flex-start;background:transparent;border:1px solid #f59e0b;color:#f59e0b;border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🚩 <span data-en>Report NCR</span><span data-es>Reportar RNC</span></button>
           <button id="ship-pallet-tag-btn" onclick="openPalletTagFromJob(shipState.jobId)" style="align-self:flex-start;background:transparent;border:1px solid var(--lime);color:var(--lime);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🏷️ <span data-en>Pallet Tag</span><span data-es>Etiqueta de Pallet</span></button>
           <button id="ship-delete-job-btn" onclick="_shipDeleteJob()" style="display:none;align-self:flex-start;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;font-size:13px;font-weight:700;padding:5px 10px;cursor:pointer;white-space:nowrap;margin-right:8px;">🗑️ <span data-en>Delete Job</span><span data-es>Eliminar Trabajo</span></button>
-          <button class="continue-close" onclick="closeShippingModal()" style="align-self:flex-start;">✕</button>
+          <button class="continue-modal-close" onclick="closeShippingModal()" style="align-self:flex-start;">✕</button>
         </div>
         <div class="continue-modal-body">
 
@@ -4254,7 +4275,17 @@ try {
 </div>
     </div>
     <div id="view-records" class="screen">
-      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div><div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div></div>
+      <div class="view-header view-header-sticky" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button>
+          <div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div>
+          <div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div>
+        </div>
+        <div class="view-mode-toggle" id="records-view-toggle">
+          <button class="vmt-btn" id="records-view-tile-btn" onclick="setRecordsViewMode('tile')">▦ <span data-en>Tile</span><span data-es>Mosaico</span></button>
+          <button class="vmt-btn" id="records-view-list-btn" onclick="setRecordsViewMode('list')">☰ <span data-en>List</span><span data-es>Lista</span></button>
+        </div>
+      </div>
       <div style="padding:0 16px 24px;">
         <div style="margin-bottom:14px;">
           <input type="text" id="records-search" class="input" placeholder="Search by job #, product, or customer…" data-ph-en="Search by job #, product, or customer…" data-ph-es="Buscar por # de trabajo, producto o cliente…" oninput="renderRecords()" style="width:100%;margin-bottom:8px;">
@@ -6253,8 +6284,12 @@ function _setViewMode(key, mode) {
 }
 function getInProgressViewMode() { return _getViewModes().inprogress || 'tile'; }
 function getQAReleaseViewMode() { return _getViewModes().qarelease || 'tile'; }
+// Records defaults to 'list' (unlike the others) — it's been list-only
+// until now, so an existing habit shouldn't silently flip to tile.
+function getRecordsViewMode() { return _getViewModes().records || 'list'; }
 function setInProgressViewMode(mode) { _setViewMode('inprogress', mode); renderInProgress(); }
 function setQAReleaseViewMode(mode) { _setViewMode('qarelease', mode); renderQARelease(); }
+function setRecordsViewMode(mode) { _setViewMode('records', mode); renderRecords(); }
 function _syncViewToggle(tileBtnId, listBtnId, mode) {
   var t = document.getElementById(tileBtnId), l = document.getElementById(listBtnId);
   if (t) t.classList.toggle('active', mode === 'tile');
@@ -18908,8 +18943,12 @@ function _deleteRecordById(type, id){
 // than one long unsorted list). A search term bypasses this entirely, same
 // as that app: search runs across every record regardless of what year/
 // month is currently selected.
-var recordsSelectedYear = null;
-var recordsSelectedMonth = null;
+// Default to the current year/month so Records opens straight to the most
+// recent jobs instead of an empty "pick a year and month" prompt — still
+// just the normal drill-down state, so tapping "← Years"/"← Months" clears
+// it exactly like before.
+var recordsSelectedYear = new Date().getFullYear();
+var recordsSelectedMonth = new Date().getMonth();
 var RECORDS_MONTH_NAMES_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var RECORDS_MONTH_NAMES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function selectRecordsYear(y){ recordsSelectedYear = y; recordsSelectedMonth = null; renderRecords(); }
@@ -19037,8 +19076,10 @@ function _computeFilteredRecords(){
 function renderRecords(){
   var el = document.getElementById('records-list');
   if (!el) return;
+  el.className = ''; // cleared here; the tile grid class is only re-applied once records actually render below
   _updateAllFilterBadges('records'); // update regardless of which branch below returns early
   _syncSortSelect('records-sort', getRecordsSortMode());
+  _syncViewToggle('records-view-tile-btn', 'records-view-list-btn', getRecordsViewMode());
 
   var computed = _computeFilteredRecords();
   renderRecordsYearMonthNav(computed.typeFiltered, computed.hasSearch);
@@ -19069,15 +19110,33 @@ function renderRecords(){
     rca:       { label: 'RCA',       color: '#8b5cf6' }
   };
 
+  var tileMode = getRecordsViewMode() === 'tile';
+  el.className = tileMode ? 'records-tile-grid' : '';
   el.innerHTML = all.map(function(r){
     var m = typeMeta[r.type];
     var sublineParts = [stationLabel(r.station), r.customer].filter(Boolean).map(escHtml);
     if (r.product) sublineParts.push(hlId(r.product));
     var subline = sublineParts.join(' · ') || '—';
+    var typeBadge = '<span style="font-size:15px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:10px;background:' + m.color + '22;color:' + m.color + ';">' + m.label + '</span>';
+    var deleteBtn = '<button type="button" class="jp-list-delete" onclick="event.stopPropagation();deleteRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')" title="Delete this record" aria-label="Delete this record">🗑️</button>';
+
+    if (tileMode) {
+      // A vertically-stacked card instead of a left-info/right-badges row —
+      // sidesteps the list row's own narrow-screen squeeze entirely (see
+      // .jp-list-row's own fix below) and doubles as a compact grid view.
+      return '<div class="records-tile" onclick="openRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')">' +
+        '<div class="records-tile-top">' + typeBadge + deleteBtn + '</div>' +
+        '<div class="records-tile-job">' + hlId(r.jobNumber) + '</div>' +
+        '<div class="records-tile-sub">' + subline + '</div>' +
+        '<span class="jp-badge" style="background:var(--surface-raised);color:var(--text-secondary);">' + escHtml(r.status || '—') + '</span>' +
+        '<div class="records-tile-date">' + escHtml(r.ts || '') + '</div>' +
+      '</div>';
+    }
+
     return '<div class="jp-list-row" onclick="openRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')">' +
       '<div class="jp-list-info">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">' +
-          '<span style="font-size:15px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:10px;background:' + m.color + '22;color:' + m.color + ';">' + m.label + '</span>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">' +
+          typeBadge +
           '<span class="jp-list-job">' + hlId(r.jobNumber) + '</span>' +
         '</div>' +
         '<div class="jp-list-sub">' + subline + '</div>' +
@@ -19086,7 +19145,7 @@ function renderRecords(){
         '<span class="jp-badge" style="background:var(--surface-raised);color:var(--text-secondary);">' + escHtml(r.status || '—') + '</span>' +
         '<div style="font-size:13.5px;color:var(--text-tertiary);margin-top:4px;">' + escHtml(r.ts || '') + '</div>' +
       '</div>' +
-      '<button type="button" class="jp-list-delete" onclick="event.stopPropagation();deleteRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')" title="Delete this record" aria-label="Delete this record">🗑️</button>' +
+      deleteBtn +
     '</div>';
   }).join('');
 }
@@ -19243,7 +19302,7 @@ function openRecordJob(jobId){
   var rows = [
     [_rvjEs?'Estado':'Status', job.shippingApproved ? jp('shippingApproved') : (processLabel(job.process) || job.process || '—')],
     [_rvjEs?'Trabajo #':'Job #', {html: hlId(job.jobNumber)}],
-    [_rvjEs?'Estación':'Station', job.station || '—'],
+    [_rvjEs?'Estación':'Station', {html: hlId(stationLabel(job.station))}],
     [_rvjEs?'Cliente':'Customer', job.customer || '—'],
     [_rvjEs?'ID de Producto / ID de Forma':'Product ID / Form ID', {html: hlId(job.formNumber || job.productNumber || job.product)}]
   ];
@@ -19464,7 +19523,7 @@ function openRecordRCA(idxKey){
     [_rvrEs?'Ruta':'Path', r.path ? rcaPathLabel(r.path) : '—'],
     [_rvrEs?'Trabajo #':'Job #', {html: hlId(r.jobNumber)}],
     [_rvrEs?'Producto #':'Product #', {html: hlId(r.productNumber)}],
-    [_rvrEs?'Estación':'Station', r.station || '—'],
+    [_rvrEs?'Estación':'Station', {html: hlId(stationLabel(r.station))}],
     [_rvrEs?'Cliente':'Customer', r.customer || '—'],
     [_rvrEs?'Técnico de Calidad':'QA Tech', r.qaTech || '—'],
     [_rvrEs?'Causa Raíz':'Root Cause', r.rcSummary || '—'],
