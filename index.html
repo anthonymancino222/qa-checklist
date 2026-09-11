@@ -5835,10 +5835,6 @@ function _syncSnapshotSet(type, snap){
 // full push of everything (identical to the old behavior, just once) so the
 // server is definitely caught up, then seed the snapshot from it; every
 // save after that is the normal small delta.
-// Guards the one-time migration push below against firing more than once
-// concurrently — see the bug this fixed in _syncPushDelta's own comment.
-var _syncMigrationInFlight = {}; // type -> Promise
-
 function _syncPushDelta(type, list){
   if (!QA_BACKEND_URL) return Promise.resolve();
   var idField = _syncIdField(type);
@@ -5848,17 +5844,32 @@ function _syncPushDelta(type, list){
     // A multi-product submit (e.g. Bindery/Pressroom Cutter QC approval)
     // calls ipAdd — and so this — once per product in a tight synchronous
     // loop, all before any of those calls' own fetches can resolve. Without
-    // this guard, EVERY one of those calls would independently see the same
-    // still-empty snapshot and kick off its OWN full-store migration push —
-    // several concurrent multi-megabyte JSON bodies (the whole job store,
-    // serialized, once per product) in flight at the same time, which was
-    // enough to crash a tablet browser tab outright on a 4-product job. Now
-    // only the first call actually starts the migration; every other call
-    // waits on that same in-flight promise, then re-enters this function
-    // with its OWN list so whatever it added still gets pushed for real
-    // (as a normal small delta, once the snapshot exists).
-    if (_syncMigrationInFlight[type]) {
-      return _syncMigrationInFlight[type].then(function(){ return _syncPushDelta(type, list); });
+    // the guard below, EVERY one of those calls would independently see the
+    // same still-empty snapshot and kick off its OWN full-store migration
+    // push — several concurrent multi-megabyte JSON bodies (the whole job
+    // store, serialized, once per product) in flight at the same time,
+    // which was enough to crash a tablet browser tab outright on a
+    // 4-product job. Now only the first call actually starts the
+    // migration; every other call waits on that same in-flight promise,
+    // then re-enters this function with its OWN list so whatever it added
+    // still gets pushed for real (as a normal small delta, once the
+    // snapshot exists).
+    //
+    // The guard map lives as a property on this function itself, created
+    // lazily on first real use, rather than a module-level var — this
+    // function is reachable very early at page load (_tryRestoreLocalSession
+    // -> _syncInitialPull -> _syncRetryPending -> here, before a signed-in
+    // session even renders anything), and a module-level var declared this
+    // far down the file wouldn't be assigned yet at that point. Reading it
+    // then would throw, and a single uncaught error mid-script silently
+    // kills every var/init statement still below it in the file — see
+    // _scheduleAutoPullCheckTimer's own comment for the exact same pitfall,
+    // already hit and fixed once before in this codebase. Don't move this
+    // back to a plain module-level var.
+    if (!_syncPushDelta._inFlight) _syncPushDelta._inFlight = {};
+    var inFlight = _syncPushDelta._inFlight;
+    if (inFlight[type]) {
+      return inFlight[type].then(function(){ return _syncPushDelta(type, list); });
     }
     var migration = _syncPushAll(type, list).then(function(ok){
       if (!ok) return; // couldn't confirm — leave the snapshot empty, try the same one-time catch-up again next time
@@ -5866,8 +5877,8 @@ function _syncPushDelta(type, list){
       (list || []).forEach(function(r){ var id = r[idField]; if (id != null) seeded[String(id)] = JSON.stringify(r); });
       _syncSnapshotSet(type, seeded);
     });
-    _syncMigrationInFlight[type] = migration;
-    migration.then(function(){ delete _syncMigrationInFlight[type]; });
+    inFlight[type] = migration;
+    migration.then(function(){ delete inFlight[type]; });
     return migration;
   }
 
