@@ -1557,100 +1557,107 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    between every direct child, matching .continue-modal-body's own gap. */
 .cm-body-panel { flex-direction: column; gap: 14px; } /* display itself stays inline-toggled (none/flex) by the existing show/hide JS */
 
-/* ── RCA module (scoped under #view-rca) ── */
-#view-rca .rca-page-wrap{max-width:700px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;padding:2rem 1rem}
-#view-rca .form-header{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid #ddd}
-#view-rca .form-title{font-size:22px;font-weight:600;color:#111}
-#view-rca .form-subtitle{font-size:15px;color:#666;margin-top:3px}
-#view-rca .badge-rca{background:#dbeafe;color:#1e40af;font-size:13.5px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.04em;margin-left:auto;white-space:nowrap}
+/* ── RCA module (scoped under #view-rca) ──
+   Ported in from a separate standalone app and never re-themed — every
+   color here was a hardcoded hex against a fixed light palette with its
+   own blue accent, so it looked/felt like a different app bolted on and
+   had no dark mode at all. Remapped to the same --* tokens the rest of
+   the app already uses (light AND dark variants come for free from
+   :root/body.dark-mode above) — layout/sizing left untouched, only
+   colors and the font-family changed. */
+#view-rca .rca-page-wrap{max-width:700px;margin:0 auto;font-family:var(--font);background:var(--bg);color:var(--text-primary);padding:2rem 1rem}
+#view-rca .form-header{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
+#view-rca .form-title{font-size:22px;font-weight:600;color:var(--text-primary)}
+#view-rca .form-subtitle{font-size:15px;color:var(--text-secondary);margin-top:3px}
+#view-rca .badge-rca{background:var(--pink-soft);color:var(--pink-dark);font-size:13.5px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.04em;margin-left:auto;white-space:nowrap}
 #view-rca .path-selector{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem}
-#view-rca .path-card{background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .15s,background .15s}
-#view-rca .path-card:hover{border-color:#93c5fd;background:#f0f7ff}
-#view-rca .path-card.active{border:2px solid #1d4ed8;background:#eff6ff}
-#view-rca .path-label{font-size:15px;font-weight:600;color:#111;margin-bottom:4px}
-#view-rca .path-desc{font-size:14px;color:#666;line-height:1.5}
+#view-rca .path-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .15s,background .15s}
+#view-rca .path-card:hover{border-color:var(--pink);background:var(--pink-soft)}
+#view-rca .path-card.active{border:2px solid var(--pink);background:var(--pink-soft)}
+#view-rca .path-label{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
+#view-rca .path-desc{font-size:14px;color:var(--text-secondary);line-height:1.5}
 #view-rca .path-icon{font-size:22px;margin-bottom:8px}
-#view-rca .path-card.active .path-label{color:#1d4ed8}
-#view-rca .section{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
-#view-rca .section-header{display:flex;align-items:center;gap:8px;margin-bottom:1rem;padding-bottom:10px;border-bottom:1px solid #eee}
-#view-rca .section-num{width:27px;height:27px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-#view-rca .section-title{font-size:14px;font-weight:600;color:#111}
+#view-rca .path-card.active .path-label{color:var(--pink-dark)}
+#view-rca .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+#view-rca .section-header{display:flex;align-items:center;gap:8px;margin-bottom:1rem;padding-bottom:10px;border-bottom:1px solid var(--border)}
+#view-rca .section-num{width:27px;height:27px;border-radius:50%;background:var(--pink);color:#fff;font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#view-rca .section-title{font-size:14px;font-weight:600;color:var(--text-primary)}
 #view-rca .section-badge{font-size:13.5px;padding:2px 8px;border-radius:12px;margin-left:auto;font-weight:500}
-#view-rca .badge-qa{background:#dcfce7;color:#166534}
-#view-rca .badge-mgr{background:#fef3c7;color:#92400e}
-#view-rca .badge-close{background:#d1fae5;color:#065f46}
+#view-rca .badge-qa{background:var(--green-soft);color:var(--green)}
+#view-rca .badge-mgr{background:var(--amber-soft);color:var(--amber-ink)}
+#view-rca .badge-close{background:var(--green-soft);color:var(--green)}
 #view-rca .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 #view-rca .field-row.single{grid-template-columns:1fr}
 #view-rca .field-group{display:flex;flex-direction:column;gap:5px}
-#view-rca label{font-size:14px;color:#555;font-weight:600;letter-spacing:.02em}
-#view-rca .req{color:#dc2626;margin-left:2px}
-#view-rca input[type=text], #view-rca input[type=date], #view-rca select, #view-rca textarea{width:100%;font-size:15px;font-family:inherit;color:#111;background:#f9f9f8;border:1px solid #d4d4d0;border-radius:8px;padding:8px 10px;outline:none;transition:border-color .15s;-webkit-appearance:none}
-#view-rca input[type=text]:focus, #view-rca input[type=date]:focus, #view-rca select:focus, #view-rca textarea:focus{border-color:#1d4ed8;box-shadow:0 0 0 3px rgba(29,78,216,.1)}
+#view-rca label{font-size:14px;color:var(--text-secondary);font-weight:600;letter-spacing:.02em}
+#view-rca .req{color:var(--red);margin-left:2px}
+#view-rca input[type=text], #view-rca input[type=date], #view-rca select, #view-rca textarea{width:100%;font-size:15px;font-family:inherit;color:var(--text-primary);background:var(--surface-raised);border:1px solid var(--border-mid);border-radius:8px;padding:8px 10px;outline:none;transition:border-color .15s;-webkit-appearance:none}
+#view-rca input[type=text]:focus, #view-rca input[type=date]:focus, #view-rca select:focus, #view-rca textarea:focus{border-color:var(--pink);box-shadow:0 0 0 3px var(--pink-soft)}
 #view-rca textarea{resize:vertical;min-height:72px;line-height:1.5}
 #view-rca select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
 #view-rca .why-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-#view-rca .why-num{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;width:56px;height:36px;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;color:#6b7280;flex-shrink:0}
+#view-rca .why-num{background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;width:56px;height:36px;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;color:var(--text-secondary);flex-shrink:0}
 #view-rca .why-row input{flex:1}
-#view-rca .arrow-down{display:flex;justify-content:center;margin:2px 0;color:#ccc;font-size:18px}
+#view-rca .arrow-down{display:flex;justify-content:center;margin:2px 0;color:var(--text-tertiary);font-size:18px}
 #view-rca .disposition-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
-#view-rca .disp-option{border:1px solid #e0e0e0;border-radius:8px;padding:10px;cursor:pointer;text-align:center;font-size:14px;font-weight:600;color:#666;transition:all .15s;background:#fff}
-#view-rca .disp-option:hover{border-color:#93c5fd;background:#f0f7ff}
-#view-rca .disp-option.selected{border:2px solid #1d4ed8;background:#eff6ff;color:#1d4ed8}
+#view-rca .disp-option{border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;font-size:14px;font-weight:600;color:var(--text-secondary);transition:all .15s;background:var(--surface)}
+#view-rca .disp-option:hover{border-color:var(--pink);background:var(--pink-soft)}
+#view-rca .disp-option.selected{border:2px solid var(--pink);background:var(--pink-soft);color:var(--pink-dark)}
 #view-rca .disp-icon{font-size:20px;margin-bottom:4px}
 #view-rca .disposition-grid.rca-grid-collapsed{display:none}
-#rca-token-loading{position:fixed;inset:0;z-index:9999;background:rgba(255,255,255,.98);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
+#rca-token-loading{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
 #rca-token-loading.hidden{display:none}
-.rca-token-spinner{width:60px;height:60px;border:6px solid #e5e7eb;border-top-color:#b45309;border-radius:50%;animation:rca-spin .8s linear infinite}
+.rca-token-spinner{width:60px;height:60px;border:6px solid var(--pink-soft);border-top-color:var(--pink);border-radius:50%;animation:rca-spin .8s linear infinite}
 @keyframes rca-spin{to{transform:rotate(360deg)}}
-.rca-token-loading-title{font-size:21px;font-weight:800;color:#1f2937}
-.rca-token-loading-sub{font-size:15px;color:#6b7280;max-width:340px;line-height:1.5}
+.rca-token-loading-title{font-size:21px;font-weight:800;color:var(--text-primary)}
+.rca-token-loading-sub{font-size:15px;color:var(--text-secondary);max-width:340px;line-height:1.5}
 .rca-token-loading-sub .btn{margin-top:14px}
-#view-rca .rca-grid-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border:2px solid #d1d5db;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;color:#374151;background:#f3f4f6;margin-top:4px;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-#view-rca .rca-grid-toggle:hover{border-color:#6b7280;background:#e5e7eb}
+#view-rca .rca-grid-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border:2px solid var(--border-mid);border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;color:var(--text-secondary);background:var(--surface-raised);margin-top:4px;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+#view-rca .rca-grid-toggle:hover{border-color:var(--text-tertiary);background:var(--border)}
 #view-rca .rca-grid-toggle:not(.rca-grid-collapsed-bar){border-radius:10px 10px 0 0;border-bottom-width:0;margin-bottom:0}
-#view-rca .disposition-grid:not(.rca-grid-collapsed){border:2px solid #d1d5db;border-top:none;border-radius:0 0 10px 10px;padding:10px;margin-top:0!important}
-#view-rca .rca-grid-toggle .rca-grid-toggle-chevron{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#4b5563;background:#fff;border:1px solid #d1d5db;border-radius:20px;padding:4px 10px 4px 8px}
+#view-rca .disposition-grid:not(.rca-grid-collapsed){border:2px solid var(--border-mid);border-top:none;border-radius:0 0 10px 10px;padding:10px;margin-top:0!important}
+#view-rca .rca-grid-toggle .rca-grid-toggle-chevron{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border-mid);border-radius:20px;padding:4px 10px 4px 8px}
 #view-rca .rca-grid-toggle .rca-grid-toggle-chevron .arrow{font-size:15px;line-height:1;transition:transform .2s}
-#view-rca .rca-grid-toggle.rca-grid-has-selection{background:#f0fdf4;border-color:#86efac;color:#166534}
-#view-rca .rca-grid-toggle.rca-grid-has-selection .rca-grid-toggle-chevron{border-color:#86efac;color:#166534}
-#view-rca .rca-grid-toggle.rca-grid-needs-selection{background:#fff7ed;border-color:#fb923c;color:#9a3412}
-#view-rca .rca-grid-toggle.rca-grid-needs-selection .rca-grid-toggle-chevron{border-color:#fb923c;color:#9a3412}
+#view-rca .rca-grid-toggle.rca-grid-has-selection{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+#view-rca .rca-grid-toggle.rca-grid-has-selection .rca-grid-toggle-chevron{border-color:var(--green);color:var(--green)}
+#view-rca .rca-grid-toggle.rca-grid-needs-selection{background:var(--amber-soft);border-color:var(--amber);color:var(--amber-ink)}
+#view-rca .rca-grid-toggle.rca-grid-needs-selection .rca-grid-toggle-chevron{border-color:var(--amber);color:var(--amber-ink)}
 #view-rca .action-row{display:flex;gap:8px;margin-top:1.25rem;flex-wrap:wrap}
-#view-rca .btn{font-size:15px;font-weight:600;font-family:inherit;border-radius:8px;padding:9px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;border:1px solid #d4d4d0;background:#fff;color:#111}
-#view-rca .btn:hover{background:#f3f4f6}
+#view-rca .btn{font-size:15px;font-weight:600;font-family:inherit;border-radius:8px;padding:9px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;border:1px solid var(--border-mid);background:var(--surface);color:var(--text-primary)}
+#view-rca .btn:hover{background:var(--surface-raised)}
 #view-rca .btn:disabled{opacity:.5;cursor:not-allowed}
-#view-rca .btn-primary{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
-#view-rca .btn-primary:hover{background:#1e40af}
-#view-rca .btn-warn{background:#fef3c7;color:#92400e;border-color:#f59e0b}
-#view-rca .btn-warn:hover{background:#fde68a}
-#view-rca .btn-success{background:#dcfce7;color:#166534;border-color:#86efac}
-#view-rca .btn-success:hover{background:#bbf7d0}
-#view-rca .status-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#fff;border-radius:8px;font-size:14px;margin-bottom:1rem;border:1px solid #e0e0e0;font-weight:500}
+#view-rca .btn-primary{background:var(--pink);color:#fff;border-color:var(--pink)}
+#view-rca .btn-primary:hover{background:var(--pink-dark)}
+#view-rca .btn-warn{background:var(--amber-soft);color:var(--amber-ink);border-color:var(--amber)}
+#view-rca .btn-warn:hover{background:var(--amber)}
+#view-rca .btn-success{background:var(--green-soft);color:var(--green);border-color:var(--green)}
+#view-rca .btn-success:hover{background:var(--green)}
+#view-rca .status-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--surface);border-radius:8px;font-size:14px;margin-bottom:1rem;border:1px solid var(--border);font-weight:500}
 #view-rca .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-#view-rca .dot-draft{background:#f59e0b}
-#view-rca .dot-pending{background:#3b82f6}
-#view-rca .dot-closed{background:#22c55e}
+#view-rca .dot-draft{background:var(--amber)}
+#view-rca .dot-pending{background:var(--blue)}
+#view-rca .dot-closed{background:var(--green)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-#view-rca .dot-saving{background:#3b82f6;animation:pulse 1s infinite}
-#view-rca .divider-label{font-size:13.5px;color:#767676;text-transform:uppercase;letter-spacing:.06em;margin:1.25rem 0 .75rem;display:flex;align-items:center;gap:8px;font-weight:600}
-#view-rca .divider-label::before, #view-rca .divider-label::after{content:'';flex:1;height:1px;background:#e5e7eb}
+#view-rca .dot-saving{background:var(--blue);animation:pulse 1s infinite}
+#view-rca .divider-label{font-size:13.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.06em;margin:1.25rem 0 .75rem;display:flex;align-items:center;gap:8px;font-weight:600}
+#view-rca .divider-label::before, #view-rca .divider-label::after{content:'';flex:1;height:1px;background:var(--border)}
 #view-rca .hidden{display:none!important}
-#view-rca .manager-section{border-left:3px solid #f59e0b!important}
-#view-rca .close-section{border-left:3px solid #10b981!important}
+#view-rca .manager-section{border-left:3px solid var(--amber)!important}
+#view-rca .close-section{border-left:3px solid var(--green)!important}
 #view-rca .other-input{margin-top:6px}
-#view-rca .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#166534;color:#dcfce7;font-size:15px;font-weight:600;padding:11px 22px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;white-space:nowrap}
+#view-rca .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:15px;font-weight:600;padding:11px 22px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;white-space:nowrap}
 #view-rca .toast.show{opacity:1}
-#view-rca .toast.error{background:#991b1b;color:#fee2e2}
-#view-rca .section-path2-mgr{border-left:3px solid #f59e0b}
-#view-rca .success-banner{background:#dcfce7;border:1px solid #86efac;border-radius:10px;padding:16px 20px;text-align:center;font-size:14px;font-weight:600;color:#166534;margin-top:1rem}
-#view-rca .test-banner{background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:#92400e;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:12px}
+#view-rca .toast.error{background:var(--red);color:#fff}
+#view-rca .section-path2-mgr{border-left:3px solid var(--amber)}
+#view-rca .success-banner{background:var(--green-soft);border:1px solid var(--green);border-radius:10px;padding:16px 20px;text-align:center;font-size:14px;font-weight:600;color:var(--green);margin-top:1rem}
+#view-rca .test-banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--amber-ink);margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:12px}
 #view-rca .test-banner span{line-height:1.5}
 #view-rca .toggle-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
 #view-rca .toggle{position:relative;width:40px;height:22px;flex-shrink:0}
 #view-rca .toggle input{opacity:0;width:0;height:0}
-#view-rca .toggle-slider{position:absolute;inset:0;background:#d4d4d0;border-radius:22px;cursor:pointer;transition:.2s}
+#view-rca .toggle-slider{position:absolute;inset:0;background:var(--border-mid);border-radius:22px;cursor:pointer;transition:.2s}
 #view-rca .toggle-slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
-#view-rca .toggle input:checked + .toggle-slider{background:#f59e0b}
+#view-rca .toggle input:checked + .toggle-slider{background:var(--amber)}
 #view-rca .toggle input:checked + .toggle-slider:before{transform:translateX(18px)}
 @media(max-width:520px){
 #view-rca .field-row{grid-template-columns:1fr}
@@ -3866,7 +3873,7 @@ try {
     <span id="rca-status-text">Draft — select a workflow path to begin</span>
   </div>
 
-  <div style="font-size:15px;color:#555;margin-bottom:8px;font-weight:600"><span data-en>Choose workflow path</span><span data-es>Elija la ruta de trabajo</span></div>
+  <div style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;font-weight:600"><span data-en>Choose workflow path</span><span data-es>Elija la ruta de trabajo</span></div>
   <div class="path-selector">
     <div class="path-card" id="rca-path1-card" onclick="rcaSetPath(1)">
       <div class="path-icon">✅</div>
@@ -3891,7 +3898,7 @@ try {
       </div>
       <div class="field-row single" style="margin-bottom:12px">
         <div class="field-group">
-          <label><span data-en>Pull from existing record</span><span data-es>Extraer de un registro existente</span> <span style="text-transform:none;font-weight:400;color:#999">(<span data-en>optional</span><span data-es>opcional</span>)</span></label>
+          <label><span data-en>Pull from existing record</span><span data-es>Extraer de un registro existente</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>optional</span><span data-es>opcional</span>)</span></label>
           <select id="rca-prefill-select" onchange="rcaPrefill(this.value)">
             <option value="">— select an NCR or QC job to pre-fill —</option>
           </select>
@@ -3962,7 +3969,7 @@ try {
       </div>
       <div class="field-row single" style="margin-top:12px">
         <div class="field-group">
-          <label><span data-en>Photos of the issue</span><span data-es>Fotos del problema</span> <span style="font-weight:400;color:#999;text-transform:none">(<span data-en>optional</span><span data-es>opcional</span>)</span></label>
+          <label><span data-en>Photos of the issue</span><span data-es>Fotos del problema</span> <span style="font-weight:400;color:var(--text-tertiary);text-transform:none">(<span data-en>optional</span><span data-es>opcional</span>)</span></label>
           <div class="ncr-upload"><div><span data-en>Attach photos of the issue</span><span data-es>Adjunte fotos del problema</span></div>
             <label class="ncr-upload-btn" for="rca-photo-input"><span data-en>Choose photos</span><span data-es>Elegir fotos</span></label>
             <input type="file" id="rca-photo-input" accept="image/*" multiple>
@@ -4052,7 +4059,7 @@ try {
         <div class="section-title"><span data-en>Disposition</span><span data-es>Disposición</span><span class="req">*</span></div>
         <span class="section-badge badge-qa" id="rca-disp-badge"><span data-en>QA Tech</span><span data-es>Técnico de Calidad</span></span>
       </div>
-      <div style="font-size:14px;color:#666;margin-bottom:10px"><span data-en>What happens to the affected product?</span><span data-es>¿Qué sucede con el producto afectado?</span></div>
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:10px"><span data-en>What happens to the affected product?</span><span data-es>¿Qué sucede con el producto afectado?</span></div>
       <div class="disposition-grid" id="rca-disp-grid">
         <div class="disp-option" onclick="rcaSetDisp(this,'Continue Run — Monitor Issue')"><div class="disp-icon">▶️</div><span data-en>Continue Run — Monitor Issue</span><span data-es>Continuar Corrida — Monitorear Problema</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Use With Approval')"><div class="disp-icon">✅</div><span data-en>Use With Approval</span><span data-es>Usar Con Aprobación</span></div>
@@ -4084,11 +4091,11 @@ try {
       <div class="divider-label"><span data-en>Send to manager</span><span data-es>Enviar al gerente</span></div>
       <div class="section section-path2-mgr">
         <div class="section-header">
-          <div class="section-num" style="background:#b45309">2</div>
+          <div class="section-num" style="background:var(--amber-ink)">2</div>
           <div class="section-title"><span data-en>Awaiting manager: root cause &amp; corrective action</span><span data-es>Esperando al gerente: causa raíz y acción correctiva</span></div>
           <span class="section-badge badge-mgr"><span data-en>Manager</span><span data-es>Gerente</span></span>
         </div>
-        <div style="font-size:15px;color:#666;line-height:1.6;margin-bottom:1rem">
+        <div style="font-size:15px;color:var(--text-secondary);line-height:1.6;margin-bottom:1rem">
           <span data-en>QA tech fills in section 1 above and uses the button below to send this form to the department manager. The manager completes the 5 Why's, corrective action, and disposition, then returns it.</span><span data-es>El técnico de calidad completa la sección 1 arriba y usa el botón abajo para enviar este formulario al gerente del departamento. El gerente completa los 5 Por qués, la acción correctiva y la disposición, luego lo devuelve.</span>
         </div>
         <div class="action-row" style="margin-top:0">
@@ -4100,7 +4107,7 @@ try {
     <!-- Manager fill section -->
     <div id="rca-section-mgrfill" class="section manager-section hidden">
       <div class="section-header">
-        <div class="section-num" style="background:#b45309">M</div>
+        <div class="section-num" style="background:var(--amber-ink)">M</div>
         <div class="section-title"><span data-en>Manager — root cause (5 Why's)</span><span data-es>Gerente — causa raíz (5 Por qués)</span></div>
         <span class="section-badge badge-mgr"><span data-en>Manager</span><span data-es>Gerente</span></span>
       </div>
@@ -4155,7 +4162,7 @@ try {
       </div>
       <div class="field-row single" style="margin-top:4px">
         <div class="field-group">
-          <label><span data-en>Reassign to another department</span><span data-es>Reasignar a otro departamento</span> <span style="font-weight:400;color:#999;text-transform:none">(<span data-en>optional — hand off if the root cause belongs elsewhere</span><span data-es>opcional — transferir si la causa raíz pertenece a otro departamento</span>)</span></label>
+          <label><span data-en>Reassign to another department</span><span data-es>Reasignar a otro departamento</span> <span style="font-weight:400;color:var(--text-tertiary);text-transform:none">(<span data-en>optional — hand off if the root cause belongs elsewhere</span><span data-es>opcional — transferir si la causa raíz pertenece a otro departamento</span>)</span></label>
           <select id="rca-handoff-dept" onchange="rcaHandoffDeptChange()">
             <option value="">— Keep with this department —</option>
           </select>
@@ -4166,7 +4173,7 @@ try {
         <button type="button" class="btn btn-warn" onclick="rcaHandoffToDept()">📤 <span data-en>Hand off to department</span><span data-es>Transferir al departamento</span></button>
       </div>
       <div class="divider-label"><span data-en>Disposition</span><span data-es>Disposición</span><span class="req">*</span></div>
-      <div style="font-size:14px;color:#666;margin-bottom:10px"><span data-en>What happens to the affected product?</span><span data-es>¿Qué sucede con el producto afectado?</span></div>
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:10px"><span data-en>What happens to the affected product?</span><span data-es>¿Qué sucede con el producto afectado?</span></div>
       <div class="disposition-grid" id="rca-disp2-grid">
         <div class="disp-option" onclick="rcaSetDisp2(this,'Continue Run — Monitor Issue')"><div class="disp-icon">▶️</div><span data-en>Continue Run — Monitor Issue</span><span data-es>Continuar Corrida — Monitorear Problema</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Use With Approval')"><div class="disp-icon">✅</div><span data-en>Use With Approval</span><span data-es>Usar Con Aprobación</span></div>
@@ -4204,7 +4211,7 @@ try {
     <!-- Close out -->
     <div id="rca-section-close" class="section close-section hidden">
       <div class="section-header">
-        <div class="section-num" style="background:#059669" id="rca-close-num">5</div>
+        <div class="section-num" style="background:var(--green)" id="rca-close-num">5</div>
         <div class="section-title"><span data-en>QA close-out</span><span data-es>Cierre de Calidad</span></div>
         <span class="section-badge badge-close"><span data-en>QA Tech</span><span data-es>Técnico de Calidad</span></span>
       </div>
@@ -17632,7 +17639,7 @@ function _rcaSetGridValue(gridId, valueId, valueString){
 }
 function _rcaGridHTML(gridId, valueId, options){
   var selectedSet = _rcaGridSelectedSets[gridId] || [];
-  if (!options.length) return '<div style="font-size:15px;color:#999;padding:4px 0;">' + (isEsLang() ? 'Primero seleccione un problema de calidad arriba.' : 'Select a quality issue above first.') + '</div>';
+  if (!options.length) return '<div style="font-size:15px;color:var(--text-tertiary);padding:4px 0;">' + (isEsLang() ? 'Primero seleccione un problema de calidad arriba.' : 'Select a quality issue above first.') + '</div>';
   return options.map(function(o){
     return '<div class="disp-option'+(selectedSet.indexOf(o)!==-1?' selected':'')+'" onclick="_rcaGridPick(\''+gridId+'\',\''+valueId+'\',this,\''+_ncrBtnEsc(o)+'\')">'+escHtml(o)+'</div>';
   }).join('');
@@ -17997,15 +18004,15 @@ function rcaLockForm(){
     ? (isEs ? '¡Registro guardado en Google Sheets!' : 'Record saved to Google Sheets!')
     : (isEs ? '¡Registro guardado! (local — sincronización con Apps Script desactivada)' : 'Record saved! (local — Apps Script sync off)');
   rcaShow('success-banner');
-  document.getElementById('rca-status-bar').style.background='#dcfce7';
-  document.getElementById('rca-status-bar').style.borderColor='#86efac';
+  document.getElementById('rca-status-bar').style.background='var(--green-soft)';
+  document.getElementById('rca-status-bar').style.borderColor='var(--green)';
 }
 
 function rcaValidate(ids){
   for(let id of ids){
     const el=document.getElementById('rca-'+id);
     if(el&&!el.value.trim()){
-      el.focus();el.style.borderColor='#dc2626';
+      el.focus();el.style.borderColor='var(--red)';
       setTimeout(()=>el.style.borderColor='',2500);
       showAlert(isEsLang() ? 'Complete todos los campos requeridos.' : 'Please fill in all required fields.');return false;
     }
@@ -18247,7 +18254,7 @@ function _rcaApplyCloseoutMode(rec){
   var summary = document.getElementById('rca-closeout-summary');
   if (summary){
     summary.innerHTML =
-      '<div class="section-header"><div class="section-num" style="background:#b45309">M</div>' +
+      '<div class="section-header"><div class="section-num" style="background:var(--amber-ink)">M</div>' +
       '<div class="section-title">' + (isEs?'Resumen del gerente':'Manager summary') + '</div>' +
       '<span class="section-badge badge-mgr">' + (isEs?'Completado':'Completed') + '</span></div>' +
       '<div style="font-size:14px;line-height:1.8;">' +
