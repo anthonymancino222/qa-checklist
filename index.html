@@ -17324,6 +17324,17 @@ const RCA_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfUSjaD8o-UmUx1
 const RCA_LIVE = true;
 const RCA_STORE_KEY = 'moquin-qa-rcas';
 
+// The "Local mode" banner (#rca-test-banner) is hardcoded straight into the
+// HTML and was never actually wired to RCA_LIVE — it kept claiming "Apps
+// Script sync is off" even after RCA went live, which is exactly backwards
+// from what was actually happening (real Sheet writes, real manager
+// emails). Hide it here instead of deleting the markup, so flipping
+// RCA_LIVE back to false for a future test still shows it correctly.
+if (RCA_LIVE) {
+  var _rcaTestBanner = document.getElementById('rca-test-banner');
+  if (_rcaTestBanner) _rcaTestBanner.style.display = 'none';
+}
+
 /* Customer dropdown — same canonical CUSTOMERS list as QC and NCR */
 (function rcaPopulateCustomers(){
   var sel = document.getElementById('rca-customer-select');
