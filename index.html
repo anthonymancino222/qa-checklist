@@ -5871,11 +5871,54 @@ function _syncPushDelta(type, list){
     if (inFlight[type]) {
       return inFlight[type].then(function(){ return _syncPushDelta(type, list); });
     }
-    var migration = _syncPushAll(type, list).then(function(ok){
-      if (!ok) return; // couldn't confirm — leave the snapshot empty, try the same one-time catch-up again next time
+
+    var seedFromLocal = function(){
       var seeded = {};
       (list || []).forEach(function(r){ var id = r[idField]; if (id != null) seeded[String(id)] = JSON.stringify(r); });
       _syncSnapshotSet(type, seeded);
+    };
+
+    // Real-world data check (2026-09-11): the job store had 461 records,
+    // 369 of them still carrying an embedded base64 photo pre-dating the
+    // Drive-upload feature — one bulk push of the WHOLE store came out to
+    // 17MB. Unconditionally re-sending that once per device (the original
+    // version of this migration) is exactly what kept re-triggering the
+    // Cloudflare D1 daily-quota alert: on shop-floor wifi a payload that
+    // size can time out client-side (fetch reports failure) while the
+    // Worker still finishes writing every row server-side, so the 30s
+    // retry loop would re-attempt — and re-WRITE all 400+ rows — forever
+    // on any one flaky device.
+    //
+    // The old always-push-everything code already kept SYNC_PENDING_KEY
+    // accurate (cleared on every successful push, left true after a failed
+    // one) long before this delta logic existed — so it's real evidence of
+    // whether this store had anything genuinely unconfirmed at the moment
+    // this device switched over. If it's clean, the server already has
+    // this data (that's what the old design was already guaranteeing);
+    // just trust it and seed the snapshot with ZERO network traffic. Only
+    // actually re-push when there's real evidence something didn't land.
+    var pending;
+    try { pending = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '{}'); } catch(e) { pending = {}; }
+    if (!pending[type]) {
+      seedFromLocal();
+      return Promise.resolve();
+    }
+
+    // Something was genuinely left unconfirmed — a real push is needed, but
+    // guard against hammering a large payload every 30s if it keeps failing
+    // (the exact runaway-retry scenario above). At most one attempt every
+    // 5 minutes per store.
+    var cooldownKey = 'qa_sync_migration_cooldown_' + type;
+    var lastAttempt = parseInt(localStorage.getItem(cooldownKey) || '0', 10) || 0;
+    if (Date.now() - lastAttempt < 5 * 60 * 1000) {
+      return Promise.resolve();
+    }
+    try { localStorage.setItem(cooldownKey, String(Date.now())); } catch(e) {}
+
+    var migration = _syncPushAll(type, list).then(function(ok){
+      if (!ok) return; // still couldn't confirm — leave pending as-is, cooldown limits how often this retries
+      seedFromLocal();
+      _syncMarkPending(type, false);
     });
     inFlight[type] = migration;
     migration.then(function(){ delete inFlight[type]; });
