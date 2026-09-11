@@ -5835,18 +5835,40 @@ function _syncSnapshotSet(type, snap){
 // full push of everything (identical to the old behavior, just once) so the
 // server is definitely caught up, then seed the snapshot from it; every
 // save after that is the normal small delta.
+// Guards the one-time migration push below against firing more than once
+// concurrently — see the bug this fixed in _syncPushDelta's own comment.
+var _syncMigrationInFlight = {}; // type -> Promise
+
 function _syncPushDelta(type, list){
   if (!QA_BACKEND_URL) return Promise.resolve();
   var idField = _syncIdField(type);
   var snap = _syncSnapshotGet(type);
 
   if (!Object.keys(snap).length) {
-    return _syncPushAll(type, list).then(function(ok){
+    // A multi-product submit (e.g. Bindery/Pressroom Cutter QC approval)
+    // calls ipAdd — and so this — once per product in a tight synchronous
+    // loop, all before any of those calls' own fetches can resolve. Without
+    // this guard, EVERY one of those calls would independently see the same
+    // still-empty snapshot and kick off its OWN full-store migration push —
+    // several concurrent multi-megabyte JSON bodies (the whole job store,
+    // serialized, once per product) in flight at the same time, which was
+    // enough to crash a tablet browser tab outright on a 4-product job. Now
+    // only the first call actually starts the migration; every other call
+    // waits on that same in-flight promise, then re-enters this function
+    // with its OWN list so whatever it added still gets pushed for real
+    // (as a normal small delta, once the snapshot exists).
+    if (_syncMigrationInFlight[type]) {
+      return _syncMigrationInFlight[type].then(function(){ return _syncPushDelta(type, list); });
+    }
+    var migration = _syncPushAll(type, list).then(function(ok){
       if (!ok) return; // couldn't confirm — leave the snapshot empty, try the same one-time catch-up again next time
       var seeded = {};
       (list || []).forEach(function(r){ var id = r[idField]; if (id != null) seeded[String(id)] = JSON.stringify(r); });
       _syncSnapshotSet(type, seeded);
     });
+    _syncMigrationInFlight[type] = migration;
+    migration.then(function(){ delete _syncMigrationInFlight[type]; });
+    return migration;
   }
 
   var seen = {};
