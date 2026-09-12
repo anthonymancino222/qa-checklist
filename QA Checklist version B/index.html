@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Moquin QA System</title>
+<title>Moquin QA System — VERSION B</title>
 <!-- Home Screen icon: hot pink background + neon green border, so this is
      visually distinct from the other Moquin QA app icon (both were showing
      as a plain black "M" tile since neither had a custom icon defined). -->
@@ -1894,7 +1894,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 // this is a shared device, not a personal one. Defaults to light (today's
 // look) until someone actually taps the toggle.
 try {
-  if (localStorage.getItem('moquin-qa-theme') === 'dark') {
+  if (localStorage.getItem('vb-moquin-qa-theme') === 'dark') {
     document.body.classList.add('dark-mode');
   }
 } catch (e) {}
@@ -1908,7 +1908,7 @@ try {
      localStorage, on a shared shop-floor tablet. -->
 <div id="google-signin-overlay">
   <div class="gsi-card">
-    <div class="brand-name">Moquin Press · QA System</div>
+    <div class="brand-name">Moquin Press · QA System <span style="background:#e91e63;color:#fff;font-size:0.5em;padding:2px 8px;border-radius:10px;vertical-align:middle;">VERSION B</span></div>
     <div class="gsi-sub">Sign in with your Moquin Google account to continue.</div>
     <div id="g_id_signin"></div>
     <div class="gsi-fallback-note" id="gsi-fallback-note" style="display:none;">Having trouble? Reload the page — the sign-in button sometimes needs a moment to load.</div>
@@ -1935,7 +1935,7 @@ try {
 <header class="app-header">
   <div onclick="switchView('home')" style="cursor:pointer;" title="Home">
     <div class="brand-co">Moquin Press · Quality</div>
-    <div class="brand-name">QA System</div>
+    <div class="brand-name">QA System <span style="background:#e91e63;color:#fff;font-size:0.55em;padding:2px 7px;border-radius:9px;vertical-align:middle;">VERSION B</span></div>
   </div>
   <div class="header-right">
     <div class="header-group header-group-identity">
@@ -5399,7 +5399,16 @@ var kamaTimers = {};
 // in that app's index.html).
 var GLUER_SHIFT_HANDOFF_URL = '';
 
-var IN_PROGRESS_KEY = 'moquin-qa-inprogress';
+// "vb-"/"vb_" prefixed on every localStorage key in this file (below and
+// throughout) — this Version B copy shares its website address with the
+// main app (both served from the same GitHub Pages domain, different
+// folders), and browsers share localStorage by website address, not by
+// folder. Without a distinct prefix, this app would read/write the SAME
+// local data as the real production app — which is exactly what happened
+// once already: a first-sync migration pushed 118 real production job
+// records into this app's test backend before this prefix existed. See
+// backend/README.md for the full incident writeup.
+var IN_PROGRESS_KEY = 'vb-moquin-qa-inprogress';
 var continueJobId = null;
 // Set right before redirecting an in-flight job from Records into the live
 // continue modal, so that modal knows to hide its Edit button — Records
@@ -5489,7 +5498,7 @@ function _qaWriteAndPoll(action, payload, pollTimeoutMs) {
   }
   return poll();
 }
-var SYNC_PENDING_KEY = 'moquin-qa-sync-pending';
+var SYNC_PENDING_KEY = 'vb-moquin-qa-sync-pending';
 
 /* ══════════════════════════════════
    GOOGLE SIGN-IN
@@ -5516,7 +5525,7 @@ var _signedInUser = null; // { name, email } — cosmetic only, for the header
 // and its lastActivityAt is within the inactivity window below — same idea
 // as the AppSheet app people are used to, which never re-asked for a login
 // on a device that was still being used. Explicit sign-out clears this.
-var _LOCAL_SESSION_KEY = 'qa_local_session_v1';
+var _LOCAL_SESSION_KEY = 'vb_qa_local_session_v1';
 var _LOCAL_SESSION_MAX_INACTIVITY_MS = 72 * 60 * 60 * 1000; // 72 hours
 function _saveLocalSession(idToken) {
   try {
@@ -5903,7 +5912,7 @@ function _syncPushAll(type, list) {
 // write-row quota once this store grew past a few hundred jobs — a single
 // small edit was writing one D1 row per EXISTING record, not per changed
 // one.
-function _syncSnapshotKey(type){ return 'qa_sync_snapshot_' + type + '_v1'; }
+function _syncSnapshotKey(type){ return 'vb_qa_sync_snapshot_' + type + '_v1'; }
 function _syncSnapshotGet(type){
   try { return JSON.parse(localStorage.getItem(_syncSnapshotKey(type))) || {}; } catch(e){ return {}; }
 }
@@ -5992,7 +6001,7 @@ function _syncPushDelta(type, list){
     // guard against hammering a large payload every 30s if it keeps failing
     // (the exact runaway-retry scenario above). At most one attempt every
     // 5 minutes per store.
-    var cooldownKey = 'qa_sync_migration_cooldown_' + type;
+    var cooldownKey = 'vb_qa_sync_migration_cooldown_' + type;
     var lastAttempt = parseInt(localStorage.getItem(cooldownKey) || '0', 10) || 0;
     if (Date.now() - lastAttempt < 5 * 60 * 1000) {
       return Promise.resolve();
@@ -6431,7 +6440,7 @@ function _getJobStageHistory(id) {
   return null;
 }
 
-var VIEW_MODE_KEY = 'moquin-qa-view-modes';
+var VIEW_MODE_KEY = 'vb-moquin-qa-view-modes';
 function _getViewModes() {
   try { return JSON.parse(localStorage.getItem(VIEW_MODE_KEY)) || {}; } catch(e) { return {}; }
 }
@@ -6457,7 +6466,7 @@ function _syncViewToggle(tileBtnId, listBtnId, mode) {
 // Sort/order controls next to the Job in Progress / QA Release / Shipping
 // Approval / Records search boxes — same consolidated-JSON-key pattern as
 // VIEW_MODE_KEY above, so the chosen order survives a reload/tab switch.
-var SORT_MODE_KEY = 'moquin-qa-sort-modes';
+var SORT_MODE_KEY = 'vb-moquin-qa-sort-modes';
 function _getSortModes() {
   try { return JSON.parse(localStorage.getItem(SORT_MODE_KEY)) || {}; } catch(e) { return {}; }
 }
@@ -6519,7 +6528,7 @@ function _translateSortSelects() {
    single string) but same consolidated-JSON-in-localStorage pattern.
    Default/empty selection means "no filter, show all" for that field.
 ══════════════════════════════════ */
-var LIST_FILTER_KEY = 'moquin-qa-list-filters';
+var LIST_FILTER_KEY = 'vb-moquin-qa-list-filters';
 function _getListFilters() {
   try { return JSON.parse(localStorage.getItem(LIST_FILTER_KEY)) || {}; } catch(e) { return {}; }
 }
@@ -9970,7 +9979,7 @@ function _relabelAllChecklistItems(){
 // Zoom's few big presets, while still leaving room to fine-tune in between.
 var TEXT_SCALE_LEVELS = [1, 1.15, 1.3, 1.5, 1.75, 2, 2.5];
 var TEXT_SCALE_PRESET_INDICES = [0, 2, 5]; // -> 100%, 130%, 200%
-var TEXT_SCALE_KEY = 'qa_text_scale_idx';
+var TEXT_SCALE_KEY = 'vb_qa_text_scale_idx';
 function _textScaleIdx(){
   var raw = parseInt(localStorage.getItem(TEXT_SCALE_KEY), 10);
   return (raw >= 0 && raw < TEXT_SCALE_LEVELS.length) ? raw : 0;
@@ -10017,7 +10026,7 @@ function isEsLang(){ return document.body.classList.contains('es'); }
    load; this just keeps the header button's own label in sync and saves
    the choice for next time, same localStorage pattern as VIEW_MODE_KEY /
    SORT_MODE_KEY / SHIP_VIEW_KEY etc. above. */
-var THEME_KEY = 'moquin-qa-theme';
+var THEME_KEY = 'vb-moquin-qa-theme';
 function _applyThemeBtnLabel(){
   var btn = document.getElementById('theme-toggle-btn');
   if (!btn) return;
@@ -13372,7 +13381,7 @@ function _rowVal(v) {
 /* ══════════════════════════════════
    DRAFT SAVE / RESUME (multi-slot)
 ══════════════════════════════════ */
-var DRAFTS_KEY = 'moquin-qa-drafts';
+var DRAFTS_KEY = 'vb-moquin-qa-drafts';
 
 function loadDrafts() {
   try { var r = localStorage.getItem(DRAFTS_KEY); return r ? JSON.parse(r) : []; } catch(e) { return []; }
@@ -14397,7 +14406,7 @@ var CUSTOMERS = [
 /* Custom customers — any manually-typed name that isn't already in the
    canonical list above gets added here and remembered across sessions, so
    next time it's just a search-and-pick instead of retyping the full name. */
-var CUSTOM_CUSTOMERS_KEY = 'moquin_qa_custom_customers';
+var CUSTOM_CUSTOMERS_KEY = 'vb_moquin_qa_custom_customers';
 function _loadCustomCustomers(){
   try { var raw = localStorage.getItem(CUSTOM_CUSTOMERS_KEY); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
 }
@@ -14614,7 +14623,7 @@ function _computeNextAutoPullAt(fromMs) {
 }
 
 function _getScheduleAutoPullNextRunAt() {
-  var raw = localStorage.getItem('qa_schedule_autopull_next_v1');
+  var raw = localStorage.getItem('vb_qa_schedule_autopull_next_v1');
   var n = raw ? parseInt(raw, 10) : NaN;
   return isNaN(n) ? null : n;
 }
@@ -14623,12 +14632,12 @@ function _scheduleAutoPullCheck() {
   var now = Date.now();
   var nextRunAt = _getScheduleAutoPullNextRunAt();
   if (!nextRunAt) {
-    localStorage.setItem('qa_schedule_autopull_next_v1', String(_computeNextAutoPullAt(now)));
+    localStorage.setItem('vb_qa_schedule_autopull_next_v1', String(_computeNextAutoPullAt(now)));
     return;
   }
   if (now >= nextRunAt) {
     pullScheduleNow().catch(function(){ /* status line already shows the failure; next check retries */ });
-    localStorage.setItem('qa_schedule_autopull_next_v1', String(_computeNextAutoPullAt(now)));
+    localStorage.setItem('vb_qa_schedule_autopull_next_v1', String(_computeNextAutoPullAt(now)));
   }
 }
 
@@ -15457,8 +15466,8 @@ setTimeout(loadOcrEngine, 4000);
    Form (3 paths) · In Progress · Pie Chart
    Storage mirrors ipLoad/ipSave pattern.
 ══════════════════════════════════ */
-var NCR_KEY = 'moquin-qa-ncrs';
-var NCR_DRAFT_KEY = 'moquin-qa-ncr-drafts';
+var NCR_KEY = 'vb-moquin-qa-ncrs';
+var NCR_DRAFT_KEY = 'vb-moquin-qa-ncr-drafts';
 
 /* NCR draft storage — save-for-later on all 3 paths */
 function ncrDraftLoad(){
@@ -17539,7 +17548,7 @@ const RCA_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzfUSjaD8o-UmUx1
    Sheet storage, manager/QA emails, and token-based deep links (see
    _rcaLoadFromToken below). Payload shape is identical either way. */
 const RCA_LIVE = true;
-const RCA_STORE_KEY = 'moquin-qa-rcas';
+const RCA_STORE_KEY = 'vb-moquin-qa-rcas';
 
 // The "Local mode" banner (#rca-test-banner) is hardcoded straight into the
 // HTML and was never actually wired to RCA_LIVE — it kept claiming "Apps
@@ -18513,7 +18522,7 @@ rcaRenderCascadeGrids(true);
    been shippingApproved. Approval data is stored on the job record
    itself (shipping: {...}), so it stays with the job for Records.
 ══════════════════════════════════ */
-var SHIP_VIEW_KEY = 'moquin-qa-shipping-view';
+var SHIP_VIEW_KEY = 'vb-moquin-qa-shipping-view';
 var shipState = { jobId: null, data: {} };
 var shipSigCanvas = null, shipSigCtx = null;
 var shipSigHasMark = { val: false }, shipSigDrawing = { val: false };
