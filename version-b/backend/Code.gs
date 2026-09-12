@@ -53,7 +53,7 @@ var DRIVE_PHOTO_FOLDER_ID = '';
 // without decoding the `data` JSON. If the app's own field names for any
 // of these ever change, update the RECORD_COLUMNS map below to match —
 // nothing else needs to change.
-var RECORD_COLUMNS = ['id', 'type', 'jobNumber', 'station', 'formNumber', 'productNumber', 'customer', 'qtyToExecute', 'finalQty', 'data', 'updatedAt', 'deleted'];
+var RECORD_COLUMNS = ['id', 'type', 'jobNumber', 'station', 'formNumber', 'productNumber', 'customer', 'operatorName', 'qtyToExecute', 'finalQty', 'notes', 'finishedAt', 'data', 'updatedAt', 'deleted'];
 var COL = {}; // field name -> 1-based column number, built once below
 RECORD_COLUMNS.forEach(function(name, i) { COL[name] = i + 1; });
 
@@ -82,10 +82,19 @@ function setupSheet() {
 // "Job Number/ID" and "Product Number/ID" are deliberately ONE column each
 // here, not two — jobNumber/jobId and productNumber/productId mean the same
 // thing at Moquin, the app itself only ever uses one field name per concept
-// (jobNumber, productNumber), and gluerFinalQty is read as a fallback for
-// finalQty because some Gluer-station jobs write their final count under
-// that name instead (see index.html's own fallback chains near job.finalQty
-// for the same pattern already in use there).
+// (jobNumber, productNumber). Several of these also need a fallback to a
+// second field name because different stations write the same concept under
+// a different key in index.html — same pattern that file's own code already
+// uses in a few places (see e.g. its job.finalQty fallback chains):
+//   - qtyToExecute: Gluer-station jobs store this as totalOrderedQty instead
+//     (this was the actual bug behind "Qty to Execute" showing blank for a
+//     Long Gluer job — totalOrderedQty was never read before this fix).
+//   - finalQty: some Gluer jobs write gluerFinalQty instead.
+//   - notes: QC stations write qcNotes, make-ready stations write
+//     mrComments — both mean "notes a person typed," just under different
+//     names depending on which screen captured them.
+//   - finishedAt: not every record type sets this; timestamp is the
+//     more-universal fallback (set on effectively every record).
 function _extractColumns(data) {
   data = data || {};
   return {
@@ -94,8 +103,11 @@ function _extractColumns(data) {
     formNumber: data.formNumber || '',
     productNumber: data.productNumber || data.product || '',
     customer: data.customer || '',
-    qtyToExecute: data.qtyToExecute || '',
-    finalQty: data.finalQty || data.gluerFinalQty || ''
+    operatorName: data.operatorName || '',
+    qtyToExecute: data.qtyToExecute || data.totalOrderedQty || '',
+    finalQty: data.finalQty || data.gluerFinalQty || '',
+    notes: data.qcNotes || data.mrComments || data.notes || '',
+    finishedAt: data.finishedAt || data.timestamp || ''
   };
 }
 
@@ -150,7 +162,7 @@ function _handleBulkUpsert(records) {
       if (!r || !r.id || !r.type || r.data === undefined) return;
       var dataJson = JSON.stringify(r.data);
       var c = _extractColumns(r.data);
-      var rowValues = [r.id, r.type, c.jobNumber, c.station, c.formNumber, c.productNumber, c.customer, c.qtyToExecute, c.finalQty, dataJson, now, false];
+      var rowValues = [r.id, r.type, c.jobNumber, c.station, c.formNumber, c.productNumber, c.customer, c.operatorName, c.qtyToExecute, c.finalQty, c.notes, c.finishedAt, dataJson, now, false];
       var rowNum = idIndex[String(r.id)];
       if (rowNum) {
         sheet.getRange(rowNum, 1, 1, rowValues.length).setValues([rowValues]);
@@ -203,7 +215,12 @@ function _handleUploadPhoto(filename, mimeType, dataBase64) {
   var blob = Utilities.newBlob(bytes, mimeType || 'image/jpeg', filename || ('qa-photo-' + Date.now()));
   var file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return { id: file.getId(), url: 'https://drive.google.com/uc?export=view&id=' + file.getId() };
+  // The lh3.googleusercontent.com form is the reliable one for hotlinking as
+  // a plain <img src> — drive.google.com/uc?export=view often serves an
+  // interstitial page instead of the raw image bytes for a browser-embedded
+  // <img> tag, which is why an earlier version of this returned a URL that
+  // rendered as a blank box in the app.
+  return { id: file.getId(), url: 'https://lh3.googleusercontent.com/d/' + file.getId() };
 }
 
 // ── JSONP / poll-result plumbing ─────────────────────────────────────────
