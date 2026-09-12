@@ -17,19 +17,29 @@ behavior — only the storage plumbing is different.
 - Deleted Items view / restore (QA Manager screen).
 - The full record is still stored whole as a JSON blob (the `data` column
   — that's the only thing the app itself reads back), but **Job/Product
-  Number, Station, Form Number, Customer, Qty to Execute, and Final Qty**
-  are also broken out into their own real columns, so the Sheet itself is
+  Number, Station, Form Number, Customer, Operator Name, Qty to Execute,
+  Final Qty, Notes, Finished At, and a Checklist Summary** are also broken
+  out into their own real columns, so the Sheet itself is
   readable/filterable/sortable by a person, not just by the app. "Job
   Number" and "Job ID" share one `jobNumber` column (same for Product), on
   purpose — they mean the same thing here, and the app itself only ever
-  uses one field name per concept. See `_extractColumns` in `Code.gs` if
-  you want to add more fields to this list later.
+  uses one field name per concept. `qtyToExecute` falls back to
+  `totalOrderedQty` (Gluer-station jobs store it under that name instead).
+  `checklistSummary` is a single joined "name: value; name: value" cell —
+  not one column per question — see `_summarizeChecklist` in `Code.gs`.
+  See `_extractColumns` if you want to add more fields to this list later.
+- **Schedule Pull** (the CERM-export `.xlsx` auto-fill on job setup) — ported
+  from the Worker's Drive-based xlsx parsing. Requires the **Drive API**
+  Advanced Service enabled (Apps Script editor → Services + → Drive API →
+  Add) and `SCHEDULE_FOLDER_ID` in `Code.gs` set to the same Drive folder
+  the main app's Worker watches (`GOOGLE_SCHEDULE_FOLDER_ID` secret).
+- **Silent QA Release email** — sends via `MailApp.sendEmail` server-side
+  instead of opening a Gmail-compose popup. This is a **Version B only**
+  change; the main app still opens the compose window on purpose.
+  `QA_ALERT_EMAIL` in `Code.gs` is the fallback recipient when a record has
+  no email addresses of its own.
 
 **Not implemented** (falls back gracefully, doesn't crash):
-- **Schedule Pull** (the CERM-export `.xlsx` auto-fill on job setup) — the
-  Worker's xlsx-parsing-from-Drive logic hasn't been ported. Tapping "Pull
-  Schedule" will show "Pull failed" and nothing else; job setup still works
-  fine typed in by hand, same as before that feature existed.
 - **Admin backup/restore-from-backup** and the **daily automatic backup** —
   the Worker's `/admin/backup-now` / `/admin/restore-record` and its
   scheduled daily export aren't ported. The Sheet itself IS your data store
@@ -128,6 +138,19 @@ one-time fix, done together:
    deployment → **New version** → **Deploy**, so the live `/exec` URL picks
    up the new code (see the redeploy note above — editing `Code.gs` alone
    doesn't do this).
+
+## Setting up Pull Schedule
+
+1. In the Apps Script editor, click **Services +** (left sidebar) → find
+   **Drive API** → **Add**. This enables the Advanced Drive Service that
+   `_convertXlsxToSheetsData` needs (`Drive.Files.copy(...)` to convert an
+   uploaded `.xlsx` into a native Google Sheet it can then read).
+2. Set `SCHEDULE_FOLDER_ID` in `Code.gs` to the Drive folder id of the same
+   CERM schedule-export folder the main app's Cloudflare Worker watches
+   (its `GOOGLE_SCHEDULE_FOLDER_ID` secret — ask whoever set up the Worker
+   for this id, since it isn't visible from any code Version B can read).
+3. Redeploy (see "Redeploying after an edit" below) so the live `/exec`
+   endpoint picks up both the new service and the new folder id.
 
 ## Optional: pick your own Drive folder for photos
 
