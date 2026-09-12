@@ -5430,7 +5430,7 @@ var _openedFromRecords = false;
    something back (a push's success/failure, an uploaded photo's Drive
    URL) — nothing here relies on an unproven cross-origin trick.
 ══════════════════════════════════ */
-var QA_BACKEND_URL = ''; // PASTE the deployed Apps Script Web App /exec URL here — see backend/README.md
+var QA_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwlvZXfB3SQDuK-f3HV0eZRRBlujVsrdJn7ndFpAL6G6sxua2MUBcCDu9LVhxghapY/exec';
 var QA_BACKEND_API_KEY = 'MoquinQA2026SecureKeyAlpha7'; // must match API_KEY in backend/Code.gs
 
 function _qaRequestId() { return 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
