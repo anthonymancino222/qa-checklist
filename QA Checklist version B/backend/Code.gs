@@ -6,7 +6,13 @@
    folder) — same job (store every job/NCR/draft record, store photos and
    signatures, hand back a URL for each), different plumbing:
      - Records live as rows in this spreadsheet's "Records" sheet instead of
-       a D1 table (id | type | data-as-JSON | updatedAt | deleted).
+       a D1 table. The full record is still kept whole as one JSON blob (the
+       `data` column) — that's the only thing the app itself ever reads back
+       — but a handful of the most-asked-about fields (job/product number,
+       station, form number, customer, quantities) are ALSO broken out into
+       their own real columns purely so a person opening this Sheet directly
+       can read/filter/sort it without decoding JSON. See _handleBulkUpsert's
+       own comment for exactly which fields and why those.
      - Photos/signatures upload to a Drive folder instead of the Worker's
        service-account-proxied Drive folder, and come back as a plain
        "anyone with the link can view" Drive URL — there's no proxy step
@@ -40,13 +46,23 @@ var DRIVE_PHOTO_FOLDER_NAME = 'QA Checklist Version B Photos';
 var DRIVE_PHOTO_FOLDER_ID = '';
 
 // ── Records sheet ────────────────────────────────────────────────────────
+// Column layout — id/type/data/updatedAt/deleted are what the app itself
+// actually reads back (via _rowToRecord); everything between `type` and
+// `data` is read-only-for-humans, written from the record's own data at
+// upsert time (see _handleBulkUpsert) purely so this Sheet is skimmable
+// without decoding the `data` JSON. If the app's own field names for any
+// of these ever change, update the RECORD_COLUMNS map below to match —
+// nothing else needs to change.
+var RECORD_COLUMNS = ['id', 'type', 'jobNumber', 'station', 'formNumber', 'productNumber', 'customer', 'qtyToExecute', 'finalQty', 'data', 'updatedAt', 'deleted'];
+var COL = {}; // field name -> 1-based column number, built once below
+RECORD_COLUMNS.forEach(function(name, i) { COL[name] = i + 1; });
 
 function _getRecordsSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(RECORDS_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(RECORDS_SHEET_NAME);
-    sheet.appendRow(['id', 'type', 'data', 'updatedAt', 'deleted']);
+    sheet.appendRow(RECORD_COLUMNS);
     sheet.setFrozenRows(1);
   }
   return sheet;
@@ -54,16 +70,39 @@ function _getRecordsSheet() {
 
 // One-time setup — run this once from the Apps Script editor (select
 // setupSheet in the function dropdown, click ▶ Run) right after pasting this
-// file in. Safe to run again later; it only creates the sheet if missing.
+// file in. Safe to run again later; it only creates the sheet if missing —
+// if you're adding the new job/product/etc. columns to a Records sheet that
+// already exists from before they were added, see the README's "Adding the
+// extra columns to an existing sheet" section instead of just re-running this.
 function setupSheet() {
   _getRecordsSheet();
   Logger.log('Records sheet ready.');
 }
 
+// "Job Number/ID" and "Product Number/ID" are deliberately ONE column each
+// here, not two — jobNumber/jobId and productNumber/productId mean the same
+// thing at Moquin, the app itself only ever uses one field name per concept
+// (jobNumber, productNumber), and gluerFinalQty is read as a fallback for
+// finalQty because some Gluer-station jobs write their final count under
+// that name instead (see index.html's own fallback chains near job.finalQty
+// for the same pattern already in use there).
+function _extractColumns(data) {
+  data = data || {};
+  return {
+    jobNumber: data.jobNumber || '',
+    station: data.station || '',
+    formNumber: data.formNumber || '',
+    productNumber: data.productNumber || data.product || '',
+    customer: data.customer || '',
+    qtyToExecute: data.qtyToExecute || '',
+    finalQty: data.finalQty || data.gluerFinalQty || ''
+  };
+}
+
 function _rowToRecord(row) {
   var data = null;
-  try { data = JSON.parse(row[2]); } catch (e) { /* leave null on a corrupt cell rather than throw */ }
-  return { id: row[0], type: row[1], data: data, updatedAt: Number(row[3]) || 0, deleted: row[4] === true };
+  try { data = JSON.parse(row[COL.data - 1]); } catch (e) { /* leave null on a corrupt cell rather than throw */ }
+  return { id: row[COL.id - 1], type: row[COL.type - 1], data: data, updatedAt: Number(row[COL.updatedAt - 1]) || 0, deleted: row[COL.deleted - 1] === true };
 }
 
 // values includes the header row at index 0 — returns a 0-based index into
@@ -82,8 +121,8 @@ function _handleListRecords(type, since) {
   var out = [];
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
-    if (String(row[1]) !== String(type)) continue;
-    var updatedAt = Number(row[3]) || 0;
+    if (String(row[COL.type - 1]) !== String(type)) continue;
+    var updatedAt = Number(row[COL.updatedAt - 1]) || 0;
     if (since && updatedAt <= since) continue;
     out.push(_rowToRecord(row));
   }
@@ -110,11 +149,13 @@ function _handleBulkUpsert(records) {
     (records || []).forEach(function(r) {
       if (!r || !r.id || !r.type || r.data === undefined) return;
       var dataJson = JSON.stringify(r.data);
+      var c = _extractColumns(r.data);
+      var rowValues = [r.id, r.type, c.jobNumber, c.station, c.formNumber, c.productNumber, c.customer, c.qtyToExecute, c.finalQty, dataJson, now, false];
       var rowNum = idIndex[String(r.id)];
       if (rowNum) {
-        sheet.getRange(rowNum, 1, 1, 5).setValues([[r.id, r.type, dataJson, now, false]]);
+        sheet.getRange(rowNum, 1, 1, rowValues.length).setValues([rowValues]);
       } else {
-        sheet.appendRow([r.id, r.type, dataJson, now, false]);
+        sheet.appendRow(rowValues);
         idIndex[String(r.id)] = sheet.getLastRow();
       }
       count++;
@@ -134,7 +175,7 @@ function _handleDelete(id) {
     var idx = _findRowIndexById(values, id);
     var now = Date.now();
     if (idx === -1) return { ok: true, updatedAt: now }; // already gone — soft-delete is idempotent
-    sheet.getRange(idx + 1, 4, 1, 2).setValues([[now, true]]);
+    sheet.getRange(idx + 1, COL.updatedAt, 1, 2).setValues([[now, true]]);
     return { ok: true, updatedAt: now };
   } finally {
     lock.releaseLock();

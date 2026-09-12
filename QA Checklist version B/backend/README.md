@@ -15,6 +15,15 @@ behavior — only the storage plumbing is different.
 - Photo and signature uploads to Drive, returned as a URL stored on the
   record instead of embedded as base64.
 - Deleted Items view / restore (QA Manager screen).
+- The full record is still stored whole as a JSON blob (the `data` column
+  — that's the only thing the app itself reads back), but **Job/Product
+  Number, Station, Form Number, Customer, Qty to Execute, and Final Qty**
+  are also broken out into their own real columns, so the Sheet itself is
+  readable/filterable/sortable by a person, not just by the app. "Job
+  Number" and "Job ID" share one `jobNumber` column (same for Product), on
+  purpose — they mean the same thing here, and the app itself only ever
+  uses one field name per concept. See `_extractColumns` in `Code.gs` if
+  you want to add more fields to this list later.
 
 **Not implemented** (falls back gracefully, doesn't crash):
 - **Schedule Pull** (the CERM-export `.xlsx` auto-fill on job setup) — the
@@ -99,6 +108,26 @@ deployments → (pencil/edit icon on the existing deployment) → New version �
 Deploy** to push a code change live at the same URL. A brand new deployment
 (rather than a new version of the existing one) gets a different URL, which
 would mean updating `index.html` again.
+
+## Updating an already-deployed Version B to the new columns
+
+If you deployed before the Job Number/Station/Product Number/etc. columns
+existed, the `Records` sheet's header row (and the 118-real-record leak —
+see the incident note above, if you haven't cleared that yet) both need a
+one-time fix, done together:
+
+1. Open the Sheet, click the **Records** tab.
+2. Click row **1** (the header row), then Shift+click the last row number
+   to select every row, including the header.
+3. Right-click the row numbers → **Delete rows**. The tab is now
+   completely empty.
+4. Back in the Apps Script editor, paste in the new `Code.gs`, save, run
+   **`setupSheet`** once again (function dropdown → ▶ Run) — this recreates
+   the header row with all the new columns.
+5. **Deploy → Manage deployments** → pencil/edit icon on the existing
+   deployment → **New version** → **Deploy**, so the live `/exec` URL picks
+   up the new code (see the redeploy note above — editing `Code.gs` alone
+   doesn't do this).
 
 ## Optional: pick your own Drive folder for photos
 
