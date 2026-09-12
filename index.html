@@ -5754,6 +5754,19 @@ function _uploadPhotoToDrive(dataUrl) {
 // snapshot, that nested copy too — otherwise the bulky data URL would sit
 // there forever even after the "real" upload succeeded. Lets every submit
 // flow save instantly instead of blocking on this network round trip.
+// topField may be a dotted path (e.g. 'shipping.cutterPicture') for a value
+// nested one level deep, not just a bare top-level key — every existing
+// caller passes a plain field name, which is just a one-segment path, so
+// this is purely additive.
+function _setPathOnJob(job, path, value) {
+  var parts = path.split('.');
+  var obj = job;
+  for (var i = 0; i < parts.length - 1; i++) {
+    if (obj[parts[i]] == null || typeof obj[parts[i]] !== 'object') return; // path doesn't exist anymore — nothing to patch
+    obj = obj[parts[i]];
+  }
+  obj[parts[parts.length - 1]] = value;
+}
 function _backgroundUploadPhoto(jobId, dataUrl, topField, stageIndex, stageField) {
   if (!dataUrl || dataUrl.indexOf('data:') !== 0) return;
   _uploadPhotoToDrive(dataUrl).then(function(url) {
@@ -5761,7 +5774,7 @@ function _backgroundUploadPhoto(jobId, dataUrl, topField, stageIndex, stageField
     var jobs = ipLoad();
     for (var i = 0; i < jobs.length; i++) {
       if (jobs[i].id !== jobId) continue;
-      jobs[i][topField] = url;
+      _setPathOnJob(jobs[i], topField, url);
       if (stageIndex != null && jobs[i].stageHistory && jobs[i].stageHistory[stageIndex] && jobs[i].stageHistory[stageIndex].data) {
         jobs[i].stageHistory[stageIndex].data[stageField] = url;
       }
@@ -8080,10 +8093,11 @@ function submitForQAApproval() {
   var newPhoto = document.getElementById('cm-op-photo-new');
   var photoSrc = (newPhoto && newPhoto.style.display !== 'none' && newPhoto.src) ? newPhoto.src : null;
 
+  var opSigSrc = cmOpSigCanvas.toDataURL('image/png');
   var updates = {
     process:     'qa_pending',
     checklist:   checklist,
-    opSignature: cmOpSigCanvas.toDataURL('image/png'),
+    opSignature: opSigSrc,
     opNotes:     document.getElementById('cm-op-notes').value.trim(),
     lastUpdated: formatTS()
   };
@@ -8091,6 +8105,11 @@ function submitForQAApproval() {
 
   ipUpdate(continueJobId, updates);
   if (photoSrc) _backgroundUploadPhoto(continueJobId, photoSrc, 'mrPhoto');
+  // Signatures get the same background-upload treatment as photos now — see
+  // the Sept 2026 quota-incident notes: embedded signatures (not photos)
+  // turned out to be the dominant contributor to job-record size overall,
+  // duplicated into stageHistory just like photos used to be.
+  _backgroundUploadPhoto(continueJobId, opSigSrc, 'opSignature');
   closeContinueModal();
   renderInProgress();
   showToast('Submitted for QA approval', 'pass');
@@ -8221,6 +8240,7 @@ function approveStartProduction() {
       var splitShipQty = splitShipQtyEl ? _qtyClean(splitShipQtyEl.value) : 0;
       if (splitShipQty <= 0) { showAlert('Enter the qty for this split shipment.'); _scrollToField(splitShipQtyEl); return; }
       var _splitRelSig = cmQaSigCanvas.toDataURL('image/png');
+      var _splitRelStageIdx = (appJob.stageHistory || []).length;
       ipUpdate(continueJobId, {
         process: 'finished', qaSignature: _splitRelSig,
         splitQtyShipped: splitShipQty, approvedAt: formatTS(), lastUpdated: formatTS(),
@@ -8229,6 +8249,7 @@ function approveStartProduction() {
           splitShipNum: appJob.splitShipNum||2, qtyShipped: splitShipQty, qaSignature: _splitRelSig
         })
       });
+      _backgroundUploadPhoto(continueJobId, _splitRelSig, 'qaSignature', _splitRelStageIdx, 'qaSignature');
       closeContinueModal(); renderInProgress(); renderQARelease();
       showToast('Split Ship ' + (appJob.splitShipNum||2) + ' released', 'pass');
       return;
@@ -8281,6 +8302,7 @@ function approveStartProduction() {
 
       var totalSplitQty = splitQtys.reduce(function(a, b) { return a + b; }, 0);
       var _splitFullSig = cmQaSigCanvas.toDataURL('image/png');
+      var _splitFullStageIdx = (appJob.stageHistory || []).length;
       ipUpdate(continueJobId, {
         process: 'finished', qaSignature: _splitFullSig,
         checklist: _mergeChecklist(appJob.checklist, qaChecklist), approvedAt: formatTS(), lastUpdated: formatTS(),
@@ -8292,6 +8314,7 @@ function approveStartProduction() {
           checklist: qaChecklist, splitQtys: splitQtys, totalQtyShipped: totalSplitQty, qaSignature: _splitFullSig
         })
       });
+      _backgroundUploadPhoto(continueJobId, _splitFullSig, 'qaSignature', _splitFullStageIdx, 'qaSignature');
       closeContinueModal(); renderInProgress(); renderQARelease();
       showToast('Split shipment released — ' + splitN2 + ' shipments, ' + totalSplitQty + ' pcs total ✓', 'pass');
       return;
@@ -8313,6 +8336,7 @@ function approveStartProduction() {
       var newCumShipped   = cumShippedPrior + partialFinalQty;
       var partialRemaining = Math.max(0, totalOrderedQty - newCumShipped);
       var _partialRelSig = cmQaSigCanvas.toDataURL('image/png');
+      var _partialRelStageIdx = (appJob.stageHistory || []).length;
       var _partialHist = _stageSnapshot(appJob.stageHistory, 'qa_release', 'QA Release — Partial Run ' + thisRunNum, {
         checklist: qaChecklist, qtyShipped: partialFinalQty, qaSignature: _partialRelSig
       });
@@ -8324,6 +8348,7 @@ function approveStartProduction() {
         customer: _qaCustomerToSave,
         stageHistory: _partialHist
       });
+      _backgroundUploadPhoto(continueJobId, _partialRelSig, 'qaSignature', _partialRelStageIdx, 'qaSignature');
       if (partialRemaining > 0) {
         ipAdd({
           id: 'gluer-partial-' + Date.now(),
@@ -8363,6 +8388,7 @@ function approveStartProduction() {
       var pkNewCumShipped   = pkCumShippedPrior + pkFinalQty;
       var pkRemaining = Math.max(0, pkTotalOrderedQty - pkNewCumShipped);
       var _pkRelSig = cmQaSigCanvas.toDataURL('image/png');
+      var _pkRelStageIdx = (appJob.stageHistory || []).length;
       var _pkHist = _stageSnapshot(appJob.stageHistory, 'qa_release', 'QA Release — Partial Shipment ' + pkThisRunNum, {
         checklist: qaChecklist, qtyShipped: pkFinalQty, qaSignature: _pkRelSig
       });
@@ -8391,6 +8417,7 @@ function approveStartProduction() {
       } else {
         showToast('Partial shipment ' + pkThisRunNum + ' released — job fully complete', 'pass');
       }
+      _backgroundUploadPhoto(continueJobId, _pkRelSig, 'qaSignature', _pkRelStageIdx, 'qaSignature');
       closeContinueModal(); renderInProgress(); renderQARelease();
       return;
     }
@@ -8459,6 +8486,7 @@ function approveStartProduction() {
   }
 
   var _stdSig = cmQaSigCanvas.toDataURL('image/png');
+  var _stdStageIdx = (appJob.stageHistory || []).length;
   var _stdStageLabel = isGluerRelease ? 'QA Release — Job Released'
                      : isVeritiv      ? 'QA Release — Job Closed'
                      :                  'QA Sign-off — Approved to Start Production';
@@ -8478,6 +8506,7 @@ function approveStartProduction() {
       releaseNotes: glrReleaseNotes
     })
   });
+  _backgroundUploadPhoto(continueJobId, _stdSig, 'qaSignature', _stdStageIdx, 'qaSignature');
   // A 1st-pass job doesn't actually finish here — it hands off to a fresh
   // linked job sitting in "2nd Pass Ready" until someone sends it back to
   // Make Ready for the 2nd/final pass. Records ends up with two separate
@@ -11576,6 +11605,8 @@ async function beginInspection() {
       };
       ipAdd(_kRecord);
       _backgroundUploadPhoto(_kId, _kProdPhoto, 'mrPhoto', 0, 'photo');
+      _backgroundUploadPhoto(_kId, _kRecord.qaSignature, 'qaSignature', 0, 'qaSignature');
+      _backgroundUploadPhoto(_kId, _kRecord.opSignature, 'opSignature', 0, 'opSignature');
       showToast('Job ' + job + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
@@ -11657,6 +11688,8 @@ async function beginInspection() {
       };
       ipAdd(_dcRecord);
       _backgroundUploadPhoto(_dcId, _dcProdPhoto, 'mrPhoto', 0, 'photo');
+      _backgroundUploadPhoto(_dcId, _dcRecord.qaSignature, 'qaSignature', 0, 'qaSignature');
+      _backgroundUploadPhoto(_dcId, _dcRecord.opSignature, 'opSignature', 0, 'opSignature');
       showToast('Job ' + job + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
@@ -11733,6 +11766,7 @@ async function beginInspection() {
       if (!_gPhotoEl || !_gPhotoEl.src) { showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.'); _scrollToField(document.getElementById('gluer-prod-photo-area-0')); return; }
       var _gPhotoSrc = _gPhotoEl.src;
       var _gId = 'gluer-' + _gNow;
+      var _gOpSig = getOpSignatureDataURL();
       var _gSchedEntry = _scheduleData && _scheduleData.jobs[job];
       var _gPool = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductPool : ((_gSchedEntry && _gSchedEntry.products) || []);
       var _gUsedSoFar = _gluerContinueBatch ? _gluerContinueBatch.scheduleProductsUsed : [];
@@ -11741,17 +11775,19 @@ async function beginInspection() {
         jobNumber: job, station: station, productNumber: _gPNum,
         customer: document.getElementById('setup-customer').value.trim(),
         operatorName: _gOpName, process: 'production',
-        mrPhoto: _gPhotoSrc, opSignature: getOpSignatureDataURL(), qaSignature: _gSig,
+        mrPhoto: _gPhotoSrc, opSignature: _gOpSig, qaSignature: _gSig,
         checklist: _gChecks, timestamp: _gTs,
         batchId: _gBatchId, batchSize: gluerProductCount, batchIndex: _gUsedSoFar.length,
         scheduleProductPool: _gPool,
         scheduleProductsUsed: _gUsedSoFar.concat([_gPNum]),
         stageHistory: _stageSnapshot(null, 'make_ready', 'Operator Entry — Make Ready & Production', {
           operatorName: _gOpName, productId: _gPNum, photo: _gPhotoSrc,
-          opSignature: getOpSignatureDataURL(), qaSignature: _gSig, checklist: _gChecks
+          opSignature: _gOpSig, qaSignature: _gSig, checklist: _gChecks
         })
       });
       _backgroundUploadPhoto(_gId, _gPhotoSrc, 'mrPhoto', 0, 'photo');
+      _backgroundUploadPhoto(_gId, _gSig, 'qaSignature', 0, 'qaSignature');
+      _backgroundUploadPhoto(_gId, _gOpSig, 'opSignature', 0, 'opSignature');
       showToast((gluerProductCount > 1 ? 'Product 1 of ' + gluerProductCount : 'Product') + ' → In Production', 'pass');
       startNewJob(); switchView('inprogress'); renderInProgress();
       return;
@@ -13155,11 +13191,19 @@ async function _submitJobInner() {
     var _qcTs = Date.now();
     var _sharedUploadPromise = setupPhotoSrc ? _uploadPhotoToDrive(setupPhotoSrc) : null;
     var _sharedFallbackIds = [];
+    // Same shared-upload-once-and-reuse treatment for signatures now — see
+    // the Sept 2026 quota-incident notes: embedded signatures duplicated
+    // into every entry's stageHistory turned out to be the dominant
+    // contributor to job-record bloat overall, same shape of problem as the
+    // shared photo fallback right above.
+    var _sharedSigUploadPromise = jobState.signature ? _uploadPhotoToDrive(jobState.signature) : null;
+    var _sharedSigFallbackIds = [];
     for (var _qcIdx = 0; _qcIdx < jobState.entries.length; _qcIdx++) {
       var entry = jobState.entries[_qcIdx];
       var entryFailed = entry.checks && entry.checks.some(function(c){ return c.val === 'fail'; });
       if (entryFailed) continue;
       var _entryPhoto = entry.photo || setupPhotoSrc;
+      var _entrySig = entry.signature || jobState.signature || null;
       var _qcId = 'qc-' + _qcTs + '-' + _qcIdx;
       ipAdd({
         id: _qcId,
@@ -13169,13 +13213,13 @@ async function _submitJobInner() {
         productNumber: entry.productId || jobState.product || '',
         process: 'finished',
         finishedAt: formatTS(),
-        qaSignature: entry.signature || jobState.signature || null,
+        qaSignature: _entrySig,
         mrPhoto: _entryPhoto,
         qcChecklist: entry.checks,
         qcNotes: entry.comments || '',
         timestamp: entry.timestamp || formatTS(),
         stageHistory: _stageSnapshot(null, 'qc_approval', 'QC Approval — Inspected & Passed', {
-          photo: _entryPhoto, qaSignature: entry.signature || jobState.signature || null,
+          photo: _entryPhoto, qaSignature: _entrySig,
           checklist: entry.checks, comments: entry.comments || ''
         })
       });
@@ -13184,6 +13228,26 @@ async function _submitJobInner() {
       } else if (_sharedUploadPromise) {
         _sharedFallbackIds.push(_qcId);
       }
+      if (entry.signature) {
+        _backgroundUploadPhoto(_qcId, entry.signature, 'qaSignature', 0, 'qaSignature');
+      } else if (_sharedSigUploadPromise) {
+        _sharedSigFallbackIds.push(_qcId);
+      }
+    }
+    if (_sharedSigUploadPromise) {
+      _sharedSigUploadPromise.then(function(url) {
+        if (!url || url === jobState.signature || !_sharedSigFallbackIds.length) return;
+        var jobs = ipLoad();
+        _sharedSigFallbackIds.forEach(function(id) {
+          for (var i = 0; i < jobs.length; i++) {
+            if (jobs[i].id !== id) continue;
+            jobs[i].qaSignature = url;
+            if (jobs[i].stageHistory && jobs[i].stageHistory[0] && jobs[i].stageHistory[0].data) jobs[i].stageHistory[0].data.qaSignature = url;
+            break;
+          }
+        });
+        ipSave(jobs);
+      });
     }
     if (_sharedUploadPromise) {
       _sharedUploadPromise.then(function(url) {
@@ -18878,6 +18942,7 @@ function submitShippingApproval(){
   showConfirm('This is the final approval before the job ships. It cannot be undone from here.', function(ok){
     if (!ok) return;
     var photoEl = document.getElementById('ship-photo-preview');
+    var _shipStageIdx = (_getJobStageHistory(shipState.jobId) || []).length;
     var shipping = {
       passFail: d.passFail,
       transportRate: d.transportRate,
@@ -18897,6 +18962,14 @@ function submitShippingApproval(){
         productIdMatch: shipping.productIdMatch, cutterPicture: shipping.cutterPicture, signature: shipping.signature
       })
     });
+    // This function had never been wired into the background-upload pattern
+    // (a gap found only after the Sept 2026 quota incident) — both the
+    // shipping photo and signature were still saving as embedded base64
+    // straight into `shipping.*`, duplicated into stageHistory, exactly
+    // what the retroactive migration just cleaned up. Patches both the
+    // top-level `shipping.*` field and the matching stageHistory copy.
+    if (shipping.cutterPicture) _backgroundUploadPhoto(shipState.jobId, shipping.cutterPicture, 'shipping.cutterPicture', _shipStageIdx, 'cutterPicture');
+    if (shipping.signature && shipping.signature.indexOf('data:') === 0) _backgroundUploadPhoto(shipState.jobId, shipping.signature, 'shipping.signature', _shipStageIdx, 'signature');
     closeShippingModal();
     renderShipping();
     showToast('Shipping approval saved', 'pass');
