@@ -53,12 +53,17 @@ var API_KEY = 'MoquinQA2026SecureKeyAlpha7';
 var DRIVE_PHOTO_FOLDER_NAME = 'QA Checklist Version B Photos';
 var DRIVE_PHOTO_FOLDER_ID = '';
 
-// The same Drive folder Anthony already drops the CERM machine-schedule
+// The same Drive location Anthony already drops the CERM machine-schedule
 // (and optional Sales Orders) .xlsx export into for the main app — paste
 // that folder's id here (open it in Drive, copy the id out of the URL).
 // Required for Pull Schedule; leave blank and that feature just fails
 // gracefully (same as before this was built).
-var SCHEDULE_FOLDER_ID = '';
+// This is a Shared Drive ("Daily schedule data") root, not a My Drive
+// folder — that's why _convertXlsxToSheetsData below passes
+// supportsAllDrives: true; a plain My Drive folder id would work fine
+// without that flag, but a Shared Drive id needs it or the copy() call
+// 403s even though the script account can see the file.
+var SCHEDULE_FOLDER_ID = '0AMipwK6rTWFBUk9PVA';
 
 // Where QA Release "did not make overs" / "job short" alerts get sent —
 // same recipient the main app's mailto: link was already addressed to.
@@ -296,9 +301,9 @@ function _listXlsxFilesNewestFirst(folder) {
 // Drive's Trash like anything else) so these don't pile up.
 function _convertXlsxToSheetsData(file) {
   var copied = Drive.Files.copy(
-    { title: 'tmp-schedule-import-' + Date.now(), mimeType: MimeType.GOOGLE_SHEETS },
+    { name: 'tmp-schedule-import-' + Date.now(), mimeType: MimeType.GOOGLE_SHEETS },
     file.getId(),
-    { convert: true }
+    { convert: true, supportsAllDrives: true }
   );
   try {
     var ss = SpreadsheetApp.openById(copied.id);
