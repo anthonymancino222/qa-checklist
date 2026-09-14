@@ -6867,7 +6867,13 @@ function _computeIPCols(jobs) {
       // renderInProgress) as a "Start Next Product" prompt, since
       // production works from there and doesn't check QA Release.
       var isGluer = (j.station === 'Long Gluer' || j.station === 'Short Gluer');
-      if (isGluer && j.batchSize > 1 && (j.scheduleProductPool || []).length > (j.scheduleProductsUsed || []).length) {
+      // Compare against batchSize (what the operator picked on the Make
+      // Ready screen), not scheduleProductPool — that pool is only non-empty
+      // when the job number came from an imported schedule file. For a job
+      // typed in normally (the common case), scheduleProductPool is [],
+      // so comparing pool.length > used.length was always false after
+      // product 1 finished, and the "Start Next Product" card never showed.
+      if (isGluer && j.batchSize > 1 && (j.scheduleProductsUsed || []).length < j.batchSize) {
         var key = j.batchId || j.id;
         var existing = needsNextByBatch[key];
         if (!existing || (j.scheduleProductsUsed || []).length > (existing.scheduleProductsUsed || []).length) {
