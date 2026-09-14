@@ -14572,9 +14572,15 @@ function pullScheduleNow() {
   var btn = document.getElementById('pull-schedule-btn');
   var status = document.getElementById('schedule-pull-status');
   if (btn) btn.disabled = true;
-  if (status) { status.textContent = 'Pulling…'; status.style.color = 'var(--text-tertiary)'; }
+  if (status) { status.textContent = 'Pulling… (can take up to 2 min)'; status.style.color = 'var(--text-tertiary)'; }
 
-  _pullScheduleInFlight = _qaWriteAndPoll('schedulePull', {}, 45000)
+  // Converting 10 .xlsx files through Drive one at a time (see
+  // _handleSchedulePull/_convertXlsxToSheetsData in Code.gs) has measured
+  // around 90s in production — the old 45s budget here was shorter than the
+  // backend's own actual run time, so every real pull hit this timeout and
+  // reported "Pull failed" even though the backend went on to finish the
+  // work seconds later. 150s leaves real margin above the observed 90s.
+  _pullScheduleInFlight = _qaWriteAndPoll('schedulePull', {}, 150000)
     .then(function(data) {
       if (!data) throw new Error('no response (offline, or the pull timed out)');
       if (data.error) throw new Error(data.error);
