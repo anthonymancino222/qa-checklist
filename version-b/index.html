@@ -1951,6 +1951,7 @@ try {
     <div class="header-group header-group-actions">
       <button id="theme-toggle-btn" class="header-pill-btn" onclick="toggleTheme()" title="Switch between light and dark screen — dark is easier to look at under bright shop-floor lighting">🌙 Dark Mode</button>
       <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
+      <button id="header-pull-schedule-btn" class="header-pill-btn" onclick="headerPullScheduleClick()" title="Pull the newest job schedule from Drive — takes up to 2 minutes. Only needed if you want the very latest file right now; the app also pulls it automatically at 5am, 6am, and 10am on weekdays.">🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span></button>
       <button id="header-home-btn" class="header-pill-btn header-pill-btn-solid" onclick="switchView('home')" title="Go to the home dashboard">🏠 <span data-en>Home</span><span data-es>Inicio</span></button>
     </div>
   </div>
@@ -2214,8 +2215,8 @@ try {
               <div class="customer-drop" id="job-drop" style="display:none;"></div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
-              <button type="button" class="pull-schedule-btn" onclick="pullScheduleAndOpenPicker()" id="pull-schedule-btn">
-                🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span>
+              <button type="button" class="pull-schedule-btn" onclick="viewJobsClick()" id="view-jobs-btn">
+                📋 <span data-en>View Jobs</span><span data-es>Ver Trabajos</span>
               </button>
               <button type="button" class="pull-schedule-info-btn" onclick="showPullScheduleInfo()" title="What does this do?" aria-label="What does this do?">?</button>
               <span id="schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
@@ -14567,11 +14568,16 @@ var _pullScheduleInFlight = null;
 // other write on this backend uses, just with a longer poll budget since
 // converting/reading several .xlsx files in Drive is slower than a plain
 // sheet write.
+// No longer tied to one specific button — "Pull Schedule" now lives in the
+// header (see headerPullScheduleClick), the job picker has its own refresh
+// button (_jobPickerRefresh), and NCR has its own (ncrPullScheduleClick).
+// Each of those manages its own button's disabled/label state around this
+// call; this function only owns the shared freshness line on the job setup
+// screen (schedule-pull-status), which is worth updating no matter which
+// caller triggered the pull.
 function pullScheduleNow() {
   if (_pullScheduleInFlight) return _pullScheduleInFlight;
-  var btn = document.getElementById('pull-schedule-btn');
   var status = document.getElementById('schedule-pull-status');
-  if (btn) btn.disabled = true;
   if (status) { status.textContent = 'Pulling… (can take up to 2 min)'; status.style.color = 'var(--text-tertiary)'; }
 
   // Converting 10 .xlsx files through Drive one at a time (see
@@ -14597,8 +14603,38 @@ function pullScheduleNow() {
       if (status) { status.style.color = 'var(--red)'; status.textContent = 'Pull failed: ' + err.message; }
       throw err;
     })
-    .finally(function() { if (btn) btn.disabled = false; _pullScheduleInFlight = null; });
+    .finally(function() { _pullScheduleInFlight = null; });
   return _pullScheduleInFlight;
+}
+
+// Header "Pull Schedule" — the only manual way left to force a fresh pull
+// from Drive (everywhere else that used to force one now just opens the job
+// picker off whatever's already cached — see viewJobsClick). Lives in the
+// header, not the job setup screen, since it's a slow (up to ~2min) action
+// most QA techs should rarely need: the schedule already auto-pulls at
+// 5am/6am/10am on weekdays (see _initScheduleAutoPull below).
+function headerPullScheduleClick() {
+  var btn = document.getElementById('header-pull-schedule-btn');
+  var isEs = isEsLang();
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '.6';
+    btn.innerHTML = '⏳ ' + (isEs ? 'Actualizando… (hasta 2 min)' : 'Pulling… (up to 2 min)');
+  }
+  pullScheduleNow()
+    .then(function(data) {
+      showToast((isEs ? '✓ Programa actualizado — ' : '✓ Schedule updated — ') + data.jobCount + (isEs ? ' trabajos' : ' jobs'), 'pass');
+    })
+    .catch(function(err) {
+      showToast((isEs ? '✗ Error al actualizar el programa: ' : '✗ Schedule pull failed: ') + err.message, 'fail');
+    })
+    .finally(function() {
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerHTML = '🔄 ' + (isEs ? 'Actualizar Programa' : 'Pull Schedule');
+      }
+    });
 }
 
 // Background auto-pull: fires at 5:00am and 5:00pm local device time, daily,
@@ -14836,9 +14872,9 @@ function _applyScheduleJobPrefill(jobNumber, chosenProduct) {
 }
 
 /* ── Job picker (tap-only station-filtered job/product selection) ──
-   Opens only when "Pull Schedule" is tapped (see pullScheduleAndOpenPicker
-   below) — no longer auto-opened on station selection, since that was
-   interrupting people before they were ready to look at a job list. */
+   Opens only when "View Jobs" is tapped (see viewJobsClick below) — no
+   longer auto-opened on station selection, since that was interrupting
+   people before they were ready to look at a job list. */
 // Small letter-tag shown next to a job number in both the tap-picker and the
 // typed dropdown, so it's visible at a glance which schedule tab(s) a job
 // came from — independent of STATION_TO_SCHEDULE_SHEETS below (that map
@@ -14893,20 +14929,26 @@ function openJobPickerForStation(station, forceRefresh) {
 
 // The only entry point into the job picker now — station selection alone no
 // longer opens it (that was interrupting the "?" before anyone was ready to
-// look at a job list). Always forces a fresh pull so the button visibly does
-// what it says every time it's tapped, not just the first time.
-function pullScheduleAndOpenPicker() {
+// look at a job list). Deliberately does NOT force a fresh pull — opens
+// instantly off whatever's already cached (the last auto-pull or manual
+// header pull), since forcing a ~2min Drive pull on every single tap was
+// costing techs real time for something that's usually already fresh. If
+// nothing has ever been pulled yet, openJobPickerForStation itself falls
+// back to pulling once (see its !_scheduleData check). Use the header's
+// "Pull Schedule" button (headerPullScheduleClick) or the 🔄 inside the
+// picker itself (_jobPickerRefresh) to force a fresh one on demand.
+function viewJobsClick() {
   var station = document.getElementById('setup-station').value;
   if (!station) return;
-  openJobPickerForStation(station, true);
+  openJobPickerForStation(station, false);
 }
 
 function showPullScheduleInfo() {
   var isEs = isEsLang();
   showAlert(
     isEs
-      ? 'Trae el programa de trabajos más reciente que Calidad exportó del sistema, para que pueda tocar y elegir su trabajo en lugar de escribirlo. Siempre usa el archivo más nuevo — toma unos segundos. La app también se actualiza sola a las 5am, 6am y 10am, de lunes a viernes (no los fines de semana); toque este botón solo si necesita el programa más reciente en este momento.'
-      : 'Pulls the latest job schedule QA exported from the system, so you can tap to pick your job instead of typing it in. Always grabs the newest file — takes a few seconds. The app also refreshes this automatically at 5am, 6am, and 10am, Monday through Friday (no weekend pulls); only tap this if you need the very latest schedule right now.',
+      ? '"Ver Trabajos" abre al instante la lista de trabajos del último programa traído — sin esperar — para que pueda tocar y elegir su trabajo en lugar de escribirlo. La app trae el programa más reciente sola a las 5am, 6am y 10am, de lunes a viernes. Si necesita el archivo más nuevo ahora mismo, use el botón "Actualizar Programa" arriba, en la parte superior de la pantalla (puede tardar hasta 2 minutos).'
+      : '"View Jobs" instantly opens the job list from whatever schedule was already pulled — no waiting — so you can tap to pick your job instead of typing it in. The app pulls the newest schedule on its own at 5am, 6am, and 10am, Monday through Friday. If you need the very latest file right now, use the "Pull Schedule" button at the top of the screen (can take up to 2 minutes).',
     isEs ? 'ℹ️ Qué Hace Esto' : 'ℹ️ What This Does',
     showPullScheduleInfo
   );
