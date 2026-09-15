@@ -4310,8 +4310,18 @@ try {
               <button type="button" class="filter-pop-btn" id="records-cad-filter-btn" onclick="toggleFilterPopover('records','cad')"><span data-en>CAD Style</span><span data-es>Estilo CAD</span><span class="filter-pop-badge" id="records-cad-filter-badge"></span> ▾</button>
               <div class="filter-popover" id="records-cad-filter-pop" style="display:none;"></div>
             </div>
+            <div class="filter-pop-wrap">
+              <button type="button" class="filter-pop-btn" id="records-operator-filter-btn" onclick="toggleFilterPopover('records','operator')"><span data-en>Operator</span><span data-es>Operador</span><span class="filter-pop-badge" id="records-operator-filter-badge"></span> ▾</button>
+              <div class="filter-popover" id="records-operator-filter-pop" style="display:none;"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;" title="Date range — filters and enables export by a specific From/To span instead of picking a year/month below">
+              <input type="date" id="records-date-from" class="input" style="width:auto;margin-bottom:0;" onchange="_setRecordsDateRange()">
+              <span style="color:var(--text-tertiary);font-size:13px;" data-en>to</span><span style="color:var(--text-tertiary);font-size:13px;" data-es>a</span>
+              <input type="date" id="records-date-to" class="input" style="width:auto;margin-bottom:0;" onchange="_setRecordsDateRange()">
+              <button type="button" class="filter-pop-btn" onclick="_clearRecordsDateRange()" title="Clear date range"><span data-en>Clear</span><span data-es>Limpiar</span></button>
+            </div>
             <button type="button" class="btn-secondary" onclick="exportRecordsCSV()" title="Export every record currently shown below (respects search/filters) as a CSV file — handy for handing a batch of records to an auditor." style="flex:0 0 auto;">⬇️ <span data-en>Export Shown</span><span data-es>Exportar Mostrados</span></button>
-            <button type="button" class="btn-secondary" onclick="exportAllRecordsCSV()" title="Export every record of the selected type (ignores search and the year/month selection) — the full audit-ready set, not just what's currently on screen." style="flex:0 0 auto;">⬇️ <span data-en>Export All</span><span data-es>Exportar Todo</span></button>
+            <button type="button" class="btn-secondary" onclick="exportAllRecordsCSV()" title="Export every record of the selected type (ignores search and the year/month selection, but respects Station/CAD Style/Operator/Date Range) — the full audit-ready set, not just what's currently on screen." style="flex:0 0 auto;">⬇️ <span data-en>Export All</span><span data-es>Exportar Todo</span></button>
           </div>
         </div>
         <div id="records-filters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
@@ -6535,7 +6545,7 @@ function _getListFilters() {
 }
 function _getSectionFilters(storeKey) {
   var f = _getListFilters()[storeKey] || {};
-  return { stations: f.stations || [], cad: f.cad || [] };
+  return { stations: f.stations || [], cad: f.cad || [], operator: f.operator || [], dateFrom: f.dateFrom || '', dateTo: f.dateTo || '' };
 }
 function _setSectionFilters(storeKey, filters) {
   var all = _getListFilters();
@@ -6555,7 +6565,14 @@ var _FILTER_SECTIONS = {
              station: function(j){ return j.station; }, cad: function(j){ return _currentCadStyle(j); } },
   records: { storeKey: 'records',    render: function(){ renderRecords(); },
              station: function(r){ return r.station; },
-             cad: function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; } }
+             cad: function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; },
+             // Operator/date-range filters are only wired up for Records
+             // (see the export-scoping request this was added for) — ip/qa/
+             // ship sections simply have no `operator`/`date` accessor, so
+             // _applyListFilters's guards on sec.operator/sec.date skip them
+             // there with no other change needed.
+             operator: function(r){ var raw = r.raw || {}; return raw.operatorName || raw.qaTech || ''; },
+             date: function(r){ return r.ts; } }
 };
 // Base (unfiltered-by-station/CAD, pre-sort) list each render*() function
 // currently has for its screen — stashed here so the CAD popover can build
@@ -6569,6 +6586,21 @@ function _applyListFilters(list, sectionPrefix) {
   var arr = list;
   if (f.stations.length) arr = arr.filter(function(x){ return f.stations.indexOf(sec.station(x)) >= 0; });
   if (f.cad.length) arr = arr.filter(function(x){ return f.cad.indexOf(sec.cad(x)) >= 0; });
+  if (sec.operator && f.operator.length) arr = arr.filter(function(x){ return f.operator.indexOf(sec.operator(x)) >= 0; });
+  if (sec.date && (f.dateFrom || f.dateTo)) {
+    arr = arr.filter(function(x){
+      var d = _recordsValidDate(sec.date(x));
+      if (!d) return false;
+      // Compared against local midnight/end-of-day for the picked dates —
+      // the <input type="date"> value is a plain 'YYYY-MM-DD' with no time
+      // component, so appending a time here (rather than comparing bare
+      // date strings against a full datetime) is what makes "To" inclusive
+      // of the whole day picked, not just its first instant.
+      if (f.dateFrom && d < new Date(f.dateFrom + 'T00:00:00')) return false;
+      if (f.dateTo && d > new Date(f.dateTo + 'T23:59:59')) return false;
+      return true;
+    });
+  }
   return arr;
 }
 // Keeps each filter button's badge (selection count) and active/inactive
@@ -6577,7 +6609,7 @@ function _applyListFilters(list, sectionPrefix) {
 function _updateFilterBadge(sectionPrefix, kind) {
   var sec = _FILTER_SECTIONS[sectionPrefix];
   var f = _getSectionFilters(sec.storeKey);
-  var arr = kind === 'station' ? f.stations : f.cad;
+  var arr = f[_filterKindKey(kind)];
   var badge = document.getElementById(sectionPrefix + '-' + kind + '-filter-badge');
   var btn = document.getElementById(sectionPrefix + '-' + kind + '-filter-btn');
   if (badge) badge.textContent = arr.length ? String(arr.length) : '';
@@ -6586,6 +6618,7 @@ function _updateFilterBadge(sectionPrefix, kind) {
 function _updateAllFilterBadges(sectionPrefix) {
   _updateFilterBadge(sectionPrefix, 'station');
   _updateFilterBadge(sectionPrefix, 'cad');
+  if (_FILTER_SECTIONS[sectionPrefix].operator) _updateFilterBadge(sectionPrefix, 'operator');
 }
 // All four screens realistically only ever see the canonical station set
 // (STATION_LABELS) — jobs/records aren't scoped to a narrower list per
@@ -6604,8 +6637,23 @@ function _cadFilterOptions(sectionPrefix) {
   out.sort(function(a,b){ return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0); });
   return out;
 }
+// Same "distinct values actually present, deduped, A-Z" approach as CAD
+// Style — operator names are free-typed per job, not a fixed enum either.
+function _operatorFilterOptions(sectionPrefix) {
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  if (!sec.operator) return [];
+  var seen = {}, out = [];
+  (_filterBaseLists[sectionPrefix] || []).forEach(function(x){
+    var v = sec.operator(x);
+    if (v && !seen[v]) { seen[v] = true; out.push(v); }
+  });
+  out.sort(function(a,b){ return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0); });
+  return out;
+}
 function _filterPopoverOptions(sectionPrefix, kind) {
-  return kind === 'station' ? _stationFilterOptions() : _cadFilterOptions(sectionPrefix);
+  if (kind === 'station') return _stationFilterOptions();
+  if (kind === 'operator') return _operatorFilterOptions(sectionPrefix);
+  return _cadFilterOptions(sectionPrefix);
 }
 function _filterOptionLabel(kind, opt) {
   return kind === 'station' ? stationLabel(opt) : opt;
@@ -6615,7 +6663,7 @@ function _renderFilterPopoverContents(sectionPrefix, kind) {
   if (!pop) return;
   var sec = _FILTER_SECTIONS[sectionPrefix];
   var f = _getSectionFilters(sec.storeKey);
-  var selected = kind === 'station' ? f.stations : f.cad;
+  var selected = kind === 'station' ? f.stations : (kind === 'operator' ? f.operator : f.cad);
   var options = _filterPopoverOptions(sectionPrefix, kind);
   var isEs = isEsLang();
   if (!options.length) {
@@ -6668,21 +6716,28 @@ document.addEventListener('mousedown', function(e){
   var wrap = e.target && e.target.closest ? e.target.closest('.filter-pop-wrap') : null;
   if (!wrap) _closeFilterPopover();
 }, true);
+// Maps a popover 'kind' to its property name on the filters object — used
+// by both _toggleFilterOption and _clearFilterOptions so a third (or later,
+// fourth) kind only ever needs to be taught here once.
+function _filterKindKey(kind) {
+  return kind === 'station' ? 'stations' : (kind === 'operator' ? 'operator' : 'cad');
+}
 function _toggleFilterOption(sectionPrefix, kind, value, checked) {
   var sec = _FILTER_SECTIONS[sectionPrefix];
   var f = _getSectionFilters(sec.storeKey);
-  var arr = kind === 'station' ? f.stations : f.cad;
+  var key = _filterKindKey(kind);
+  var arr = f[key];
   var idx = arr.indexOf(value);
   if (checked && idx < 0) arr.push(value);
   else if (!checked && idx >= 0) arr.splice(idx, 1);
-  if (kind === 'station') f.stations = arr; else f.cad = arr;
+  f[key] = arr;
   _setSectionFilters(sec.storeKey, f);
   sec.render();
 }
 function _clearFilterOptions(sectionPrefix, kind) {
   var sec = _FILTER_SECTIONS[sectionPrefix];
   var f = _getSectionFilters(sec.storeKey);
-  if (kind === 'station') f.stations = []; else f.cad = [];
+  f[_filterKindKey(kind)] = [];
   _setSectionFilters(sec.storeKey, f);
   sec.render();
   _renderFilterPopoverContents(sectionPrefix, kind); // stay open, checkboxes now cleared
@@ -19374,6 +19429,11 @@ function _computeFilteredRecords(){
       var d = _recordsValidDate(r.ts);
       return d && d.getFullYear() === recordsSelectedYear && d.getMonth() === recordsSelectedMonth;
     });
+  } else if (_getSectionFilters('records').dateFrom || _getSectionFilters('records').dateTo) {
+    // A picked date range is its own deliberate scope, same as picking a
+    // year/month — the actual narrowing happens in _applyListFilters below
+    // (which also applies Station/CAD/Operator), this branch just needs to
+    // avoid falling into the "nothing selected" prompt below.
   } else {
     // Nothing selected yet and not searching — caller prompts instead of
     // dumping every record ever created in one long, unsorted list/export.
@@ -19393,11 +19453,36 @@ function _computeFilteredRecords(){
   return { typeFiltered: typeFiltered, list: all, hasSearch: !!q };
 }
 
+// Keeps the two date inputs showing whatever's actually stored — same
+// "called from the render function itself so it's never stale" reasoning
+// as _syncSortSelect/_updateFilterBadge. Guards against clobbering mid-typing
+// by only writing when the DOM value has actually drifted from storage.
+function _syncRecordsDateInputs(){
+  var f = _getSectionFilters('records');
+  var fromEl = document.getElementById('records-date-from');
+  var toEl = document.getElementById('records-date-to');
+  if (fromEl && fromEl.value !== f.dateFrom) fromEl.value = f.dateFrom;
+  if (toEl && toEl.value !== f.dateTo) toEl.value = f.dateTo;
+}
+function _setRecordsDateRange(){
+  var f = _getSectionFilters('records');
+  f.dateFrom = document.getElementById('records-date-from').value || '';
+  f.dateTo = document.getElementById('records-date-to').value || '';
+  _setSectionFilters('records', f);
+  renderRecords();
+}
+function _clearRecordsDateRange(){
+  document.getElementById('records-date-from').value = '';
+  document.getElementById('records-date-to').value = '';
+  _setRecordsDateRange();
+}
+
 function renderRecords(){
   var el = document.getElementById('records-list');
   if (!el) return;
   el.className = ''; // cleared here; the tile grid class is only re-applied once records actually render below
   _updateAllFilterBadges('records'); // update regardless of which branch below returns early
+  _syncRecordsDateInputs();
   _syncSortSelect('records-sort', getRecordsSortMode());
   _syncViewToggle('records-view-tile-btn', 'records-view-list-btn', getRecordsViewMode());
 
