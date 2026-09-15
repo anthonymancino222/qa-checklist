@@ -2953,10 +2953,10 @@ try {
                 <img class="photo-preview" id="cm-op-photo-new" alt="">
                 <div class="photo-btn-row">
                   <label class="photo-btn">📷 <span data-en>Take Photo</span><span data-es>Tomar Foto</span>
-                    <input type="file" accept="image/*" capture="environment" onchange="handleKamaPhoto(this,'cm-op-photo-new','cm-op-photo-text')">
+                    <input type="file" accept="image/*" capture="environment" onchange="handleKamaPhoto(this,'cm-op-photo-new','cm-op-photo-text','cm-op-photo')">
                   </label>
                   <label class="photo-btn">🖼️ <span data-en>Upload</span><span data-es>Subir</span>
-                    <input type="file" accept="image/*" onchange="handleKamaPhoto(this,'cm-op-photo-new','cm-op-photo-text')">
+                    <input type="file" accept="image/*" onchange="handleKamaPhoto(this,'cm-op-photo-new','cm-op-photo-text','cm-op-photo')">
                   </label>
                   <button type="button" class="photo-btn" style="flex:0 0 44px;" onclick="openPhotoMarkupFor('cm-op-photo-new')" title="Markup / edit photo">✏️</button>
                 </div>
@@ -7532,7 +7532,18 @@ function openContinueModal(id) {
 
     } else if (job.process === 'qa_release') {
       // ── Gluer final QA release (job finished on machine, packer done) ──
-      document.getElementById('cm-qa-op-sig-card').style.display = 'none';
+      // The operator's signature (job.opSignature) was captured back at
+      // qa_pending sign-off and is still on the record here — show it
+      // read-only for reference, same as the qa_pending branch below does,
+      // instead of hiding the whole card. It was being force-hidden here
+      // (inherited from the Veritiv branch above, which has no operator
+      // signature at all) even though gluer jobs do have one — that made
+      // it look like the signature had been lost when it hadn't.
+      document.getElementById('cm-qa-op-sig-card').style.display = 'block';
+      var opSigImgRelease     = document.getElementById('cm-qa-op-sig-img');
+      var opSigMissingRelease = document.getElementById('cm-qa-op-sig-missing');
+      if (job.opSignature) { opSigImgRelease.src = job.opSignature; opSigImgRelease.style.display = 'block'; opSigMissingRelease.style.display = 'none'; }
+      else { opSigImgRelease.style.display = 'none'; opSigMissingRelease.style.display = 'block'; }
       document.getElementById('cm-qa-packer-info').style.display = 'none';
 
       // Job Summary — quick-reference info for QA tech (mirrors the production-panel summary)
@@ -10465,7 +10476,7 @@ function handleChecklistPhoto(input, previewId, textId) {
   reader.readAsDataURL(file);
 }
 
-function handleKamaPhoto(input, previewId, textId) {
+function handleKamaPhoto(input, previewId, textId, oldPhotoId) {
   var file = input.files[0];
   if (!file) return;
   var reader = new FileReader();
@@ -10473,6 +10484,15 @@ function handleKamaPhoto(input, previewId, textId) {
     var prev = document.getElementById(previewId);
     prev.src = e.target.result; prev.style.display = 'block';
     setPhotoText(textId, 'captured');
+    // oldPhotoId is only passed by retake flows (e.g. the reopened Make
+    // Ready modal's #cm-op-photo, which shows the previously-saved photo
+    // for reference) — hide it once a fresh capture lands in previewId, so
+    // the operator sees the new photo replacing the old one instead of
+    // both stacked in the same card.
+    if (oldPhotoId) {
+      var old = document.getElementById(oldPhotoId);
+      if (old) old.style.display = 'none';
+    }
   };
   reader.readAsDataURL(file);
 }
