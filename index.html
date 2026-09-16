@@ -6124,7 +6124,78 @@ function headerSyncNowClick() {
       btn.innerHTML = '🔄 ' + (isEs ? 'Sincronizar' : 'Sync');
     }
     showToast(isEs ? '✓ Sincronizado' : '✓ Synced', 'pass');
+    // Fire-and-forget — shows its own prompt if a real update is found (see
+    // _checkForAppUpdate's own comment for why this asks instead of
+    // reloading silently), does nothing otherwise. Never blocks or delays
+    // the "✓ Synced" toast above.
+    _checkForAppUpdate();
   });
+}
+
+// Cheap non-cryptographic hash (djb2-ish) — plenty for "did this file
+// change since last time," far lighter than storing/comparing the whole
+// multi-hundred-KB page text in localStorage on every sync.
+function _simpleHash(str){
+  var hash = 0;
+  for (var i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return hash.toString(36);
+}
+var APP_VERSION_HASH_KEY = 'moquin-qa-app-version-hash';
+
+// Forces a fresh load of index.html instead of whatever's cached — appends
+// a cache-busting query param (preserving any existing ones, e.g. the
+// ?job=&station= deep-link params read on load below) so the browser
+// treats it as a new URL and fetches from the network instead of serving a
+// cached copy. All real data lives in localStorage/the backend, not in
+// this loaded page, so nothing about a job/NCR/RCA record is lost by this
+// — only an in-progress, not-yet-"Save Progress"-ed form field would be.
+function forceUpdateApp(){
+  var url = new URL(location.href);
+  url.searchParams.set('_refresh', Date.now());
+  location.href = url.toString();
+}
+
+// Checks whether the deployed index.html has actually changed since this
+// device last checked, wired into the header Sync button per Anthony's
+// request that syncing also pick up the latest app version. Unlike Gluer
+// Shift Handoff's equivalent (which reloads silently — its Sync button
+// only ever appears at a deliberate "about to start a new job" checkpoint
+// with nothing unsaved open), THIS app's Sync button is reachable from any
+// screen at any time, including with an unsaved checklist mid-fill-out —
+// this app only persists in-progress form state when "Save Progress" is
+// explicitly tapped, so a silent reload here really could discard someone's
+// unsaved work. Asks first instead. Resolves true if it found an update
+// and is now asking (caller doesn't need to do anything else — the prompt
+// itself handles the rest), false if already current or the check failed
+// (fails soft — a broken version check should never look like a sync
+// failure).
+function _checkForAppUpdate(){
+  return fetch(location.pathname, { cache: 'no-store' })
+    .then(function(res){ return res.text(); })
+    .then(function(html){
+      var freshHash = _simpleHash(html);
+      var lastKnown = null;
+      try { lastKnown = localStorage.getItem(APP_VERSION_HASH_KEY); } catch(e){}
+      try { localStorage.setItem(APP_VERSION_HASH_KEY, freshHash); } catch(e){}
+      // No stored hash yet (first time this check has run on this device)
+      // — just record the baseline rather than prompting; nothing
+      // meaningful to compare against yet.
+      if (lastKnown && lastKnown !== freshHash) {
+        var isEs = isEsLang();
+        showConfirm(
+          isEs
+            ? 'Hay una nueva versión de la app disponible. ¿Actualizar ahora? El progreso no guardado en un formulario abierto se perderá — toque "Guardar Progreso" primero si es necesario.'
+            : 'A new version of the app is available. Update now? Unsaved progress in an open form will be lost — tap "Save Progress" first if needed.',
+          function(ok){ if (ok) forceUpdateApp(); },
+          { title: isEs ? '🔄 Actualización Disponible' : '🔄 Update Available', okLabel: isEs ? 'Actualizar' : 'Update', danger: false }
+        );
+        return true;
+      }
+      return false;
+    })
+    .catch(function(){ return false; });
 }
 
 // Header "Start New" button — a hard refresh back to the landing page,
