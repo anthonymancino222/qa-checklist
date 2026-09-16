@@ -1274,12 +1274,18 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
      fit brand + text-size + name + language + sync + admin buttons side by
      side — each piece gets its own clearly-separated row, right-aligned to
      match the desktop layout instead of centered. */
-  .app-header { flex-direction: column; align-items: stretch; padding: 12px 14px; row-gap: 10px; }
-  .brand-co { font-size: 14px; letter-spacing: .14em; }
-  .brand-name { font-size: 15px; }
+  .app-header { flex-direction: column; align-items: stretch; padding: 8px 14px; row-gap: 6px; }
+  /* Brand: one line instead of two stacked ("MOQUIN PRESS · QUALITY" / "QA
+     System") — was eating a full extra line for what reads as one unit
+     anyway. Reported (2026-09-16): the whole header + Job in Progress's own
+     title/subtitle/Tile-List row together were taking up roughly half the
+     screen on a phone, leaving less than half for the actual job list. */
+  .app-header-brand { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .brand-co { font-size: 12px; letter-spacing: .1em; }
+  .brand-name { font-size: 14px; }
   .menu-btn { display: none !important; }
   .header-right { width: 100%; justify-content: flex-end; }
-  .header-group { width: 100%; justify-content: flex-end; }
+  .header-group { width: 100%; justify-content: flex-end; row-gap: 6px; }
   /* Sync/Start New moved ahead of text-size/name/language (order:-1) —
      mobile-only via flexbox order, desktop's left-to-right arrangement is
      untouched. At narrow widths the identity group (text size + name +
@@ -1287,8 +1293,20 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
      after it down far enough to read as "not there" without scrolling —
      a real report of this happening. Actions are the thing someone
      actually needs in a hurry, so they go right under the title now. */
-  .header-group-actions { order: -1; padding-left: 0; border-left: none; padding-top: 0; border-top: none; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.15); }
-  .header-group-identity { order: 1; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.15); }
+  .header-group-actions { order: -1; padding-left: 0; border-left: none; padding-top: 0; border-top: none; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.15); }
+  .header-group-identity { order: 1; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.15); }
+  /* Text size: the A-/A+ fine-step buttons are redundant with the middle
+     button (tap to cycle 100%/130%/200%, see cyclePresetTextSize) and were
+     the main reason this row didn't fit on one line, forcing a 2nd wrapped
+     row. Dropping them here (kept on desktop, where width isn't tight)
+     leaves the single cycle button as this row's only text-size control on
+     mobile — a real setting rarely touched, not worth its own two buttons
+     in an always-visible header. */
+  .text-size-ctrl button:not(#text-size-preset-btn) { display: none; }
+  /* Long names ("Anthony Mancino") were themselves sometimes enough to push
+     this row over and force it to wrap — capped + ellipsized rather than
+     truncated by JS, so the real value is untouched, only its display is. */
+  #signed-in-user { max-width: 110px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
 
   /* Sidebar hidden entirely — replaced by bottom nav */
   .sidebar { display: none !important; }
@@ -1337,8 +1355,17 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   .text-size-ctrl-label { display: none; }
   .text-size-ctrl button { padding: 6px 10px; font-size: 14px; }
 
-  /* View headers */
-  .view-title { font-size: 24px; }
+  /* View headers — tightened as part of the same header-compaction pass
+     above: the title/subtitle/Tile-List-toggle block (e.g. Job in Progress)
+     was itself adding a big chunk of height before any actual job/record
+     content appeared, on top of the header. Smaller subtitle + tighter
+     margins so it reads as a compact label row, not its own separate
+     "page" of vertical space. */
+  .view-header { margin-bottom: 10px; }
+  .view-title { font-size: 20px; }
+  .view-sub { font-size: 12.5px; margin-top: 0; }
+  .view-mode-toggle { gap: 4px; }
+  .vmt-btn { padding: 6px 10px; font-size: 13px; }
 
   /* ── Checklist items: stack toggle buttons below the label ── */
   .ci-top { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -1933,7 +1960,7 @@ try {
 
 <!-- Header -->
 <header class="app-header">
-  <div onclick="switchView('home')" style="cursor:pointer;" title="Home">
+  <div class="app-header-brand" onclick="switchView('home')" style="cursor:pointer;" title="Home">
     <div class="brand-co">Moquin Press · Quality</div>
     <div class="brand-name">QA System</div>
   </div>
