@@ -897,22 +897,25 @@ textarea.input {
 }
 .sig-clear:hover { border-color: var(--red); color: var(--red); }
 
-/* Auto-advance "✓ Confirm" buttons — Bindery Cutter / Pressroom Cutter only
-   (2026-09-17), on the three field types that have no natural "I'm done"
-   signal of their own to trigger jumping to the next field: typed text
-   (Job Number, Product ID) and a drawn signature. A picked Station/count
-   button, or an attached photo, already IS that signal — those auto-advance
-   straight from their own existing handler instead of needing one of these.
-   Hidden by default (display:none) since Job Number/Product ID/the
-   signature cards are SHARED markup across every station that uses this
-   generic entry screen (Samples/Vendor/Packing too) — only shown via JS
-   when the current station is one of the two above, so nothing changes for
-   any other station. */
+/* Auto-advance "✓" buttons — Bindery Cutter / Pressroom Cutter only
+   (2026-09-17), on the field types that have no natural "I'm done" signal
+   of their own to trigger jumping to the next field: typed text (Job
+   Number, Product ID). A picked Station/count button, or an attached
+   photo, already IS that signal — those auto-advance straight from their
+   own existing handler instead of needing one of these. Sits inline in
+   place of the pink scan button (same slot, same size) rather than as a
+   separate control, since a Job Number/Product ID field only needs one or
+   the other at a time — scan while typing isn't done yet, confirm once it
+   is. Hidden by default (display:none) since these fields are SHARED
+   markup across every station that uses this generic entry screen
+   (Samples/Vendor/Packing too) — only shown via JS, in place of the scan
+   button, when the current station is one of the two above. */
 .field-confirm-btn {
-  display: none; align-items: center; gap: 6px; margin-top: 8px;
-  padding: 10px 18px; border-radius: 10px; border: none;
-  background: var(--green); color: #fff; font-weight: 700; font-size: 14px;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  display: none; flex-shrink: 0; width: 54px; height: 50px;
+  align-items: center; justify-content: center;
+  background: var(--green); border: none; border-radius: 8px;
+  color: #fff; font-size: 22px; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 .field-confirm-btn:active { opacity: .85; }
 
@@ -2250,7 +2253,7 @@ try {
               <input id="setup-job" class="input" type="text" inputmode="numeric"
                      placeholder="Type or scan" data-ph-en="Type or scan" data-ph-es="Escriba o escanee" autocomplete="off"
                      oninput="filterJobSchedule()" onfocus="openJobDrop()" onblur="scheduleCloseJobDrop()">
-              <button class="scan-btn" onclick="openScanner('setup-job','digits','Job number')" title="Scan printed number or barcode">
+              <button class="scan-btn" id="setup-job-scan-btn" onclick="openScanner('setup-job','digits','Job number')" title="Scan printed number or barcode">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
                   <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
@@ -2258,6 +2261,7 @@ try {
                   <line x1="13" y1="10" x2="13" y2="14"/><line x1="16" y1="8" x2="16" y2="16"/>
                 </svg>
               </button>
+              <button type="button" class="field-confirm-btn" id="confirm-setup-job-btn" onclick="confirmSetupJobNumber()">✓</button>
               <div class="customer-drop" id="job-drop" style="display:none;"></div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
@@ -2268,7 +2272,6 @@ try {
               <span id="schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
             </div>
             <div id="job-schedule-hint" style="font-size:13px;color:var(--text-secondary);margin-top:4px;display:none;"></div>
-            <button type="button" class="field-confirm-btn" id="confirm-setup-job-btn" onclick="confirmSetupJobNumber()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
           </div>
           <div class="field" id="veritiv-job-field" style="display:none;">
             <div class="field-label"><span data-en>Is this a Veritiv job?</span><span data-es>¿Es este un trabajo de Veritiv?</span> <span class="req">*</span></div>
@@ -2620,15 +2623,15 @@ try {
             <div class="card-label" id="product-field-label">Product / description</div>
             <div class="input-row">
             <input id="setup-product" class="input" type="text" placeholder="e.g. Folding carton 4×6" data-ph-en="e.g. Folding carton 4×6" data-ph-es="ej. Caja plegable 4×6" autocomplete="off">
-            <button class="scan-btn" onclick="openScanner('setup-product','alnum',document.getElementById('product-field-label').textContent)" title="Scan printed number or barcode">
+            <button class="scan-btn" id="setup-product-scan-btn" onclick="openScanner('setup-product','alnum',document.getElementById('product-field-label').textContent)" title="Scan printed number or barcode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
                 <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
                 <line x1="7" y1="12" x2="17" y2="12"/>
               </svg>
             </button>
+            <button type="button" class="field-confirm-btn" id="confirm-setup-product-btn" onclick="confirmSetupProduct()">✓</button>
             </div>
-            <button type="button" class="field-confirm-btn" id="confirm-setup-product-btn" onclick="confirmSetupProduct()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
           </div>
 
           <!-- NCR banner for single-product flow -->
@@ -2691,7 +2694,6 @@ try {
               </div>
             </div>
             <button class="sig-clear" onclick="clearSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
-            <button type="button" class="field-confirm-btn" id="confirm-setup-sig-btn" onclick="confirmSetupSignature()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
           </div>
         </div>
 
@@ -2755,15 +2757,15 @@ try {
           <div class="card-label" id="inspect-product-label">Product ID / SKU</div>
           <div class="input-row">
           <input id="product-id" class="input" type="text" placeholder="Enter product ID or SKU" data-ph-en="Enter product ID or SKU" data-ph-es="Ingrese ID de producto o SKU" autocomplete="off">
-          <button class="scan-btn" onclick="openScanner('product-id','alnum',document.getElementById('inspect-product-label').textContent)" title="Scan printed number or barcode">
+          <button class="scan-btn" id="inspect-product-scan-btn" onclick="openScanner('product-id','alnum',document.getElementById('inspect-product-label').textContent)" title="Scan printed number or barcode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
                 <path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
                 <line x1="7" y1="12" x2="17" y2="12"/>
               </svg>
             </button>
+            <button type="button" class="field-confirm-btn" id="confirm-inspect-product-btn" onclick="confirmInspectProduct()">✓</button>
           </div>
-          <button type="button" class="field-confirm-btn" id="confirm-inspect-product-btn" onclick="confirmInspectProduct()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
         </div>
 
         <div class="card">
@@ -2806,7 +2808,6 @@ try {
             </div>
           </div>
           <button class="sig-clear" onclick="clearInspectSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
-          <button type="button" class="field-confirm-btn" id="confirm-inspect-sig-btn" onclick="confirmInspectSignature()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
         </div>
 
         <div class="card">
@@ -13097,12 +13098,16 @@ function _scrollToField(el) {
    this same generic entry screen (Samples/Vendor/Packing) is untouched,
    gated by _isAutoAdvanceStation() below.
 
-   Three field types get a small "✓ Confirm" button (see .field-confirm-btn)
-   since they have no button-tap/attach action of their own to treat as
-   "done": typed text (Job Number, Product ID) and a drawn signature.
+   The two typed-text fields (Job Number, Product ID) get a small inline "✓"
+   button (see .field-confirm-btn) in place of their pink scan button, since
+   they have no button-tap/attach action of their own to treat as "done" —
+   scanning and confirming are mutually exclusive at any moment anyway (still
+   typing = might still want to scan; done typing = ready to confirm).
    Picking a Station or a product-count button, or attaching a photo,
-   already IS that signal — those auto-advance straight from their own
-   existing handler below instead.
+   already IS that "done" signal — those auto-advance straight from their
+   own existing handler below instead. The signature field needs no confirm
+   button of its own: it sits immediately above the Submit/Next button, so
+   there's nothing further to jump to.
 ══════════════════════════════════ */
 function _isAutoAdvanceStation() {
   // #setup-station's live value is checked FIRST, not jobState.station —
@@ -13119,26 +13124,29 @@ function _isAutoAdvanceStation() {
   var s = (el && el.value) || (jobState && jobState.station) || '';
   return s === 'Bindery Cutter' || s === 'Pressroom Cutter';
 }
-// Shows/hides every auto-advance confirm button on the SETUP screen at once
-// — called from onStationChange so switching to/away from Bindery/Pressroom
-// Cutter can't leave a stale confirm button showing for a different station
-// that happens to share this same markup.
+// Shows/hides every auto-advance confirm button on the SETUP screen at once,
+// swapping each one in for its field's scan button — called from
+// onStationChange so switching to/away from Bindery/Pressroom Cutter can't
+// leave a stale confirm button showing for a different station that happens
+// to share this same markup.
 function _updateSetupAutoAdvanceUI(station) {
   var on = (station === 'Bindery Cutter' || station === 'Pressroom Cutter');
-  ['confirm-setup-job-btn', 'confirm-setup-product-btn', 'confirm-setup-sig-btn'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = on ? 'flex' : 'none';
+  [['confirm-setup-job-btn', 'setup-job-scan-btn'], ['confirm-setup-product-btn', 'setup-product-scan-btn']].forEach(function(pair) {
+    var confirmEl = document.getElementById(pair[0]);
+    var scanEl = document.getElementById(pair[1]);
+    if (confirmEl) confirmEl.style.display = on ? 'flex' : 'none';
+    if (scanEl) scanEl.style.display = on ? 'none' : 'flex';
   });
 }
-// Same idea for the INSPECT screen's confirm buttons — called from
+// Same idea for the INSPECT screen's confirm button — called from
 // loadProduct, since that's the equivalent per-product "screen is now
 // showing" moment on that side of the flow.
 function _updateInspectAutoAdvanceUI() {
   var on = _isAutoAdvanceStation();
-  ['confirm-inspect-product-btn', 'confirm-inspect-sig-btn'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = on ? 'flex' : 'none';
-  });
+  var confirmEl = document.getElementById('confirm-inspect-product-btn');
+  var scanEl = document.getElementById('inspect-product-scan-btn');
+  if (confirmEl) confirmEl.style.display = on ? 'flex' : 'none';
+  if (scanEl) scanEl.style.display = on ? 'none' : 'flex';
 }
 
 function confirmSetupJobNumber() {
@@ -13151,18 +13159,10 @@ function confirmSetupProduct() {
   if (!el || !el.value.trim()) { showAlert('Enter the product ID first.'); _scrollToField(el); return; }
   _scrollToField(document.getElementById('setup-photo-card'));
 }
-function confirmSetupSignature() {
-  if (!sigHasMark) { showAlert('Please sign first.'); _scrollToField(document.getElementById('sig-canvas')); return; }
-  _scrollToField(document.getElementById('setup-begin-btn'));
-}
 function confirmInspectProduct() {
   var el = document.getElementById('product-id');
   if (!el || !el.value.trim()) { showAlert('Enter the product ID first.'); _scrollToField(el); return; }
   _scrollToField(document.getElementById('photo-area'));
-}
-function confirmInspectSignature() {
-  if (!iSigHasMark) { showAlert('Please sign first.'); _scrollToField(document.getElementById('inspect-sig-canvas')); return; }
-  _scrollToField(document.getElementById('next-btn'));
 }
 
 /* ── Collapsible checklist component ──
