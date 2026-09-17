@@ -3067,8 +3067,9 @@ try {
             </div>
             <div class="card" id="cm-qa-op-sig-card" style="margin:0;">
               <div class="card-label"><span data-en>Operator Signature</span><span data-es>Firma del Operador</span></div>
-              <img id="cm-qa-op-sig-img" style="width:100%;max-height:100px;object-fit:contain;border:1px solid var(--border);border-radius:8px;display:none;" alt="">
+              <img id="cm-qa-op-sig-img" style="width:100%;max-height:100px;object-fit:contain;border:1px solid var(--border);border-radius:8px;display:none;" alt="" onerror="_cmQaOpSigLoadError(this)">
               <div id="cm-qa-op-sig-missing" style="font-size:15px;color:var(--text-tertiary);display:none;"><span data-en>No operator signature on file.</span><span data-es>No hay firma del operador registrada.</span></div>
+              <div id="cm-qa-op-sig-error" style="font-size:15px;color:var(--red);display:none;"><span data-en>⚠ Operator signature failed to load — ask the operator to re-submit.</span><span data-es>⚠ La firma del operador no se pudo cargar — pida al operador que reenvíe.</span></div>
             </div>
 
             <div class="card" style="margin:0;">
@@ -5204,7 +5205,7 @@ var CHECKLIST_KAMA = [
 
 var CHECKLIST_DIECUTTER = [
   { id:'dc-clean-area',   name:['Clean Area from the previous job','Área limpia del trabajo anterior'],                                            type:'toggle', req:true },
-  { id:'dc-die-number',   name:['Die Number','Número de Troquel'],                                                                       type:'textinput' },
+  { id:'dc-die-number',   name:['Die Number','Número de Troquel'],                                                                       type:'textinput', req:true },
   { id:'dc-qty',          name:['Quantity to execute the Material is correct?','¿La cantidad a ejecutar del material es correcta?'],                                type:'qty',    req:true },
   { id:'dc-cad-sample',   name:['CAD Sample approved by customer or CSR? (Critical Fail)','¿Muestra CAD aprobada por el cliente o CSR? (Falla Crítica)'],                     type:'toggle', req:true },
   { id:'dc-cad-design',   name:['CAD Design Document approved by customer or CSR? (Critical Fail)','¿Documento de diseño CAD aprobado por el cliente o CSR? (Falla Crítica)'],            type:'toggle', req:true },
@@ -7464,6 +7465,20 @@ function initCMSigPad(canvasId, hasMark, drawingVar, placeholderId) {
   return ctx;
 }
 
+// Fires if the operator signature URL 404s/fails on the QA review panel —
+// e.g. the background Drive upload (see _backgroundUploadPhoto's own
+// comment) never actually landed, so the record is left pointing at a link
+// that doesn't resolve. Previously this just silently rendered nothing,
+// which looked exactly like "the signature disappeared" with no way for QA
+// to tell that apart from "the operator never signed" — now it says so
+// explicitly instead of leaving a blank box.
+function _cmQaOpSigLoadError(img) {
+  img.style.display = 'none';
+  var missing = document.getElementById('cm-qa-op-sig-missing');
+  if (missing) missing.style.display = 'none';
+  var err = document.getElementById('cm-qa-op-sig-error');
+  if (err) err.style.display = 'block';
+}
 function clearCMOpSig() {
   if (!cmOpSigCtx) return;
   cmOpSigCtx.clearRect(0, 0, cmOpSigCanvas.width, cmOpSigCanvas.height);
@@ -7720,6 +7735,7 @@ function openContinueModal(id) {
       document.getElementById('cm-qa-op-sig-card').style.display = 'block';
       var opSigImgRelease     = document.getElementById('cm-qa-op-sig-img');
       var opSigMissingRelease = document.getElementById('cm-qa-op-sig-missing');
+      document.getElementById('cm-qa-op-sig-error').style.display = 'none';
       if (job.opSignature) { opSigImgRelease.src = job.opSignature; opSigImgRelease.style.display = 'block'; opSigMissingRelease.style.display = 'none'; }
       else { opSigImgRelease.style.display = 'none'; opSigMissingRelease.style.display = 'block'; }
       document.getElementById('cm-qa-packer-info').style.display = 'none';
@@ -8010,6 +8026,7 @@ function openContinueModal(id) {
 
       var opSigImg     = document.getElementById('cm-qa-op-sig-img');
       var opSigMissing = document.getElementById('cm-qa-op-sig-missing');
+      document.getElementById('cm-qa-op-sig-error').style.display = 'none';
       if (job.opSignature) { opSigImg.src = job.opSignature; opSigImg.style.display = 'block'; opSigMissing.style.display = 'none'; }
       else { opSigImg.style.display = 'none'; opSigMissing.style.display = 'block'; }
     }
