@@ -897,6 +897,25 @@ textarea.input {
 }
 .sig-clear:hover { border-color: var(--red); color: var(--red); }
 
+/* Auto-advance "✓ Confirm" buttons — Bindery Cutter / Pressroom Cutter only
+   (2026-09-17), on the three field types that have no natural "I'm done"
+   signal of their own to trigger jumping to the next field: typed text
+   (Job Number, Product ID) and a drawn signature. A picked Station/count
+   button, or an attached photo, already IS that signal — those auto-advance
+   straight from their own existing handler instead of needing one of these.
+   Hidden by default (display:none) since Job Number/Product ID/the
+   signature cards are SHARED markup across every station that uses this
+   generic entry screen (Samples/Vendor/Packing too) — only shown via JS
+   when the current station is one of the two above, so nothing changes for
+   any other station. */
+.field-confirm-btn {
+  display: none; align-items: center; gap: 6px; margin-top: 8px;
+  padding: 10px 18px; border-radius: 10px; border: none;
+  background: var(--green); color: #fff; font-weight: 700; font-size: 14px;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.field-confirm-btn:active { opacity: .85; }
+
 /* ── Initials selector ── */
 .initials-grid { display: flex; flex-wrap: wrap; gap: 7px; }
 .init-btn {
@@ -2248,6 +2267,7 @@ try {
               <span id="schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
             </div>
             <div id="job-schedule-hint" style="font-size:13px;color:var(--text-secondary);margin-top:4px;display:none;"></div>
+            <button type="button" class="field-confirm-btn" id="confirm-setup-job-btn" onclick="confirmSetupJobNumber()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
           </div>
           <div class="field" id="veritiv-job-field" style="display:none;">
             <div class="field-label"><span data-en>Is this a Veritiv job?</span><span data-es>¿Es este un trabajo de Veritiv?</span> <span class="req">*</span></div>
@@ -2607,6 +2627,7 @@ try {
               </svg>
             </button>
             </div>
+            <button type="button" class="field-confirm-btn" id="confirm-setup-product-btn" onclick="confirmSetupProduct()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
           </div>
 
           <!-- NCR banner for single-product flow -->
@@ -2669,6 +2690,7 @@ try {
               </div>
             </div>
             <button class="sig-clear" onclick="clearSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
+            <button type="button" class="field-confirm-btn" id="confirm-setup-sig-btn" onclick="confirmSetupSignature()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
           </div>
         </div>
 
@@ -2740,6 +2762,7 @@ try {
               </svg>
             </button>
           </div>
+          <button type="button" class="field-confirm-btn" id="confirm-inspect-product-btn" onclick="confirmInspectProduct()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
         </div>
 
         <div class="card">
@@ -2782,6 +2805,7 @@ try {
             </div>
           </div>
           <button class="sig-clear" onclick="clearInspectSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
+          <button type="button" class="field-confirm-btn" id="confirm-inspect-sig-btn" onclick="confirmInspectSignature()">✓ <span data-en>Confirm</span><span data-es>Confirmar</span></button>
         </div>
 
         <div class="card">
@@ -10253,6 +10277,14 @@ function pickCount(btn, n) {
     buildSetupChecklist();
     buildSetupPhrases();
   }
+  // Auto-advance (Bindery/Pressroom Cutter only) — a count BUTTON tap is
+  // itself the "done" signal here (unlike Job Number/Product ID/signature,
+  // which get their own ✓ Confirm button), so jump straight on. Scoped to
+  // n !== 0 (a real 1-8 pick, not "Other ↓") since the effective count for
+  // Other isn't known until its own number input is typed into separately.
+  if (n !== 0 && _isAutoAdvanceStation()) {
+    _scrollToField(document.getElementById(isSingle ? 'setup-product' : 'setup-begin-btn'));
+  }
 }
 
 /* ══════════════════════════════════
@@ -12193,6 +12225,9 @@ function handleSetupPhoto(input) {
     prev.src = e.target.result; prev.style.display = 'block';
     setPhotoText('setup-photo-text', 'captured');
     input.value = '';
+    // Auto-advance (Bindery/Pressroom Cutter only) — attaching a photo is
+    // itself the "done" signal, no confirm button needed for it.
+    if (_isAutoAdvanceStation()) _scrollToField(document.getElementById('sig-canvas'));
   };
   reader.readAsDataURL(file);
 }
@@ -12981,6 +13016,82 @@ function _scrollToField(el) {
   } catch (e) { /* non-fatal — validation message still shows regardless */ }
 }
 
+/* ══════════════════════════════════
+   AUTO-ADVANCE (Bindery Cutter / Pressroom Cutter only, added 2026-09-17)
+   After completing one field, automatically scroll to whichever field needs
+   filling out next, instead of making the operator hunt for it down a long
+   form. Rolled out to these two stations first — every other station using
+   this same generic entry screen (Samples/Vendor/Packing) is untouched,
+   gated by _isAutoAdvanceStation() below.
+
+   Three field types get a small "✓ Confirm" button (see .field-confirm-btn)
+   since they have no button-tap/attach action of their own to treat as
+   "done": typed text (Job Number, Product ID) and a drawn signature.
+   Picking a Station or a product-count button, or attaching a photo,
+   already IS that signal — those auto-advance straight from their own
+   existing handler below instead.
+══════════════════════════════════ */
+function _isAutoAdvanceStation() {
+  // #setup-station's live value is checked FIRST, not jobState.station —
+  // jobState is only rebuilt when beginInspection() runs, so it can hold a
+  // stale station from a previous job for as long as the setup screen sits
+  // on a freshly-picked DIFFERENT station before that happens. Found via
+  // testing: picking Samples right after a Bindery Cutter job still read
+  // as an auto-advance station because jobState.station hadn't caught up
+  // yet. #setup-station always reflects whichever station is genuinely
+  // selected right now, on both the setup AND inspect screens (nothing on
+  // the inspect screen ever changes it), so it's the correct source of
+  // truth either way.
+  var el = document.getElementById('setup-station');
+  var s = (el && el.value) || (jobState && jobState.station) || '';
+  return s === 'Bindery Cutter' || s === 'Pressroom Cutter';
+}
+// Shows/hides every auto-advance confirm button on the SETUP screen at once
+// — called from onStationChange so switching to/away from Bindery/Pressroom
+// Cutter can't leave a stale confirm button showing for a different station
+// that happens to share this same markup.
+function _updateSetupAutoAdvanceUI(station) {
+  var on = (station === 'Bindery Cutter' || station === 'Pressroom Cutter');
+  ['confirm-setup-job-btn', 'confirm-setup-product-btn', 'confirm-setup-sig-btn'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = on ? 'flex' : 'none';
+  });
+}
+// Same idea for the INSPECT screen's confirm buttons — called from
+// loadProduct, since that's the equivalent per-product "screen is now
+// showing" moment on that side of the flow.
+function _updateInspectAutoAdvanceUI() {
+  var on = _isAutoAdvanceStation();
+  ['confirm-inspect-product-btn', 'confirm-inspect-sig-btn'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = on ? 'flex' : 'none';
+  });
+}
+
+function confirmSetupJobNumber() {
+  var el = document.getElementById('setup-job');
+  if (!el || !el.value.trim()) { showAlert('Enter the job number first.'); _scrollToField(el); return; }
+  _scrollToField(document.getElementById('count-card'));
+}
+function confirmSetupProduct() {
+  var el = document.getElementById('setup-product');
+  if (!el || !el.value.trim()) { showAlert('Enter the product ID first.'); _scrollToField(el); return; }
+  _scrollToField(document.getElementById('setup-photo-card'));
+}
+function confirmSetupSignature() {
+  if (!sigHasMark) { showAlert('Please sign first.'); _scrollToField(document.getElementById('sig-canvas')); return; }
+  _scrollToField(document.getElementById('setup-begin-btn'));
+}
+function confirmInspectProduct() {
+  var el = document.getElementById('product-id');
+  if (!el || !el.value.trim()) { showAlert('Enter the product ID first.'); _scrollToField(el); return; }
+  _scrollToField(document.getElementById('photo-area'));
+}
+function confirmInspectSignature() {
+  if (!iSigHasMark) { showAlert('Please sign first.'); _scrollToField(document.getElementById('inspect-sig-canvas')); return; }
+  _scrollToField(document.getElementById('next-btn'));
+}
+
 /* ── Collapsible checklist component ──
    Purely DOM-driven so it works identically on any checklist container
    without needing to know which station/item array built it — it just
@@ -13233,6 +13344,14 @@ function loadProduct(idx) {
     setPhotoText('photo-text', 'attach');
   }
   checkNCRBanner();
+  // Auto-advance (Bindery/Pressroom Cutter only) — every new product page
+  // (including the very first one, right after "Begin inspection" is
+  // tapped) starts back at Product ID, same as the single-product path
+  // starts at its own Product field.
+  _updateInspectAutoAdvanceUI();
+  if (_isAutoAdvanceStation()) {
+    setTimeout(function(){ _scrollToField(document.getElementById('product-id')); }, 50);
+  }
 }
 
 function getToggleVal(itemId) {
@@ -13269,7 +13388,29 @@ function prevProduct() {
   saveCurrentEntry(); loadProduct(jobState.current - 1); _scrollMainToTop();
 }
 function nextProduct() {
-  if (jobState.multiSig && !iSigHasMark) { showAlert('Please sign before continuing.'); _scrollToField(document.getElementById('sig-canvas')); return; }
+  // Product ID and Photo were never actually gated here — a blank product
+  // ID or missing photo silently sailed through to the next product (photo
+  // only ever got caught much later, at final submit, and even then only
+  // for SHIPS_DIRECT_STATIONS — see _submitJobInner). Checked first, so
+  // whichever is missing is the one that gets scrolled to.
+  var _npProductEl = document.getElementById('product-id');
+  if (!_npProductEl || !_npProductEl.value.trim()) {
+    showAlert(isEsLang() ? 'Ingrese el ID de producto primero.' : 'Enter the product ID first.');
+    _scrollToField(_npProductEl);
+    return;
+  }
+  var _npPhotoEl = document.getElementById('photo-preview');
+  if (!_npPhotoEl || _npPhotoEl.style.display === 'none' || !_npPhotoEl.src) {
+    showAlert(isEsLang() ? 'Se requiere una foto de preparación.' : 'Make ready photo is required.');
+    _scrollToField(document.getElementById('photo-area'));
+    return;
+  }
+  // Was scrolling to #sig-canvas, an element on the SETUP screen (single-
+  // product path) that's hidden while qc-inspect is showing — the per-
+  // product signature pad here is #inspect-sig-canvas. Fixed alongside the
+  // checks above since it's the same "this validation doesn't actually
+  // point at anything useful" family of bug.
+  if (jobState.multiSig && !iSigHasMark) { showAlert('Please sign before continuing.'); _scrollToField(document.getElementById('inspect-sig-canvas')); return; }
   if (_requireAllAnswered('inspect', CHECKLIST)) return;
   saveCurrentEntry();
   var next = jobState.current + 1;
@@ -13303,6 +13444,11 @@ function handlePhoto(input) {
     prev.src = e.target.result; prev.style.display = 'block';
     setPhotoText('photo-text', 'captured');
     input.value = '';
+    // Auto-advance (Bindery/Pressroom Cutter only) — attaching a photo is
+    // itself the "done" signal, no confirm button needed for it. This
+    // screen only ever shows with jobState.multiSig true (count > 1), but
+    // guard anyway rather than assume.
+    if (_isAutoAdvanceStation() && jobState.multiSig) _scrollToField(document.getElementById('inspect-sig-canvas'));
   };
   reader.readAsDataURL(file);
 }
@@ -15297,6 +15443,14 @@ function onStationChange(station) {
   // on knowing the station already, to filter the list correctly).
   var jobFieldEl = document.getElementById('setup-job-field');
   if (jobFieldEl) jobFieldEl.style.display = station ? '' : 'none';
+  // Auto-advance rollout (Bindery/Pressroom Cutter only, see the block above
+  // _scrollToField) — show/hide this screen's confirm buttons for whichever
+  // station is now picked, and jump straight to Job Number the moment one of
+  // these two stations is chosen, same as every later step in the sequence.
+  _updateSetupAutoAdvanceUI(station);
+  if (station === 'Bindery Cutter' || station === 'Pressroom Cutter') {
+    setTimeout(function(){ _scrollToField(document.getElementById('setup-job')); }, 50);
+  }
   var productNumberStations = ['Bindery Cutter', 'Pressroom Cutter', 'Long Gluer', 'Short Gluer', 'Packing', 'Vendor'];
   var mgrStations = ['Bindery Cutter', 'Pressroom Cutter'];
   var isKama   = (station === 'Kama Foil Press');
