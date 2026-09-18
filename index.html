@@ -1571,6 +1571,14 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   60%  { transform: scale(1.03); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
+/* The brief "you picked this" hold before the popup actually closes (see
+   _openProductIdPicker) — a visibly confirmed choice instead of the row
+   just vanishing the instant it's tapped. */
+#productIdPickerOverlay .job-picker-row-selected {
+  background: var(--green); border-color: var(--green); color: #fff; font-weight: 700;
+}
+#productIdPickerOverlay .job-picker-row:disabled { cursor: default; opacity: .55; }
+#productIdPickerOverlay .job-picker-row-selected:disabled { opacity: 1; }
 .continue-modal {
   background: var(--surface); border-radius: var(--radius-lg);
   width: 100%; max-width: 520px; overflow: hidden;
@@ -13332,7 +13340,20 @@ function _openProductIdPicker(remaining, heading, onPick) {
     b.type = 'button';
     b.className = 'job-picker-row';
     b.textContent = p;
-    b.onclick = function(){ closeProductIdPicker(); onPick(p); };
+    // Tapping a choice used to close the popup instantly — reported as
+    // disappearing too fast to even read, especially for anyone who reads
+    // slowly or has trouble seeing it in the first place. Now it visibly
+    // marks the tapped choice (checkmark + green) and holds the popup open
+    // a beat longer before actually closing, so there's a real moment to
+    // see what was picked instead of it just vanishing the instant it's
+    // touched. Every other row disables during that pause so a second,
+    // accidental tap can't pick something else out from under the first.
+    b.onclick = function(){
+      Array.prototype.forEach.call(listEl.children, function(x){ x.disabled = true; });
+      b.classList.add('job-picker-row-selected');
+      b.textContent = '✓ ' + p;
+      setTimeout(function(){ closeProductIdPicker(); onPick(p); }, 700);
+    };
     listEl.appendChild(b);
   });
   document.getElementById('productIdPickerOverlay').classList.add('open');
