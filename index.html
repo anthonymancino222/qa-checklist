@@ -10176,13 +10176,26 @@ function _textScaleIdx(){
   return (raw >= 0 && raw < TEXT_SCALE_LEVELS.length) ? raw : 0;
 }
 function _applyTextScale(idx){
-  document.documentElement.style.zoom = TEXT_SCALE_LEVELS[idx];
+  var scale = TEXT_SCALE_LEVELS[idx];
+  document.documentElement.style.zoom = scale;
+  // The top (.app-header) and bottom (#bottomNav) chrome bars — and every
+  // button inside them — stay at true 100% regardless of text-size, by
+  // counter-zooming each one back down: they're still descendants of the
+  // zoomed <html>, so their OWN zoom factor multiplies with the ancestor's,
+  // and 1/scale cancels it out to a net 1. Deliberately NOT applied to any
+  // modal/overlay — those should keep scaling with the rest of the UI, only
+  // this persistent top/bottom chrome is exempt.
+  var inverseScale = 1 / scale;
+  var header = document.querySelector('.app-header');
+  if (header) header.style.zoom = inverseScale;
+  var bottomNav = document.getElementById('bottomNav');
+  if (bottomNav) bottomNav.style.zoom = inverseScale;
   // The middle button shows the live percentage instead of a plain "A" —
   // a static letter gave no hint that tapping it changes anything at all.
   // Seeing the number itself change is a much more universal signal,
   // especially for anyone who doesn't read English well.
   var btn = document.getElementById('text-size-preset-btn');
-  if (btn) btn.textContent = Math.round(TEXT_SCALE_LEVELS[idx] * 100) + '%';
+  if (btn) btn.textContent = Math.round(scale * 100) + '%';
   if (typeof _syncKanbanScrollWidth === 'function') _syncKanbanScrollWidth();
 }
 function stepTextSize(dir){
