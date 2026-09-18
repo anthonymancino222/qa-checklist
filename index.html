@@ -1546,6 +1546,31 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    every other overlay, so it was rendering silently behind whichever modal
    triggered it instead of on top. */
 #alertOverlay { z-index: 9500; }
+/* The schedule Product ID picker (added 2026-09-18) was easy to miss —
+   operator reports of "it popped up and was gone before I saw it" — most
+   likely because it shares the same base z-index/opacity as every other
+   .continue-overlay and opens right as the screen is auto-scrolling to
+   Product ID (see loadProduct/_maybeOfferProductIdPicker), so it could get
+   visually lost in that motion or, in the worst case, sit behind something
+   else briefly mid-transition. Pushed above every other overlay in the app
+   (including alertOverlay) with a darker backdrop and its own pop-in +
+   glow-pulse animation so it's unmistakable the instant it appears, and
+   the backdrop no longer closes it on a stray tap — only the ✕ or an
+   actual product pick does, so it can't vanish from an accidental touch
+   either. loadProduct also skips the redundant background auto-scroll to
+   Product ID whenever this picker is about to show, since scrolling the
+   page underneath a freshly-popped modal was part of what made it easy to
+   miss. */
+#productIdPickerOverlay { z-index: 9600; background: rgba(0,0,0,.72); }
+#productIdPickerOverlay .continue-modal {
+  animation: productIdPickerPopIn .28s cubic-bezier(.2,1.4,.4,1);
+  box-shadow: 0 0 0 3px var(--pink), 0 8px 40px rgba(0,0,0,.5);
+}
+@keyframes productIdPickerPopIn {
+  0%   { transform: scale(.85); opacity: 0; }
+  60%  { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 .continue-modal {
   background: var(--surface); border-radius: var(--radius-lg);
   width: 100%; max-width: 520px; overflow: hidden;
@@ -2081,11 +2106,15 @@ try {
      whichever Product IDs the schedule listed for this job that haven't
      already been assigned to an earlier product on it — so Product ID gets
      picked from the real schedule instead of retyped by hand each time.
-     See _maybeOfferProductIdPicker() / loadProduct(). -->
-<div class="continue-overlay" id="productIdPickerOverlay" onclick="if(event.target===this)closeProductIdPicker()">
+     See _maybeOfferProductIdPicker() / loadProduct(). No tap-outside-to-
+     dismiss (unlike most .continue-overlay popups) — operators reported
+     this one disappearing before they'd even seen it, so a stray tap on
+     the backdrop can no longer silently close it; only the ✕ or an actual
+     pick does. -->
+<div class="continue-overlay" id="productIdPickerOverlay">
   <div class="continue-modal" style="max-width:420px;">
-    <div class="continue-modal-head">
-      <div style="font-size:17px;font-weight:800;">📋 <span data-en>Pick Product ID</span><span data-es>Elegir ID de Producto</span></div>
+    <div class="continue-modal-head" style="background:var(--pink);">
+      <div style="font-size:18px;font-weight:800;">📋 <span data-en>Pick Product ID</span><span data-es>Elegir ID de Producto</span></div>
       <button class="continue-modal-close" onclick="closeProductIdPicker()">✕</button>
     </div>
     <div class="continue-modal-body">
@@ -13167,18 +13196,24 @@ function confirmInspectSignature() {
    Empty pool (job wasn't pulled from the schedule, or its schedule entry
    listed no products) — every function here just no-ops.
 ══════════════════════════════════ */
+// Returns true when the popup was actually opened, so loadProduct() can
+// skip its own background auto-scroll-to-Product-ID in that case — the two
+// competing for attention at the same moment (page scrolling underneath a
+// modal that just popped in) was part of why operators reported the popup
+// as easy to miss.
 function _maybeOfferProductIdPicker(idx) {
   var pool = jobState.scheduleProductPool;
-  if (!pool || !pool.length) return;
+  if (!pool || !pool.length) return false;
   var saved = jobState.entries[idx];
-  if (saved && saved.productId) return; // already answered — tabbing back, don't re-nag
+  if (saved && saved.productId) return false; // already answered — tabbing back, don't re-nag
   var used = jobState.entries.filter(function(e, i) { return i !== idx && e && e.productId; }).map(function(e) { return e.productId; });
   var remaining = pool.filter(function(p) { return used.indexOf(p) === -1; });
-  if (!remaining.length) return;
+  if (!remaining.length) return false;
   // Exactly one candidate left isn't a real choice — fill it straight in,
   // same as the analogous Gluer sequential-batch picker does.
-  if (remaining.length === 1) { _applyPickedProductId(remaining[0]); return; }
+  if (remaining.length === 1) { _applyPickedProductId(remaining[0]); return false; }
   _openProductIdPicker(idx, remaining);
+  return true;
 }
 function _applyPickedProductId(product) {
   var el = document.getElementById('product-id');
@@ -13462,12 +13497,15 @@ function loadProduct(idx) {
   // Auto-advance (Bindery/Pressroom Cutter only) — every new product page
   // (including the very first one, right after "Begin inspection" is
   // tapped) starts back at Product ID, same as the single-product path
-  // starts at its own Product field.
+  // starts at its own Product field. Checked FIRST so the schedule picker
+  // below (if it's about to pop up a modal) can suppress this — scrolling
+  // the page at the same moment a modal appears was part of what made that
+  // popup easy to miss.
   _updateInspectAutoAdvanceUI();
-  if (_isAutoAdvanceStation()) {
+  var _offeredPicker = _maybeOfferProductIdPicker(idx);
+  if (_isAutoAdvanceStation() && !_offeredPicker) {
     setTimeout(function(){ _scrollToField(document.getElementById('product-id')); }, 50);
   }
-  _maybeOfferProductIdPicker(idx);
 }
 
 function getToggleVal(itemId) {
