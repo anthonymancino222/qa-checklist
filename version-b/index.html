@@ -1040,11 +1040,78 @@ textarea.input {
 .ncr-sumrow b { color: var(--text-secondary); font-weight: 600; font-size: 13.5px;
   text-transform: uppercase; letter-spacing: .03em; min-width: 0; white-space: normal; word-break: break-word; }
 .ncr-sumrow span { text-align: right; word-break: break-word; flex-shrink: 0; max-width: 48%; }
-.ncr-dim-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.ncr-legend { margin-top: 14px; }
-.ncr-legend-row { display: flex; align-items: center; gap: 8px; font-size: 15px; padding: 4px 0; }
-.ncr-legend-swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
-#ncr-pie-canvas { width: 100%; max-width: 340px; display: block; margin: 0 auto; }
+/* ══════════════════════════════════
+   QA DATA & EXPORT dashboard (view-ncrpie's new content, added 2026-09-19)
+   Prefixed qad- throughout so nothing here collides with the QA home
+   screen's own .qa-dash-* tile-grid classes. Executive-infographic look:
+   white cards on the app's existing light-gray --bg, black header strip,
+   hot-pink accents — reuses the app's existing color tokens, not a new
+   palette. Only this screen opts into .main-wide (see switchView) — every
+   other screen keeps its normal narrower width.
+══════════════════════════════════ */
+.qad-wrap { display: flex; flex-direction: column; gap: 16px; }
+.qad-note { font-size: 13px; color: var(--text-tertiary); }
+.qad-filterbar { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.qad-filterbar-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.qad-filterbar .input, .qad-filterbar select.input { width: auto; margin-bottom: 0; min-width: 120px; }
+.qad-filter-count { font-size: 13.5px; font-weight: 700; color: var(--text-secondary); margin-top: 10px; }
+.qad-filter-count b { color: var(--pink); }
+.qad-kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+.qad-kpi-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.qad-kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.qad-kpi-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
+.qad-kpi-value { font-size: 30px; font-weight: 800; color: var(--text-primary); line-height: 1.1; font-family: var(--mono); }
+.qad-kpi-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 4px; }
+.qad-kpi-card.pink .qad-kpi-value   { color: var(--pink); }
+.qad-kpi-card.green .qad-kpi-value  { color: var(--green); }
+.qad-kpi-card.amber .qad-kpi-value  { color: var(--amber-ink); }
+.qad-kpi-card.red .qad-kpi-value    { color: var(--red); }
+.qad-mini-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.qad-mini-label { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-tertiary); }
+.qad-mini-value { font-size: 20px; font-weight: 800; color: var(--text-primary); font-family: var(--mono); }
+.qad-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.qad-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.qad-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06); min-width: 0; }
+.qad-card-title { font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 2px; }
+.qad-card-sub { font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 12px; }
+.qad-card canvas { max-width: 100%; }
+.qad-donut-wrap { position: relative; width: 100%; max-width: 260px; margin: 0 auto; }
+.qad-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.qad-donut-center b { font-size: 26px; font-family: var(--mono); color: var(--text-primary); line-height: 1; }
+.qad-donut-center span { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 3px; }
+.qad-legend { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.qad-legend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.qad-legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.qad-legend-row span:nth-child(2) { flex: 1; color: var(--text-secondary); }
+.qad-legend-row b { font-family: var(--mono); }
+.qad-empty { text-align: center; padding: 24px 12px; color: var(--text-tertiary); font-size: 14px; }
+.qad-summary-list { display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.6; }
+.qad-summary-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.qad-summary-group:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.qad-summary-group b { display: block; color: var(--text-primary); font-size: 14.5px; margin-bottom: 2px; }
+.qad-table-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.qad-table-wrap { overflow-x: auto; }
+.qad-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.qad-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-tertiary); padding: 8px 10px; border-bottom: 2px solid var(--border-mid); white-space: nowrap; }
+.qad-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; color: var(--text-secondary); }
+.qad-table tr:hover td { background: var(--surface-raised); }
+.qad-export-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.qad-export-btn { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 12px; border: none; font-weight: 700; font-size: 14.5px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.qad-export-btn.xlsx { background: var(--green); color: #fff; }
+.qad-export-btn.pptx { background: var(--pink); color: #fff; }
+.qad-export-btn.pdf  { background: var(--steel); color: #fff; }
+.qad-export-btn:active { opacity: .85; }
+.qad-export-status { font-size: 13.5px; color: var(--text-secondary); margin-top: 8px; }
+@media (max-width: 1199px) {
+  .qad-kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .qad-kpi-strip { grid-template-columns: repeat(3, 1fr); }
+  .qad-row-2, .qad-row-3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .qad-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .qad-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .qad-kpi-value { font-size: 24px; }
+}
 .ncr-back { background: none; border: 1.5px solid var(--border); color: var(--text-secondary);
   border-radius: var(--radius); padding: 8px 14px; font-size: 15px; cursor: pointer; margin-bottom: 14px; }
 .ncr-secondary { width: 100%; background: var(--surface); border: 1.5px solid var(--pink);
@@ -3905,9 +3972,9 @@ try {
           <div class="qa-dash-icon-tile" style="background:var(--amber);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
           <span class="qa-dash-icon-label"><span data-en>NCR in Progress</span><span data-es>RNC en Progreso</span></span>
         </div>
-        <div class="qa-dash-icon" onclick="switchView('ncrpie')" title="NCR – Pie Chart">
-          <div class="qa-dash-icon-tile" style="background:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></span>
+        <div class="qa-dash-icon" onclick="switchView('ncrpie')" title="QA Data &amp; Export">
+          <div class="qa-dash-icon-tile" style="background:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>QA Data &amp; Export</span><span data-es>Datos y Exportación de Calidad</span></span>
         </div>
         <div class="qa-dash-icon" onclick="switchView('rca')" title="RCA">
           <div class="qa-dash-icon-tile" style="background:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
@@ -3951,7 +4018,7 @@ try {
       <div id="ncrprog-body"></div>
     </div>
     <div id="view-ncrpie" class="screen">
-      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>NCR – Pie Chart</span><span data-es>RNC – Gráfico Circular</span></div><div class="view-sub"><span data-en>Analytics by station, status, customer, type</span><span data-es>Análisis por estación, estado, cliente, tipo</span></div></div>
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>QA Data &amp; Export</span><span data-es>Datos y Exportación de Calidad</span></div><div class="view-sub"><span data-en>Jobs, NCRs, and RCAs — one filtered dataset, every chart and export built from it</span><span data-es>Trabajos, RNC y ACR — un solo conjunto de datos filtrado, cada gráfico y exportación se basa en él</span></div></div>
       <div id="ncrpie-body"></div>
     </div>
     <div id="view-rca" class="screen">
@@ -6286,7 +6353,7 @@ function _refreshCurrentView() {
   if (id === 'qarelease')  renderQARelease();
   if (id === 'ncr')        renderNCRView();
   if (id === 'ncrprog')    renderNCRProgress();
-  if (id === 'ncrpie')     renderNCRPie();
+  if (id === 'ncrpie')     renderQAData();
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    renderRecords();
   // A sync can pull in a saved entry another station handed off, or prune one
@@ -6727,7 +6794,7 @@ function _getListFilters() {
 }
 function _getSectionFilters(storeKey) {
   var f = _getListFilters()[storeKey] || {};
-  return { stations: f.stations || [], cad: f.cad || [], operator: f.operator || [], dateFrom: f.dateFrom || '', dateTo: f.dateTo || '' };
+  return { stations: f.stations || [], cad: f.cad || [], operator: f.operator || [], customer: f.customer || [], dateFrom: f.dateFrom || '', dateTo: f.dateTo || '' };
 }
 function _setSectionFilters(storeKey, filters) {
   var all = _getListFilters();
@@ -6754,6 +6821,18 @@ var _FILTER_SECTIONS = {
              // _applyListFilters's guards on sec.operator/sec.date skip them
              // there with no other change needed.
              operator: function(r){ var raw = r.raw || {}; return raw.operatorName || raw.qaTech || ''; },
+             date: function(r){ return r.ts; } },
+  // QA Data & Export dashboard — same normalized-record shape as Records,
+  // reusing this exact engine (station/CAD/operator/date popovers +
+  // _applyListFilters) rather than a second implementation. `customer` is
+  // new here (added to _getSectionFilters/_applyListFilters/_filterKindKey/
+  // _filterPopoverOptions generically, so any future section could opt in
+  // the same way records/ip/qa/ship opt into operator/date today).
+  qadata:  { storeKey: 'qadata',     render: function(){ renderQAData(); },
+             station: function(r){ return r.station; },
+             cad: function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; },
+             operator: function(r){ var raw = r.raw || {}; return raw.operatorName || raw.qaTech || ''; },
+             customer: function(r){ return r.customer || ''; },
              date: function(r){ return r.ts; } }
 };
 // Base (unfiltered-by-station/CAD, pre-sort) list each render*() function
@@ -6769,6 +6848,7 @@ function _applyListFilters(list, sectionPrefix) {
   if (f.stations.length) arr = arr.filter(function(x){ return f.stations.indexOf(sec.station(x)) >= 0; });
   if (f.cad.length) arr = arr.filter(function(x){ return f.cad.indexOf(sec.cad(x)) >= 0; });
   if (sec.operator && f.operator.length) arr = arr.filter(function(x){ return f.operator.indexOf(sec.operator(x)) >= 0; });
+  if (sec.customer && f.customer.length) arr = arr.filter(function(x){ return f.customer.indexOf(sec.customer(x)) >= 0; });
   if (sec.date && (f.dateFrom || f.dateTo)) {
     arr = arr.filter(function(x){
       var d = _recordsValidDate(sec.date(x));
@@ -6801,6 +6881,7 @@ function _updateAllFilterBadges(sectionPrefix) {
   _updateFilterBadge(sectionPrefix, 'station');
   _updateFilterBadge(sectionPrefix, 'cad');
   if (_FILTER_SECTIONS[sectionPrefix].operator) _updateFilterBadge(sectionPrefix, 'operator');
+  if (_FILTER_SECTIONS[sectionPrefix].customer) _updateFilterBadge(sectionPrefix, 'customer');
 }
 // All four screens realistically only ever see the canonical station set
 // (STATION_LABELS) — jobs/records aren't scoped to a narrower list per
@@ -6832,9 +6913,23 @@ function _operatorFilterOptions(sectionPrefix) {
   out.sort(function(a,b){ return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0); });
   return out;
 }
+// Same "distinct values actually present, deduped, A-Z" approach as CAD
+// Style/Operator.
+function _customerFilterOptions(sectionPrefix) {
+  var sec = _FILTER_SECTIONS[sectionPrefix];
+  if (!sec.customer) return [];
+  var seen = {}, out = [];
+  (_filterBaseLists[sectionPrefix] || []).forEach(function(x){
+    var v = sec.customer(x);
+    if (v && !seen[v]) { seen[v] = true; out.push(v); }
+  });
+  out.sort(function(a,b){ return a.toLowerCase() < b.toLowerCase() ? -1 : (a.toLowerCase() > b.toLowerCase() ? 1 : 0); });
+  return out;
+}
 function _filterPopoverOptions(sectionPrefix, kind) {
   if (kind === 'station') return _stationFilterOptions();
   if (kind === 'operator') return _operatorFilterOptions(sectionPrefix);
+  if (kind === 'customer') return _customerFilterOptions(sectionPrefix);
   return _cadFilterOptions(sectionPrefix);
 }
 function _filterOptionLabel(kind, opt) {
@@ -6902,7 +6997,7 @@ document.addEventListener('mousedown', function(e){
 // by both _toggleFilterOption and _clearFilterOptions so a third (or later,
 // fourth) kind only ever needs to be taught here once.
 function _filterKindKey(kind) {
-  return kind === 'station' ? 'stations' : (kind === 'operator' ? 'operator' : 'cad');
+  return kind === 'station' ? 'stations' : (kind === 'operator' ? 'operator' : (kind === 'customer' ? 'customer' : 'cad'));
 }
 function _toggleFilterOption(sectionPrefix, kind, value, checked) {
   var sec = _FILTER_SECTIONS[sectionPrefix];
@@ -10101,13 +10196,13 @@ function switchView(id) {
   // The kanban board is the one view that actually benefits from more than
   // .main's usual 860px cap — see .main-wide's own comment.
   var mainEl = document.getElementById('mainContent');
-  if (mainEl) mainEl.classList.toggle('main-wide', id === 'inprogress');
+  if (mainEl) mainEl.classList.toggle('main-wide', id === 'inprogress' || id === 'ncrpie');
   if (id === 'inprogress') renderInProgress();
   if (id === 'qarelease')  renderQARelease();
   if (id === 'qc')         { checkDraftBanner(); checkQcLanding(); }
   if (id === 'ncr')        renderNCRView();
   if (id === 'ncrprog')    renderNCRProgress();
-  if (id === 'ncrpie')     renderNCRPie();
+  if (id === 'ncrpie')     renderQAData();
   if (id === 'rca')        rcaPopulatePrefill();
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    renderRecords();
@@ -18120,53 +18215,820 @@ function ncrCloseReportedByChange(sel){
   if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
 }
 
-/* ── NCR Pie Chart view ── */
-var _ncrPieDim = 'station';
-var NCR_PIE_COLORS = ['#ff1f8f','#e8a020','#2e7d4f','#5c6b7a','#a8d400','#c8393a','#8b5cf6','#0ea5e9','#d4006e','#8a5e0e'];
+/* ── Status labels (kept — reused by NCR in Progress/RCA views too) ── */
 var NCR_STATUS_LABELS = { 'Open':['Open','Abierto'], 'In Progress':['In Progress','En Progreso'], 'Closed':['Closed','Cerrado'] };
 function ncrStatusLabel(s){ var p = NCR_STATUS_LABELS[s]; return p ? p[isEsLang()?1:0] : s; }
-function renderNCRPie(){
+
+/* ══════════════════════════════════
+   QA DATA & EXPORT (added 2026-09-19) — replaces the old "NCR – Pie Chart"
+   screen (still `view-ncrpie`/`#ncrpie-body` internally, see switchView —
+   renaming the view id wasn't worth the risk). Built entirely from
+   _recNorm()'s normalized Jobs/NCR/NCR-draft/RCA records, filtered through
+   the SAME shared engine Records/ip/qa/ship already use
+   (_FILTER_SECTIONS.qadata + _applyListFilters, see there) plus a few
+   QA-specific extras (record type, NCR status, issue category, RCA status,
+   free-text search) tracked in _qaFilters. calculateQAAnalytics() is the
+   one calculation every KPI/chart/table/export reads from — the live
+   preview and the actual Excel/PPT files can't disagree because they all
+   call the same function on the same filtered list.
+══════════════════════════════════ */
+var _qaFilters = { type: 'all', ncrStatus: '', issueCategory: '', rcaStatus: '', search: '' };
+var _qaCharts = {}; // canvas id -> Chart.js instance, destroyed before every re-render to avoid leaks
+var _qaLast = null; // last { list, analytics } — exports read this so they can never disagree with what's on screen
+
+// Every classification below reuses the app's OWN vocabulary — PROCESS_LABEL_KEYS'
+// keys (job.process), STATION_LABELS' keys (station), and the literal 'Closed'/
+// 'Open'/'In Progress' NCR status strings already used throughout ncrFinalize/
+// ncrClose. Nothing here invents a new stage or status.
+function classifyJobStage(raw){
+  if (raw.shippingApproved) return 'shippingApproved';
+  var map = { makeready:'makeReady', production:'production', inspection:'inspection', qa_pending:'qaPending', qa_release:'readyForRelease', on_hold:'onHold', '2nd_pass_ready':'secondPassReady', finished:'finished' };
+  return map[raw.process] || 'other';
+}
+var QA_STAGE_LABELS = {
+  makeReady:        ['Make Ready','Preparación'],
+  production:        ['Production','Producción'],
+  inspection:         ['Inspection','Inspección'],
+  qaPending:          ['QA Pending','Pendiente de Calidad'],
+  readyForRelease:    ['Ready for Release','Listo para Liberar'],
+  onHold:             ['On Hold','En Espera'],
+  secondPassReady:    ['2nd Pass Ready','2da Pasada Lista'],
+  finished:           ['Finished','Terminado'],
+  shippingApproved:   ['Shipping Approved','Envío Aprobado'],
+  other:              ['Other','Otro']
+};
+function qaStageLabel(key){ var p = QA_STAGE_LABELS[key]; return p ? p[isEsLang()?1:0] : key; }
+
+// NCR and RCA both carry a root cause under the same field name (rootCause)
+// — nothing else in either schema is a root cause, so this is a thin,
+// honest wrapper, not a guess across mismatched fields.
+function getRecordRootCause(record){
+  if (record.type === 'ncr' || record.type === 'rca') return (record.raw.rootCause || '').trim();
+  return '';
+}
+
+function computeQADataset(){
+  var jobs      = _recNorm(ipLoad(), 'job');
+  var ncrs      = _recNorm(ncrLoad(), 'ncr');
+  var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
+  var rcas      = _recNorm(rcaLoadRecords(), 'rca');
+  var all = [].concat(jobs, ncrs, ncrDrafts, rcas);
+
+  if (_qaFilters.type !== 'all'){
+    all = all.filter(function(r){
+      if (_qaFilters.type === 'ncr') return r.type === 'ncr' || r.type === 'ncr_draft';
+      return r.type === _qaFilters.type;
+    });
+  }
+
+  all = _applyListFilters(all, 'qadata'); // station / CAD style / operator / customer / date range
+
+  var q = (_qaFilters.search || '').trim().toLowerCase();
+  if (q){
+    all = all.filter(function(r){
+      return (r.jobNumber||'').toLowerCase().indexOf(q) >= 0 ||
+             (r.product||'').toLowerCase().indexOf(q) >= 0 ||
+             (r.customer||'').toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  if (_qaFilters.ncrStatus) all = all.filter(function(r){ return r.type === 'ncr' && (r.raw.status || 'Open') === _qaFilters.ncrStatus; });
+  if (_qaFilters.issueCategory) all = all.filter(function(r){ return r.type === 'ncr' && r.raw.issueCategory === _qaFilters.issueCategory; });
+  if (_qaFilters.rcaStatus) all = all.filter(function(r){ return r.type === 'rca' && (r.raw.status || '') === _qaFilters.rcaStatus; });
+
+  all = _applySortMode(all, 'newest', function(r){ return r.ts; }, function(r){ return stationLabel(r.station); }, function(r){ return r.customer; }, function(r){ return r.type === 'job' ? _currentCadStyle(r.raw) : ''; });
+  return all;
+}
+
+function calculateQAAnalytics(list){
+  var jobs = list.filter(function(r){ return r.type === 'job'; });
+  var ncrs = list.filter(function(r){ return r.type === 'ncr'; });
+  var ncrDrafts = list.filter(function(r){ return r.type === 'ncr_draft'; });
+  var rcas = list.filter(function(r){ return r.type === 'rca'; });
+
+  var stages = {};
+  jobs.forEach(function(r){ var s = classifyJobStage(r.raw); stages[s] = (stages[s]||0)+1; });
+
+  var byStation = {};
+  list.forEach(function(r){
+    if (r.type === 'ncr_draft' || !r.station) return;
+    var st = r.station;
+    if (!byStation[st]) byStation[st] = { jobs:0, ncrs:0, rcas:0 };
+    if (r.type === 'job') byStation[st].jobs++;
+    else if (r.type === 'ncr') byStation[st].ncrs++;
+    else if (r.type === 'rca') byStation[st].rcas++;
+  });
+
+  var ncrByStatus = { 'Open':0, 'In Progress':0, 'Closed':0 };
+  ncrs.forEach(function(r){ var s = r.raw.status || 'Open'; ncrByStatus[s] = (ncrByStatus[s]||0)+1; });
+
+  var ncrByIssue = {};
+  ncrs.forEach(function(r){ var c = r.raw.issueCategory; if (c) ncrByIssue[c] = (ncrByIssue[c]||0)+1; });
+
+  var ncrByCustomer = {};
+  ncrs.forEach(function(r){ var c = r.customer || (isEsLang()?'Sin especificar':'Unspecified'); ncrByCustomer[c] = (ncrByCustomer[c]||0)+1; });
+
+  var ncrByDisposition = {};
+  ncrs.forEach(function(r){ var d = r.raw.disposition; if (d) ncrByDisposition[d] = (ncrByDisposition[d]||0)+1; });
+
+  var rootCauses = {};
+  ncrs.concat(rcas).forEach(function(r){ var rc = getRecordRootCause(r); if (rc) rootCauses[rc] = (rootCauses[rc]||0)+1; });
+
+  var byOperator = {};
+  list.forEach(function(r){
+    if (r.type === 'ncr_draft') return;
+    var name = (r.raw.operatorName || r.raw.qaTech || '').trim();
+    if (name) byOperator[name] = (byOperator[name]||0)+1;
+  });
+
+  var recordsByDate = {};
+  list.forEach(function(r){
+    var d = _recordsValidDate(r.ts);
+    if (!d) return;
+    var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    if (!recordsByDate[key]) recordsByDate[key] = { jobs:0, ncrs:0, rcas:0 };
+    if (r.type === 'job') recordsByDate[key].jobs++;
+    else if (r.type === 'ncr') recordsByDate[key].ncrs++;
+    else if (r.type === 'rca') recordsByDate[key].rcas++;
+  });
+
+  return {
+    jobs: jobs, ncrs: ncrs, ncrDrafts: ncrDrafts, rcas: rcas,
+
+    totalJobs: jobs.length,
+    totalNCRs: ncrs.length,
+    openNCRs: ncrs.filter(function(r){ return (r.raw.status||'Open') !== 'Closed'; }).length,
+    closedNCRs: ncrs.filter(function(r){ return r.raw.status === 'Closed'; }).length,
+    totalRCAs: rcas.length,
+    shippingApprovedJobs: jobs.filter(function(r){ return r.raw.shippingApproved === true; }).length,
+
+    inProduction: stages.production || 0,
+    inInspection: stages.inspection || 0,
+    qaPending: stages.qaPending || 0,
+    readyForRelease: stages.readyForRelease || 0,
+    onHold: stages.onHold || 0,
+    secondPassReady: stages.secondPassReady || 0,
+
+    byStation: byStation,
+    recordMix: { jobs: jobs.length, ncrs: ncrs.length, rcas: rcas.length, ncrDrafts: ncrDrafts.length, total: jobs.length+ncrs.length+rcas.length+ncrDrafts.length },
+    ncrByStatus: ncrByStatus,
+    ncrByIssue: ncrByIssue,
+    ncrByCustomer: ncrByCustomer,
+    ncrByDisposition: ncrByDisposition,
+    rootCauses: rootCauses,
+    byOperator: byOperator,
+    recordsByDate: recordsByDate,
+    jobsByStage: stages
+  };
+}
+
+/* ── Lazy-loaded libraries (same pattern as the Gluer Shift Handoff app —
+   nothing here loads until the dashboard/an export button is actually used,
+   so no tablet pays for Chart.js/SheetJS/PptxGenJS on a normal shift). ── */
+var QA_CHARTJS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4';
+var QA_XLSX_CDN = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+var QA_PPTXGENJS_CDN = 'https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.1/dist/pptxgen.bundle.js';
+function _loadScriptOnce(src){
+  return new Promise(function(resolve, reject){
+    if (document.querySelector('script[src="'+src+'"]')) { resolve(); return; }
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ reject(new Error('Failed to load ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+function _ensureChartJs(){ return _loadScriptOnce(QA_CHARTJS_CDN); }
+
+var QA_PALETTE = ['#FF1F8F','#10B981','#E8A020','#6B7280','#0ea5e9','#8b5cf6','#d4006e','#a8d400','#3b82f6','#c8393a'];
+var QA_COLOR_POSITIVE = '#10B981', QA_COLOR_WARNING = '#E8A020', QA_COLOR_NEUTRAL_1 = '#6B7280', QA_COLOR_NEUTRAL_2 = '#D1D5DB';
+
+function _qaDestroyChart(id){ if (_qaCharts[id]) { try { _qaCharts[id].destroy(); } catch(e){} delete _qaCharts[id]; } }
+function _qaDoughnut(id, labels, data, colors){
+  _qaDestroyChart(id);
+  var canvas = document.getElementById(id);
+  if (!canvas || typeof Chart === 'undefined') return;
+  _qaCharts[id] = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 2, borderColor: getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#fff' }] },
+    options: { responsive: true, maintainAspectRatio: true, cutout: '68%', plugins: { legend: { display: false } } }
+  });
+}
+function _qaHBar(id, labels, datasets){
+  _qaDestroyChart(id);
+  var canvas = document.getElementById(id);
+  if (!canvas || typeof Chart === 'undefined') return;
+  _qaCharts[id] = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: datasets.length > 1, position: 'bottom' } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+function _qaLine(id, labels, datasets){
+  _qaDestroyChart(id);
+  var canvas = document.getElementById(id);
+  if (!canvas || typeof Chart === 'undefined') return;
+  _qaCharts[id] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: true, position: 'bottom' } },
+      scales: { x: { ticks: { maxTicksLimit: 8, autoSkip: true } }, y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+}
+// Top-N entries from a {label: count} map, sorted descending.
+function _qaTopN(obj, n){
+  return Object.keys(obj).map(function(k){ return [k, obj[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, n);
+}
+
+/* ── QA filter state (record type / NCR status / issue category / RCA
+   status / search — the station/CAD/operator/customer/date-range part is
+   handled by the shared _FILTER_SECTIONS.qadata engine, same as Records). ── */
+function _qaSetType(t, btn){
+  _qaFilters.type = t;
+  document.querySelectorAll('#qad-type-row .tgl').forEach(function(b){ b.classList.remove('sel'); });
+  if (btn) btn.classList.add('sel');
+  renderQAData();
+}
+function _qaSetSearch(v){ _qaFilters.search = v; renderQAData(); }
+function _qaSetNcrStatus(v){ _qaFilters.ncrStatus = v; renderQAData(); }
+function _qaSetIssueCategory(v){ _qaFilters.issueCategory = v; renderQAData(); }
+function _qaSetRcaStatus(v){ _qaFilters.rcaStatus = v; renderQAData(); }
+function _setQADateRange(){
+  var f = _getSectionFilters('qadata');
+  f.dateFrom = document.getElementById('qad-date-from').value || '';
+  f.dateTo = document.getElementById('qad-date-to').value || '';
+  _setSectionFilters('qadata', f);
+  renderQAData();
+}
+function _clearQADateRange(){
+  var fe = document.getElementById('qad-date-from'), te = document.getElementById('qad-date-to');
+  if (fe) fe.value = ''; if (te) te.value = '';
+  _setQADateRange();
+}
+
+function _qaFilterBarHTML(matchCount){
+  var isEs = isEsLang();
+  var f = _getSectionFilters('qadata');
+  var typeBtns = [['all', isEs?'Todos':'All'], ['job', isEs?'Trabajos':'Jobs'], ['ncr','NCR'], ['rca','RCA']];
+  // Issue categories populated from every saved NCR ever recorded (not just
+  // the currently filtered set) so the dropdown doesn't empty itself out as
+  // soon as it's used to narrow the data.
+  var allNcrs = _recNorm(ncrLoad(), 'ncr');
+  var issueCats = {}; allNcrs.forEach(function(r){ if (r.raw.issueCategory) issueCats[r.raw.issueCategory] = true; });
+  var issueCatOpts = Object.keys(issueCats).sort();
+  var allRcas = _recNorm(rcaLoadRecords(), 'rca');
+  var rcaStatuses = {}; allRcas.forEach(function(r){ if (r.raw.status) rcaStatuses[r.raw.status] = true; });
+  var rcaStatusOpts = Object.keys(rcaStatuses).sort();
+
+  var h = '<div class="qad-filterbar">';
+  h += '<div class="qad-filterbar-row" id="qad-type-row">';
+  h += typeBtns.map(function(t){ return '<button type="button" class="tgl'+(_qaFilters.type===t[0]?' sel':'')+'" onclick="_qaSetType(\''+t[0]+'\',this)">'+t[1]+'</button>'; }).join('');
+  h += '</div>';
+  h += '<div class="qad-filterbar-row" style="margin-top:8px;">';
+  h += '<input type="text" class="input" id="qad-search" placeholder="'+(isEs?'Buscar por # de trabajo, producto o cliente…':'Search by job #, product, or customer…')+'" value="'+escHtml(_qaFilters.search)+'" oninput="_qaSetSearch(this.value)" style="min-width:220px;flex:1 1 220px;">';
+  h += '<div style="display:flex;align-items:center;gap:4px;">';
+  h += '<input type="date" class="input" id="qad-date-from" value="'+escHtml(f.dateFrom)+'" onchange="_setQADateRange()">';
+  h += '<span style="color:var(--text-tertiary);font-size:13px;">'+(isEs?'a':'to')+'</span>';
+  h += '<input type="date" class="input" id="qad-date-to" value="'+escHtml(f.dateTo)+'" onchange="_setQADateRange()">';
+  h += '<button type="button" class="filter-pop-btn" onclick="_clearQADateRange()">'+(isEs?'Limpiar':'Clear')+'</button>';
+  h += '</div>';
+  ['station','cad','operator','customer'].forEach(function(kind){
+    var kindLabel = kind==='station'?(isEs?'Estación':'Station'):kind==='cad'?(isEs?'Estilo CAD':'CAD Style'):kind==='operator'?(isEs?'Operador':'Operator'):(isEs?'Cliente':'Customer');
+    h += '<div class="filter-pop-wrap">' +
+      '<button type="button" class="filter-pop-btn" id="qadata-'+kind+'-filter-btn" onclick="toggleFilterPopover(\'qadata\',\''+kind+'\')">'+kindLabel+'<span class="filter-pop-badge" id="qadata-'+kind+'-filter-badge"></span> ▾</button>' +
+      '<div class="filter-popover" id="qadata-'+kind+'-filter-pop" style="display:none;"></div></div>';
+  });
+  h += '<select class="input" onchange="_qaSetNcrStatus(this.value)">' +
+    '<option value="">'+(isEs?'Estado de RNC — Todos':'NCR Status — All')+'</option>' +
+    '<option value="Open"'+(_qaFilters.ncrStatus==='Open'?' selected':'')+'>'+(isEs?'Abierto':'Open')+'</option>' +
+    '<option value="In Progress"'+(_qaFilters.ncrStatus==='In Progress'?' selected':'')+'>'+(isEs?'En Progreso':'In Progress')+'</option>' +
+    '<option value="Closed"'+(_qaFilters.ncrStatus==='Closed'?' selected':'')+'>'+(isEs?'Cerrado':'Closed')+'</option></select>';
+  h += '<select class="input" onchange="_qaSetIssueCategory(this.value)"><option value="">'+(isEs?'Categoría de Calidad — Todas':'Quality Issue — All')+'</option>' +
+    issueCatOpts.map(function(c){ return '<option value="'+escHtml(c)+'"'+(_qaFilters.issueCategory===c?' selected':'')+'>'+escHtml(c)+'</option>'; }).join('') + '</select>';
+  if (rcaStatusOpts.length){
+    h += '<select class="input" onchange="_qaSetRcaStatus(this.value)"><option value="">'+(isEs?'Estado de ACR — Todos':'RCA Status — All')+'</option>' +
+      rcaStatusOpts.map(function(s){ return '<option value="'+escHtml(s)+'"'+(_qaFilters.rcaStatus===s?' selected':'')+'>'+escHtml(rcaStatusLabel(s))+'</option>'; }).join('') + '</select>';
+  }
+  h += '</div>';
+  h += '<div class="qad-filter-count">'+(isEs ? ('<b>'+matchCount+'</b> registros coincidentes') : ('<b>'+matchCount+'</b> matching records'))+'</div>';
+  h += '</div>';
+  return h;
+}
+
+function _qaKpiCard(cls, label, value, sub){
+  return '<div class="qad-kpi-card '+cls+'"><div class="qad-kpi-label">'+label+'</div><div class="qad-kpi-value">'+value+'</div>'+(sub?'<div class="qad-kpi-sub">'+sub+'</div>':'')+'</div>';
+}
+function _qaKpiRowHTML(a){
+  var isEs = isEsLang();
+  var h = '<div class="qad-kpi-row">';
+  h += _qaKpiCard('', isEs?'Trabajos':'Jobs', a.totalJobs, '');
+  h += _qaKpiCard('pink', isEs?'RNC Totales':'Total NCRs', a.totalNCRs, a.ncrDrafts.length ? (a.ncrDrafts.length + ' ' + (isEs?'Borradores':'Drafts')) : '');
+  h += _qaKpiCard('red', isEs?'RNC Abiertos / Activos':'Open / Active NCRs', a.openNCRs, '');
+  h += _qaKpiCard('green', isEs?'RNC Cerrados':'Closed NCRs', a.closedNCRs, '');
+  h += _qaKpiCard('', isEs?'Registros ACR':'RCA Records', a.totalRCAs,
+    (a.rcas.length ? (a.rcas.filter(function(r){return r.raw.status==='Closed';}).length + ' ' + (isEs?'Cerrados':'Closed') + ' · ' + a.rcas.filter(function(r){return r.raw.status!=='Closed';}).length + ' ' + (isEs?'Pendientes':'Pending/Draft')) : ''));
+  h += _qaKpiCard('green', isEs?'Trabajos Envío Aprobado':'Shipping Approved Jobs', a.shippingApprovedJobs, '');
+  h += '</div>';
+  return h;
+}
+function _qaMiniCard(label, value){
+  return '<div class="qad-mini-card"><div class="qad-mini-label">'+label+'</div><div class="qad-mini-value">'+value+'</div></div>';
+}
+function _qaKpiStripHTML(a){
+  var isEs = isEsLang();
+  var h = '<div class="qad-kpi-strip">';
+  h += _qaMiniCard(isEs?'Borradores de RNC':'NCR Drafts', a.ncrDrafts.length);
+  h += _qaMiniCard(isEs?'Trabajos En Espera':'Jobs On Hold', a.onHold);
+  h += _qaMiniCard(isEs?'Trabajos Pend. Calidad':'Jobs Awaiting QA', a.qaPending);
+  h += _qaMiniCard(isEs?'Trabajos Listos p/Liberar':'Jobs Ready for Release', a.readyForRelease);
+  h += _qaMiniCard(isEs?'Trabajos en Producción':'Jobs In Production', a.inProduction);
+  h += '</div>';
+  return h;
+}
+function _qaCard(id, title, sub, bodyHtml, style){
+  return '<div class="qad-card"'+(style?' style="'+style+'"':'')+'><div class="qad-card-title">'+title+'</div>'+(sub?'<div class="qad-card-sub">'+sub+'</div>':'')+'<div id="'+id+'">'+bodyHtml+'</div></div>';
+}
+function _qaEmpty(msg){ return '<div class="qad-empty">'+msg+'</div>'; }
+
+function _qaMainPanelsHTML(a){
+  var isEs = isEsLang();
+  var h = '';
+  // Row 2: Quality Record Overview (donut) + Records by Station (grouped bar)
+  h += '<div class="qad-row-2">';
+  h += _qaCard('qad-mix-body', isEs?'Resumen de Registros de Calidad':'Quality Record Overview', isEs?'Composición de registros — Trabajos / RNC / ACR':'Record mix — Jobs / NCRs / RCA',
+    a.recordMix.total ?
+      '<div class="qad-donut-wrap"><canvas id="qad-mix-canvas"></canvas><div class="qad-donut-center"><b>'+a.recordMix.total+'</b><span>'+(isEs?'TOTAL':'TOTAL RECORDS')+'</span></div></div>' +
+      '<div class="qad-legend" id="qad-mix-legend"></div>'
+      : _qaEmpty(isEs?'Sin registros en el filtro actual.':'No records in the current filter.'));
+  h += _qaCard('qad-station-body', isEs?'Registros por Estación':'Records by Station', isEs?'Trabajos, RNC y ACR por estación — más trabajos no significa peor calidad':'Jobs, NCRs, and RCAs by station — more jobs doesn\'t mean worse quality',
+    Object.keys(a.byStation).length ? '<div style="height:260px;"><canvas id="qad-station-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin datos de estación en el filtro actual.':'No station data in the current filter.'));
+  h += '</div>';
+
+  // Row 3: Records over time, NCR status, Current job stage
+  h += '<div class="qad-row-3">';
+  h += _qaCard('qad-trend-body', isEs?'Registros de Calidad en el Tiempo':'QA Records Over Time', isEs?'Según la fecha registrada de cada registro':'Based on recorded record dates',
+    Object.keys(a.recordsByDate).length ? '<div style="height:220px;"><canvas id="qad-trend-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin fechas utilizables.':'No usable dates.'));
+  h += _qaCard('qad-ncrstatus-body', isEs?'Estado de RNC':'NCR Status', '',
+    a.totalNCRs ?
+      '<div class="qad-donut-wrap" style="max-width:200px;"><canvas id="qad-ncrstatus-canvas"></canvas><div class="qad-donut-center"><b>'+a.totalNCRs+'</b><span>NCRs</span></div></div>' +
+      '<div class="qad-legend" id="qad-ncrstatus-legend"></div>'
+      : _qaEmpty(isEs?'Sin RNC en el filtro actual.':'No NCRs in the current filter.'));
+  h += _qaCard('qad-stage-body', isEs?'Etapa Actual del Trabajo':'Current Job Stage', isEs?'Etapa más reciente almacenada — no es tiempo de ciclo':'Most recent stored stage — not cycle time',
+    a.totalJobs ? '<div style="height:220px;"><canvas id="qad-stage-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin trabajos en el filtro actual.':'No jobs in the current filter.'));
+  h += '</div>';
+
+  // Row 4: Top quality issues + Top root causes
+  h += '<div class="qad-row-2">';
+  h += _qaCard('qad-issues-body', isEs?'Principales Problemas de Calidad (RNC)':'Top NCR Quality Issues', isEs?'Top 8 por raw.issueCategory guardado':'Top 8 by saved issueCategory',
+    Object.keys(a.ncrByIssue).length ? '<div style="height:260px;"><canvas id="qad-issues-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin categorías de problema en los RNC seleccionados.':'No issue categories on the selected NCRs.'));
+  h += _qaCard('qad-rootcause-body', isEs?'Principales Causas Raíz':'Top Root Causes', isEs?'De RNC y ACR guardados (campo rootCause)':'From saved NCR and RCA records (rootCause field)',
+    Object.keys(a.rootCauses).length ? '<div style="height:260px;"><canvas id="qad-rootcause-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin datos de causa raíz en los registros seleccionados.':'No root-cause data in selected records.'));
+  h += '</div>';
+
+  // Row 5: Dispositions + Customer + Operator workload
+  h += '<div class="qad-row-3">';
+  h += _qaCard('qad-disp-body', isEs?'Disposiciones de RNC':'NCR Dispositions', '',
+    Object.keys(a.ncrByDisposition).length ? '<div style="height:240px;"><canvas id="qad-disp-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin disposiciones guardadas.':'No saved dispositions.'));
+  h += _qaCard('qad-customer-body', isEs?'RNC por Cliente':'NCRs by Customer', isEs?'Top 8 — conteo de RNC, no una puntuación de calidad':'Top 8 — NCR count, not a quality score',
+    Object.keys(a.ncrByCustomer).length ? '<div style="height:240px;"><canvas id="qad-customer-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin RNC con cliente en el filtro actual.':'No NCRs with a customer in the current filter.'));
+  h += _qaCard('qad-operator-body', isEs?'Registros por Operador / Técnico de Calidad':'Records Associated with Operator / QA Tech', isEs?'Carga de trabajo — no es una evaluación de desempeño':'Workload only — not a performance ranking',
+    Object.keys(a.byOperator).length ? '<div style="height:240px;"><canvas id="qad-operator-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin operador/técnico registrado en los registros seleccionados.':'No operator/QA tech recorded on the selected records.'));
+  h += '</div>';
+  return h;
+}
+
+function _qaSummaryHTML(a){
+  var isEs = isEsLang();
+  var lines = [];
+  lines.push((isEs?'Registros de trabajo: ':'Job records: ') + '<b>'+a.totalJobs+'</b>');
+  lines.push((isEs?'RNC: ':'NCRs: ') + '<b>'+a.totalNCRs+'</b>');
+  lines.push((isEs?'RNC abiertos: ':'Open NCRs: ') + '<b>'+a.openNCRs+'</b>');
+  lines.push((isEs?'RNC cerrados: ':'Closed NCRs: ') + '<b>'+a.closedNCRs+'</b>');
+  lines.push((isEs?'Registros ACR: ':'RCA records: ') + '<b>'+a.totalRCAs+'</b>');
+  lines.push((isEs?'Trabajos con envío aprobado: ':'Shipping approved jobs: ') + '<b>'+a.shippingApprovedJobs+'</b>');
+  var topRC = _qaTopN(a.rootCauses, 1)[0];
+  if (topRC) lines.push((isEs?'Causa raíz más frecuente: ':'Most frequent root cause: ') + '<b>' + escHtml(topRC[0]) + '</b> (' + topRC[1] + ')');
+  var per100 = a.totalJobs > 0 ? Math.round(a.totalNCRs/a.totalJobs*100) : null;
+  var h = '<div class="qad-summary-list">' + lines.map(function(l){ return '<div>'+l+'</div>'; }).join('');
+  if (per100 !== null){
+    h += '<div style="margin-top:6px;" title="'+(isEs?'Este es un indicador de frecuencia de registros, no una tasa de defectos del producto.':'This is a record-frequency indicator, not a product defect rate.')+'">'+
+      (isEs ? ('RNC por cada 100 registros de trabajo: <b>'+per100+'</b>') : ('NCRs per 100 Job Records: <b>'+per100+'</b>')) + ' <span style="color:var(--text-tertiary);">ⓘ</span></div>';
+  }
+  h += '</div>';
+  var stationKeys = Object.keys(a.byStation).sort(function(x,y){ return (a.byStation[y].jobs+a.byStation[y].ncrs+a.byStation[y].rcas) - (a.byStation[x].jobs+a.byStation[x].ncrs+a.byStation[x].rcas); });
+  if (stationKeys.length){
+    h += '<div class="qad-summary-group"><b>' + (isEs?'Por Estación':'By Station') + '</b>';
+    stationKeys.forEach(function(st){
+      var s = a.byStation[st];
+      h += '<div>' + escHtml(stationLabel(st)) + ' — ' + s.jobs + ' ' + (isEs?'trabajos':'jobs') + ', ' + s.ncrs + ' NCR' + (s.rcas ? (', ' + s.rcas + ' RCA') : '') + '</div>';
+    });
+    h += '</div>';
+  }
+  if (a.rcas.length){
+    h += '<div class="qad-note" style="margin-top:10px;">' + (isEs
+      ? 'Los análisis de ACR reflejan los registros de ACR disponibles en este dispositivo.'
+      : 'RCA analytics reflect RCA records available to this device.') + '</div>';
+  }
+  return h;
+}
+
+var _qaTableMode = 'all';
+function _qaSetTableMode(mode, btn){
+  _qaTableMode = mode;
+  document.querySelectorAll('#qad-table-tabs .tgl').forEach(function(b){ b.classList.remove('sel'); });
+  if (btn) btn.classList.add('sel');
+  _qaRenderTable();
+}
+function _qaTableTabsHTML(){
+  var isEs = isEsLang();
+  var modes = [['all', isEs?'Todos':'All'], ['job', isEs?'Trabajos':'Jobs'], ['ncr','NCR'], ['rca','RCA']];
+  return '<div class="qad-table-tabs" id="qad-table-tabs">' + modes.map(function(m){
+    return '<button type="button" class="tgl'+(_qaTableMode===m[0]?' sel':'')+'" onclick="_qaSetTableMode(\''+m[0]+'\',this)">'+m[1]+'</button>';
+  }).join('') + '</div>';
+}
+function _qaRenderTable(){
+  var wrap = document.getElementById('qad-table-wrap');
+  if (!wrap || !_qaLast) return;
+  var isEs = isEsLang();
+  var rows = _qaLast.list.filter(function(r){ return _qaTableMode === 'all' || r.type === _qaTableMode || (_qaTableMode==='ncr' && r.type==='ncr_draft'); });
+  if (!rows.length){ wrap.innerHTML = _qaEmpty(isEs?'Sin registros que coincidan.':'No matching records.'); return; }
+  var common = ['Type','Job #','Product / Form ID','Customer','Station','Status','Date','Operator / QA Tech'];
+  var extra = _qaTableMode==='ncr' ? ['Quality Issue','Disposition','Root Cause','Corrective Action']
+    : _qaTableMode==='rca' ? ['Quality Issue','Root Cause','Corrective Action','Disposition','Close Date / Status']
+    : _qaTableMode==='job' ? ['Process / Status','CAD Style','Operator','Shipping Approved']
+    : [];
+  var headers = common.concat(extra);
+  var html = '<table class="qad-table"><thead><tr>' + headers.map(function(hh){ return '<th>'+hh+'</th>'; }).join('') + '</tr></thead><tbody>';
+  rows.slice(0, 500).forEach(function(r){
+    var raw = r.raw || {};
+    var operator = raw.operatorName || raw.qaTech || '';
+    var cells = [r.type.toUpperCase(), escHtml(r.jobNumber), escHtml(r.product), escHtml(r.customer), escHtml(stationLabel(r.station)), escHtml(r.status), escHtml(r.ts), escHtml(operator)];
+    if (_qaTableMode === 'ncr') cells = cells.concat([escHtml(raw.issueCategory), escHtml(raw.disposition), escHtml(raw.rootCause), escHtml(raw.correctiveAction)]);
+    else if (_qaTableMode === 'rca') cells = cells.concat([escHtml(raw.issueCategory), escHtml(raw.rootCause), escHtml(raw.correctiveAction), escHtml(raw.disposition), escHtml(raw.closeDate) + (raw.status ? ' / ' + escHtml(rcaStatusLabel(raw.status)) : '')]);
+    else if (_qaTableMode === 'job') cells = cells.concat([escHtml(processLabel(raw.process) || raw.process), escHtml(_currentCadStyle(raw)), escHtml(raw.operatorName), raw.shippingApproved ? (isEs?'Sí':'Yes') : (isEs?'No':'No')]);
+    html += '<tr>' + cells.map(function(c){ return '<td>'+c+'</td>'; }).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  if (rows.length > 500) html += '<div class="qad-note" style="margin-top:8px;">' + (isEs ? ('Mostrando 500 de '+rows.length+' — use Exportar para el conjunto completo.') : ('Showing 500 of '+rows.length+' — use Export for the full set.')) + '</div>';
+  wrap.innerHTML = html;
+}
+
+function _qaExportSectionHTML(){
+  var isEs = isEsLang();
+  var h = '<div class="qad-card">';
+  h += '<div class="qad-card-title">' + (isEs?'Exportar':'Export') + '</div>';
+  h += '<div class="qad-card-sub">' + (isEs?'Vista previa en vivo — el mismo conjunto de datos filtrado que se muestra arriba.':'Live preview — the exact same filtered dataset shown above.') + '</div>';
+  h += '<div class="qad-export-row">';
+  h += '<button type="button" class="qad-export-btn xlsx" onclick="qaExportExcel()">📊 ' + (isEs?'Exportar a Excel':'Export to Excel') + '</button>';
+  h += '<button type="button" class="qad-export-btn pptx" onclick="qaExportPowerPoint()">📽️ ' + (isEs?'Exportar a PowerPoint':'Export to PowerPoint') + '</button>';
+  h += '<button type="button" class="btn-secondary" onclick="qaExportCSV()">⬇️ ' + (isEs?'Exportar CSV (heredado)':'Export CSV (legacy)') + '</button>';
+  h += '</div>';
+  h += '<div class="qad-export-status" id="qad-export-status"></div>';
+  h += '</div>';
+  return h;
+}
+
+function renderQAData(){
   var el = document.getElementById('ncrpie-body');
   if (!el) return;
-  var _pieEs = isEsLang();
-  var dims = [['station', _pieEs?'Estación':'Station'],['status', _pieEs?'Estado':'Status'],['customer', _pieEs?'Cliente':'Customer'],['type', _pieEs?'Tipo':'Type']];
-  var list = ncrLoad();
-  var h = '<div class="ncr-dim-row">' + dims.map(function(dm){
-    return '<button type="button" class="tgl'+(_ncrPieDim===dm[0]?' sel':'')+'" onclick="_ncrPieDim=\''+dm[0]+'\';renderNCRPie()">'+dm[1]+'</button>';
-  }).join('') + '</div>';
-  if (!list.length){
-    el.innerHTML = h + '<div class="stub"><span class="stub-icon">📊</span>' + (_pieEs ? 'Aún no hay RNC — levante uno desde la vista de RNC.' : 'No NCRs yet — raise one from the NCR view.') + '</div>';
-    return;
+  var list = computeQADataset();
+  var a = calculateQAAnalytics(list);
+  _qaLast = { list: list, analytics: a };
+
+  el.innerHTML =
+    '<div class="qad-wrap">' +
+      _qaFilterBarHTML(list.length) +
+      _qaKpiRowHTML(a) +
+      _qaKpiStripHTML(a) +
+      _qaMainPanelsHTML(a) +
+      _qaCard('qad-summary-body', isEsLang()?'Resumen de Datos Seleccionados':'Selected Data Summary', '', _qaSummaryHTML(a)) +
+      '<div class="qad-card"><div class="qad-card-title">' + (isEsLang()?'Detalle de Registros Seleccionados':'Selected Record Details') + '</div>' +
+        _qaTableTabsHTML() + '<div class="qad-table-wrap" id="qad-table-wrap"></div></div>' +
+      _qaExportSectionHTML() +
+    '</div>';
+
+  _updateAllFilterBadges('qadata');
+  _qaRenderTable();
+  _ensureChartJs().then(function(){ _qaRenderCharts(a); }).catch(function(){});
+}
+
+function _qaRenderCharts(a){
+  var isEs = isEsLang();
+  // Chart.js defaults to dark-gray text/grid lines, unreadable against this
+  // screen's dark-mode card background — re-point them at the app's own
+  // theme tokens (computed now, since the loaded stylesheet has already
+  // resolved body.dark-mode's overrides into real color values).
+  if (typeof Chart !== 'undefined'){
+    var cs = getComputedStyle(document.body);
+    Chart.defaults.color = cs.getPropertyValue('--text-secondary').trim() || '#5c6b7a';
+    Chart.defaults.borderColor = cs.getPropertyValue('--border').trim() || '#e0e0e0';
   }
-  var counts = {};
-  list.forEach(function(n){
-    var key = _ncrPieDim==='station' ? (n.station||(_pieEs?'Sin especificar':'Unspecified'))
-      : _ncrPieDim==='status' ? ncrStatusLabel(n.status||'Open')
-      : _ncrPieDim==='customer' ? (n.customerFinal||(_pieEs?'Sin especificar':'Unspecified'))
-      : ncrPathTitle(n.path);
-    counts[key] = (counts[key]||0)+1;
+  // Record mix donut
+  if (a.recordMix.total){
+    var mixLabels = [isEs?'Trabajos':'Jobs', 'NCRs', 'RCA'].concat(a.recordMix.ncrDrafts ? [isEs?'Borradores RNC':'NCR Drafts'] : []);
+    var mixData = [a.recordMix.jobs, a.recordMix.ncrs, a.recordMix.rcas].concat(a.recordMix.ncrDrafts ? [a.recordMix.ncrDrafts] : []);
+    var mixColors = [QA_PALETTE[3], QA_PALETTE[0], QA_PALETTE[4]].concat(a.recordMix.ncrDrafts ? [QA_PALETTE[2]] : []);
+    _qaDoughnut('qad-mix-canvas', mixLabels, mixData, mixColors);
+    var legend = document.getElementById('qad-mix-legend');
+    if (legend) legend.innerHTML = mixLabels.map(function(l,i){ return '<div class="qad-legend-row"><span class="qad-legend-swatch" style="background:'+mixColors[i]+'"></span><span>'+l+'</span><b>'+mixData[i]+'</b></div>'; }).join('');
+  }
+  // Records by station — grouped bar
+  var stKeys = Object.keys(a.byStation);
+  if (stKeys.length){
+    stKeys.sort(function(x,y){ return (a.byStation[y].jobs+a.byStation[y].ncrs+a.byStation[y].rcas) - (a.byStation[x].jobs+a.byStation[x].ncrs+a.byStation[x].rcas); });
+    var stLabels = stKeys.map(function(s){ return stationLabel(s); });
+    _qaHBar('qad-station-canvas', stLabels, [
+      { label: isEs?'Trabajos':'Jobs', data: stKeys.map(function(s){ return a.byStation[s].jobs; }), backgroundColor: QA_PALETTE[3] },
+      { label: 'NCR', data: stKeys.map(function(s){ return a.byStation[s].ncrs; }), backgroundColor: QA_PALETTE[0] },
+      { label: 'RCA', data: stKeys.map(function(s){ return a.byStation[s].rcas; }), backgroundColor: QA_PALETTE[4] }
+    ]);
+  }
+  // Records over time
+  var dateKeys = Object.keys(a.recordsByDate).sort();
+  if (dateKeys.length){
+    _qaLine('qad-trend-canvas', dateKeys, [
+      { label: isEs?'Trabajos':'Jobs', data: dateKeys.map(function(d){ return a.recordsByDate[d].jobs; }), borderColor: QA_PALETTE[3], backgroundColor: QA_PALETTE[3], tension: .25 },
+      { label: 'NCR', data: dateKeys.map(function(d){ return a.recordsByDate[d].ncrs; }), borderColor: QA_PALETTE[0], backgroundColor: QA_PALETTE[0], tension: .25 },
+      { label: 'RCA', data: dateKeys.map(function(d){ return a.recordsByDate[d].rcas; }), borderColor: QA_PALETTE[4], backgroundColor: QA_PALETTE[4], tension: .25 }
+    ]);
+  }
+  // NCR status donut
+  if (a.totalNCRs){
+    var statusKeys = ['Open','In Progress','Closed'].filter(function(s){ return a.ncrByStatus[s]; });
+    var statusColors = { 'Open': '#c8393a', 'In Progress': QA_COLOR_WARNING, 'Closed': QA_COLOR_POSITIVE };
+    _qaDoughnut('qad-ncrstatus-canvas', statusKeys.map(ncrStatusLabel), statusKeys.map(function(s){ return a.ncrByStatus[s]; }), statusKeys.map(function(s){ return statusColors[s]; }));
+    var nsLegend = document.getElementById('qad-ncrstatus-legend');
+    if (nsLegend) nsLegend.innerHTML = statusKeys.map(function(s){ var pct = Math.round(a.ncrByStatus[s]/a.totalNCRs*100); return '<div class="qad-legend-row"><span class="qad-legend-swatch" style="background:'+statusColors[s]+'"></span><span>'+ncrStatusLabel(s)+'</span><b>'+a.ncrByStatus[s]+' ('+pct+'%)</b></div>'; }).join('');
+  }
+  // Current job stage
+  if (a.totalJobs){
+    var stageOrder = ['makeReady','production','inspection','qaPending','readyForRelease','onHold','secondPassReady','finished','shippingApproved'];
+    var stageKeys = stageOrder.filter(function(k){ return a.jobsByStage[k]; });
+    _qaHBar('qad-stage-canvas', stageKeys.map(qaStageLabel), [{ label: isEs?'Trabajos':'Jobs', data: stageKeys.map(function(k){ return a.jobsByStage[k]; }), backgroundColor: QA_PALETTE[0] }]);
+  }
+  // Top issues
+  var issueTop = _qaTopN(a.ncrByIssue, 8);
+  if (issueTop.length) _qaHBar('qad-issues-canvas', issueTop.map(function(e){return e[0];}), [{ label: 'NCRs', data: issueTop.map(function(e){return e[1];}), backgroundColor: QA_PALETTE[0] }]);
+  // Top root causes
+  var rcTop = _qaTopN(a.rootCauses, 8);
+  if (rcTop.length) _qaHBar('qad-rootcause-canvas', rcTop.map(function(e){return e[0];}), [{ label: isEs?'Ocurrencias':'Occurrences', data: rcTop.map(function(e){return e[1];}), backgroundColor: QA_PALETTE[5] }]);
+  // Dispositions
+  var dispTop = _qaTopN(a.ncrByDisposition, 16);
+  if (dispTop.length) _qaHBar('qad-disp-canvas', dispTop.map(function(e){return e[0];}), [{ label: 'NCRs', data: dispTop.map(function(e){return e[1];}), backgroundColor: QA_PALETTE[6] }]);
+  // Customer
+  var custTop = _qaTopN(a.ncrByCustomer, 8);
+  if (custTop.length) _qaHBar('qad-customer-canvas', custTop.map(function(e){return e[0];}), [{ label: isEs?'RNC':'NCR Count', data: custTop.map(function(e){return e[1];}), backgroundColor: QA_PALETTE[8] }]);
+  // Operator workload
+  var opTop = _qaTopN(a.byOperator, 10);
+  if (opTop.length) _qaHBar('qad-operator-canvas', opTop.map(function(e){return e[0];}), [{ label: isEs?'Registros':'Records', data: opTop.map(function(e){return e[1];}), backgroundColor: QA_PALETTE[9] }]);
+}
+
+function _qaExportStatus(msg, isErr){
+  var el = document.getElementById('qad-export-status');
+  if (el) { el.textContent = msg; el.style.color = isErr ? 'var(--red)' : 'var(--text-secondary)'; }
+}
+// Same CSV this screen's data already powers Records' own "Export Shown" —
+// reuses _downloadRecordsCSV verbatim (same column order, same RCA-coverage
+// toast) so nothing here diverges from the legacy format Records exports.
+function qaExportCSV(){
+  if (!_qaLast || !_qaLast.list.length){ _qaExportStatus(isEsLang() ? 'No hay registros que coincidan para exportar.' : 'No matching records to export.', true); return; }
+  _downloadRecordsCSV(_qaLast.list, 'QA_Data_' + Date.now() + '.csv');
+  _qaExportStatus(isEsLang() ? ('Exportado: '+_qaLast.list.length+' registros.') : ('Exported: '+_qaLast.list.length+' records.'));
+}
+
+function qaExportExcel(){
+  if (!_qaLast || !_qaLast.list.length){ _qaExportStatus(isEsLang() ? 'No hay registros que coincidan para exportar.' : 'No matching records to export.', true); return; }
+  var isEs = isEsLang();
+  _qaExportStatus(isEs ? 'Cargando Excel…' : 'Loading Excel…');
+  _loadScriptOnce(QA_XLSX_CDN).then(function(){
+    var a = _qaLast.analytics, list = _qaLast.list;
+    var wb = XLSX.utils.book_new();
+
+    // Sheet 1 — Executive Summary
+    var f = _getSectionFilters('qadata');
+    var summaryRows = [
+      ['QA Data & Export — ' + (isEs?'Resumen Ejecutivo':'Executive Summary')], [],
+      [(isEs?'Rango de fechas':'Date range'), (f.dateFrom||(isEs?'Cualquiera':'Any')) + ' – ' + (f.dateTo||(isEs?'Cualquiera':'Any'))],
+      [(isEs?'Filtros aplicados':'Filters applied'), 'Type=' + _qaFilters.type + (f.stations.length?(', Station='+f.stations.join('|')):'') + (f.cad.length?(', CAD='+f.cad.join('|')):'') + (f.operator.length?(', Operator='+f.operator.join('|')):'') + (f.customer.length?(', Customer='+f.customer.join('|')):'') + (_qaFilters.search?(', Search="'+_qaFilters.search+'"'):'')],
+      [],
+      [(isEs?'Trabajos Totales':'Total Jobs'), a.totalJobs],
+      [(isEs?'RNC Totales':'Total NCRs'), a.totalNCRs],
+      [(isEs?'RNC Abiertos':'Open NCRs'), a.openNCRs],
+      [(isEs?'RNC Cerrados':'Closed NCRs'), a.closedNCRs],
+      [(isEs?'Borradores de RNC':'NCR Drafts'), a.ncrDrafts.length],
+      [(isEs?'Registros ACR':'RCA Records'), a.totalRCAs],
+      [(isEs?'Trabajos Envío Aprobado':'Shipping Approved Jobs'), a.shippingApprovedJobs],
+      [(isEs?'Trabajos En Espera':'Jobs On Hold'), a.onHold],
+      [(isEs?'Trabajos Pend. Calidad':'QA Pending Jobs'), a.qaPending],
+      [(isEs?'Trabajos Listos p/Liberar':'Ready for Release Jobs'), a.readyForRelease],
+      [], [(isEs?'Registros por Estación':'Records by Station')], ['Station','Jobs','NCRs','RCAs']
+    ];
+    Object.keys(a.byStation).forEach(function(st){ var s = a.byStation[st]; summaryRows.push([stationLabel(st), s.jobs, s.ncrs, s.rcas]); });
+    summaryRows.push([], [(isEs?'Estado de RNC':'NCR Status')], [(isEs?'Estado':'Status'), (isEs?'Cantidad':'Count')]);
+    Object.keys(a.ncrByStatus).forEach(function(s){ if (a.ncrByStatus[s]) summaryRows.push([ncrStatusLabel(s), a.ncrByStatus[s]]); });
+    summaryRows.push([], [(isEs?'Problemas de Calidad (RNC)':'NCR Issues')], [(isEs?'Categoría':'Category'), (isEs?'Cantidad':'Count')]);
+    _qaTopN(a.ncrByIssue, 999).forEach(function(e){ summaryRows.push(e); });
+    summaryRows.push([], [(isEs?'Disposiciones de RNC':'NCR Dispositions')], [(isEs?'Disposición':'Disposition'), (isEs?'Cantidad':'Count')]);
+    _qaTopN(a.ncrByDisposition, 999).forEach(function(e){ summaryRows.push(e); });
+    summaryRows.push([], [(isEs?'Causas Raíz':'Root Causes')], [(isEs?'Causa Raíz':'Root Cause'), (isEs?'Cantidad':'Count')]);
+    _qaTopN(a.rootCauses, 999).forEach(function(e){ summaryRows.push(e); });
+    var ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+    XLSX.utils.book_append_sheet(wb, ws1, isEs?'Resumen Ejecutivo':'Executive Summary');
+
+    // Sheet 2 — Jobs
+    var jobRows = a.jobs.map(function(r){
+      var raw = r.raw;
+      return {
+        Date: r.ts, 'Job #': r.jobNumber, 'Product / Form ID': r.product, Customer: r.customer,
+        Station: stationLabel(r.station), 'Process / Status': processLabel(raw.process) || raw.process || '',
+        Operator: raw.operatorName || '', 'CAD Style': _currentCadStyle(raw),
+        'Shipping Approved': raw.shippingApproved ? (isEs?'Sí':'Yes') : (isEs?'No':'No'),
+        'Finished Date': raw.finishedAt || '', 'Shipping Approved Date': raw.shippingApprovedAt || '',
+        'Qty to Execute': raw.qtyToExecute != null ? raw.qtyToExecute : '',
+        'Final Qty': (raw.gluerFinalQty != null ? raw.gluerFinalQty : (raw.finalQty != null ? raw.finalQty : ''))
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(jobRows), isEs?'Trabajos':'Jobs');
+
+    // Sheet 3 — NCRs
+    var ncrRows = a.ncrs.map(function(r){
+      var raw = r.raw;
+      return {
+        'NCR ID': raw.ncrId || '', 'Created Date': raw.createdAt || '', 'Closed Date': raw.closedAt || '',
+        'Job #': r.jobNumber, Product: r.product, Customer: r.customer, Station: stationLabel(r.station),
+        Status: ncrStatusLabel(raw.status || 'Open'), 'Reported By': raw.reportedBy || '',
+        'Quality Issue Category': raw.issueCategory || '', 'Issue Detail': raw.issue || '',
+        'Root Cause': raw.rootCause || '', 'Corrective Action': raw.correctiveAction || '',
+        Disposition: raw.disposition || '', 'Closing Note': raw.dispositionNote || '', 'Dispositioned By': raw.dispositionedBy || ''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ncrRows), 'NCRs');
+
+    // Sheet 4 — RCAs
+    var rcaRows = a.rcas.map(function(r){
+      var raw = r.raw;
+      return {
+        'Job #': r.jobNumber, 'Product ID': raw.productNumber || '', Customer: r.customer, Station: stationLabel(r.station),
+        'QA Tech': raw.qaTech || '', 'Date Found': raw.dateFound || '', Status: rcaStatusLabel(raw.status),
+        'Quality Issue': raw.issueCategory || '', 'Root Cause': raw.rootCause || '', 'Root Cause Summary': raw.rcSummary || '',
+        'Corrective Action': raw.correctiveAction || '', Disposition: raw.disposition || '', 'Approval Date': raw.approvalDate || '',
+        'Close Date': raw.closeDate || '', 'Close Notes': raw.closeNotes || '', 'Closing QA Tech': raw.closeQATech || ''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rcaRows), 'RCAs');
+
+    // Sheet 5 — All Records (normalized)
+    var allRows = list.map(function(r){
+      var raw = r.raw || {};
+      return { Type: r.type.toUpperCase(), 'Job #': r.jobNumber, 'Product / Form ID': r.product, Customer: r.customer,
+        Station: stationLabel(r.station), Status: r.status, Date: r.ts, 'Operator / QA Tech': raw.operatorName || raw.qaTech || '' };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allRows), isEs?'Todos los Registros':'All Records');
+
+    XLSX.writeFile(wb, 'QA_Data_Export_' + Date.now() + '.xlsx');
+    if (a.rcas.length) _qaExportStatus(isEs
+      ? ('✅ Excel exportado. Nota: las filas ACR solo incluyen lo que este dispositivo ha visto — vea "RCA Backups" en Drive para el historial completo.')
+      : ('✅ Excel exported. Note: RCA rows only cover what this device has seen — see "RCA Backups" in Drive for the complete history.'));
+    else _qaExportStatus(isEs ? '✅ Excel exportado.' : '✅ Excel exported.');
+  }).catch(function(err){
+    _qaExportStatus((isEs?'❌ Error: ':'❌ Error: ') + err.message, true);
   });
-  var entries = Object.keys(counts).map(function(k){ return [k, counts[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
-  var total = list.length;
-  h += '<div class="card"><canvas id="ncr-pie-canvas" width="340" height="340"></canvas>' +
-    '<div class="ncr-legend">' + entries.map(function(e,i){
-      var pct = Math.round(e[1]/total*100);
-      return '<div class="ncr-legend-row"><span class="ncr-legend-swatch" style="background:'+NCR_PIE_COLORS[i%NCR_PIE_COLORS.length]+'"></span>' +
-        '<span style="flex:1;">'+_ncrEsc(e[0])+'</span><b>'+e[1]+' ('+pct+'%)</b></div>';
-    }).join('') + '</div></div>';
-  el.innerHTML = h;
-  var canvas = document.getElementById('ncr-pie-canvas');
-  var ctx = canvas.getContext('2d');
-  var cx=170, cy=170, r=140, start=-Math.PI/2;
-  entries.forEach(function(e,i){
-    var slice = e[1]/total * Math.PI*2;
-    ctx.beginPath(); ctx.moveTo(cx,cy);
-    ctx.arc(cx,cy,r,start,start+slice);
-    ctx.closePath();
-    ctx.fillStyle = NCR_PIE_COLORS[i%NCR_PIE_COLORS.length];
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
-    start += slice;
+}
+
+function qaExportPowerPoint(){
+  if (!_qaLast || !_qaLast.list.length){ _qaExportStatus(isEsLang() ? 'No hay registros que coincidan para exportar.' : 'No matching records to export.', true); return; }
+  var isEs = isEsLang();
+  _qaExportStatus(isEs ? 'Cargando PowerPoint…' : 'Loading PowerPoint…');
+  _loadScriptOnce(QA_PPTXGENJS_CDN).then(function(){
+    var a = _qaLast.analytics;
+    var pptx = new PptxGenJS();
+    pptx.defineLayout({ name: 'QA16x9', width: 13.33, height: 7.5 });
+    pptx.layout = 'QA16x9';
+    var BLACK = '0A0A0A', PINK = 'FF1F8F', WHITE = 'FFFFFF', GRAY = 'F5F5F3', GREEN = '10B981', AMBER = 'E8A020', RED = 'C8393A', NEUTRAL = '6B7280';
+
+    // ── Slide 1: QA PERFORMANCE & QUALITY SUMMARY ──
+    var s1 = pptx.addSlide();
+    s1.background = { color: GRAY };
+    s1.addShape('rect', { x:0, y:0, w:13.33, h:0.9, fill: { color: BLACK } });
+    s1.addText('QA PERFORMANCE & QUALITY SUMMARY', { x:0.4, y:0.18, w:12.5, h:0.55, fontSize:22, bold:true, color:WHITE, fontFace:'Arial' });
+
+    var kpis = [
+      [isEs?'TRABAJOS':'JOBS', a.totalJobs, PINK],
+      [isEs?'RNC TOTALES':'TOTAL NCRs', a.totalNCRs, PINK],
+      [isEs?'RNC ABIERTOS':'OPEN NCRs', a.openNCRs, RED],
+      [isEs?'RNC CERRADOS':'CLOSED NCRs', a.closedNCRs, GREEN],
+      [isEs?'REGISTROS ACR':'RCA RECORDS', a.totalRCAs, NEUTRAL],
+      [isEs?'ENVÍO APROBADO':'SHIPPING APPROVED', a.shippingApprovedJobs, GREEN]
+    ];
+    var kpiW = 2.05, kpiGap = 0.12, kx = 0.4;
+    kpis.forEach(function(k){
+      s1.addShape('roundRect', { x:kx, y:1.1, w:kpiW, h:1.15, fill:{color:WHITE}, line:{color:'E0E0E0', width:1}, rectRadius:0.08 });
+      s1.addText(String(k[1]), { x:kx, y:1.18, w:kpiW, h:0.55, align:'center', fontSize:26, bold:true, color:k[2], fontFace:'Arial' });
+      s1.addText(k[0], { x:kx, y:1.72, w:kpiW, h:0.4, align:'center', fontSize:9, bold:true, color:NEUTRAL, fontFace:'Arial' });
+      kx += kpiW + kpiGap;
+    });
+
+    // Middle: record mix donut + records by station bar
+    var mixLabels = [isEs?'Trabajos':'Jobs','NCR','ACR'], mixVals = [a.recordMix.jobs, a.recordMix.ncrs, a.recordMix.rcas];
+    s1.addText(isEs?'Composición de Registros':'Record Mix', { x:0.4, y:2.55, w:3.6, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (mixVals.some(function(v){return v>0;})) {
+      s1.addChart(pptx.ChartType.doughnut, [{ name:isEs?'Registros':'Records', labels:mixLabels, values:mixVals }],
+        { x:0.4, y:2.85, w:3.6, h:2.9, chartColors:[PINK, RED, NEUTRAL], showLegend:true, legendPos:'b', showPercent:true });
+    }
+    var stKeys = Object.keys(a.byStation);
+    s1.addText(isEs?'Registros por Estación':'Records by Station', { x:4.3, y:2.55, w:4.3, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (stKeys.length) {
+      s1.addChart(pptx.ChartType.bar, [
+        { name:isEs?'Trabajos':'Jobs', labels:stKeys.map(stationLabel), values:stKeys.map(function(s){return a.byStation[s].jobs;}) },
+        { name:'NCR', labels:stKeys.map(stationLabel), values:stKeys.map(function(s){return a.byStation[s].ncrs;}) }
+      ], { x:4.3, y:2.85, w:4.3, h:2.9, barDir:'bar', chartColors:[PINK, RED], showLegend:true, legendPos:'b' });
+    }
+    var statusKeys = ['Open','In Progress','Closed'].filter(function(s){ return a.ncrByStatus[s]; });
+    s1.addText(isEs?'Estado de RNC':'NCR Status', { x:8.9, y:2.55, w:4.0, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (statusKeys.length) {
+      s1.addChart(pptx.ChartType.doughnut, [{ name:'NCR', labels:statusKeys.map(ncrStatusLabel), values:statusKeys.map(function(s){return a.ncrByStatus[s];}) }],
+        { x:8.9, y:2.85, w:4.0, h:2.9, chartColors:[RED, AMBER, GREEN], showLegend:true, legendPos:'b', showPercent:true });
+    }
+
+    var issueTop = _qaTopN(a.ncrByIssue, 8);
+    s1.addText(isEs?'Principales Problemas de Calidad':'Top Quality Issues', { x:0.4, y:5.9, w:6.2, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (issueTop.length) {
+      s1.addChart(pptx.ChartType.bar, [{ name:'NCRs', labels:issueTop.map(function(e){return e[0];}), values:issueTop.map(function(e){return e[1];}) }],
+        { x:0.4, y:6.2, w:6.2, h:1.1, barDir:'bar', chartColors:[PINK], showLegend:false });
+    }
+    var stageOrder = ['makeReady','production','inspection','qaPending','readyForRelease','onHold','secondPassReady','finished','shippingApproved'];
+    var stageKeys = stageOrder.filter(function(k){ return a.jobsByStage[k]; });
+    s1.addText(isEs?'Etapas Actuales de Trabajo':'Current Job Stages', { x:6.9, y:5.9, w:6.0, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (stageKeys.length) {
+      s1.addChart(pptx.ChartType.bar, [{ name:isEs?'Trabajos':'Jobs', labels:stageKeys.map(qaStageLabel), values:stageKeys.map(function(k){return a.jobsByStage[k];}) }],
+        { x:6.9, y:6.2, w:6.0, h:1.1, barDir:'bar', chartColors:[GREEN], showLegend:false });
+    }
+
+    // ── Slide 2: QUALITY DETAIL ──
+    var s2 = pptx.addSlide();
+    s2.background = { color: GRAY };
+    s2.addShape('rect', { x:0, y:0, w:13.33, h:0.9, fill:{ color: BLACK } });
+    s2.addText(isEs?'DETALLE DE CALIDAD':'QUALITY DETAIL', { x:0.4, y:0.18, w:12.5, h:0.55, fontSize:22, bold:true, color:WHITE, fontFace:'Arial' });
+
+    if (stKeys.length) {
+      s2.addText(isEs?'RNC por Estación':'NCRs by Station', { x:0.4, y:1.1, w:4.2, h:0.3, fontSize:12, bold:true, color:BLACK });
+      s2.addChart(pptx.ChartType.bar, [{ name:'NCR', labels:stKeys.map(stationLabel), values:stKeys.map(function(s){return a.byStation[s].ncrs;}) }],
+        { x:0.4, y:1.4, w:4.2, h:2.6, barDir:'bar', chartColors:[PINK], showLegend:false });
+    }
+    var rcTop = _qaTopN(a.rootCauses, 8);
+    s2.addText(isEs?'Principales Causas Raíz':'Top Root Causes', { x:4.9, y:1.1, w:4.0, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (rcTop.length) {
+      s2.addChart(pptx.ChartType.bar, [{ name:isEs?'Ocurrencias':'Occurrences', labels:rcTop.map(function(e){return e[0];}), values:rcTop.map(function(e){return e[1];}) }],
+        { x:4.9, y:1.4, w:4.0, h:2.6, barDir:'bar', chartColors:[NEUTRAL], showLegend:false });
+    }
+    var dispTop = _qaTopN(a.ncrByDisposition, 10);
+    s2.addText(isEs?'Disposiciones de RNC':'NCR Dispositions', { x:9.15, y:1.1, w:3.8, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (dispTop.length) {
+      s2.addChart(pptx.ChartType.bar, [{ name:'NCR', labels:dispTop.map(function(e){return e[0];}), values:dispTop.map(function(e){return e[1];}) }],
+        { x:9.15, y:1.4, w:3.8, h:2.6, barDir:'bar', chartColors:[AMBER], showLegend:false });
+    }
+    var custTop = _qaTopN(a.ncrByCustomer, 8);
+    s2.addText(isEs?'RNC por Cliente':'NCRs by Customer', { x:0.4, y:4.15, w:6.2, h:0.3, fontSize:12, bold:true, color:BLACK });
+    if (custTop.length) {
+      s2.addChart(pptx.ChartType.bar, [{ name:isEs?'RNC':'NCR Count', labels:custTop.map(function(e){return e[0];}), values:custTop.map(function(e){return e[1];}) }],
+        { x:0.4, y:4.45, w:6.2, h:2.8, barDir:'bar', chartColors:[PINK], showLegend:false });
+    }
+    if (a.rcas.length){
+      s2.addText(isEs
+        ? 'Los análisis de ACR reflejan los registros de ACR disponibles en este dispositivo.'
+        : 'RCA analytics reflect RCA records available to this device.',
+        { x:6.9, y:4.45, w:6.0, h:0.6, fontSize:10, italic:true, color:NEUTRAL });
+    }
+
+    // ── Optional Slide 3: FILTERED DATA SUMMARY ──
+    var s3 = pptx.addSlide();
+    s3.background = { color: GRAY };
+    s3.addShape('rect', { x:0, y:0, w:13.33, h:0.9, fill:{ color: BLACK } });
+    s3.addText(isEs?'RESUMEN DE DATOS FILTRADOS':'FILTERED DATA SUMMARY', { x:0.4, y:0.18, w:12.5, h:0.55, fontSize:22, bold:true, color:WHITE, fontFace:'Arial' });
+    var tableRows = [[
+      { text:'Type', options:{bold:true,fill:{color:BLACK},color:WHITE} },
+      { text:'Job #', options:{bold:true,fill:{color:BLACK},color:WHITE} },
+      { text:isEs?'Cliente':'Customer', options:{bold:true,fill:{color:BLACK},color:WHITE} },
+      { text:isEs?'Estación':'Station', options:{bold:true,fill:{color:BLACK},color:WHITE} },
+      { text:isEs?'Estado':'Status', options:{bold:true,fill:{color:BLACK},color:WHITE} },
+      { text:isEs?'Fecha':'Date', options:{bold:true,fill:{color:BLACK},color:WHITE} }
+    ]];
+    _qaLast.list.slice(0, 24).forEach(function(r){
+      tableRows.push([r.type.toUpperCase(), r.jobNumber||'', r.customer||'', stationLabel(r.station)||'', r.status||'', r.ts||'']);
+    });
+    s3.addTable(tableRows, { x:0.4, y:1.1, w:12.5, fontSize:9, border:{type:'solid', color:'D1D5DB', pt:0.5}, autoPage:false });
+    if (_qaLast.list.length > 24) s3.addText((isEs?'Mostrando 24 de ':'Showing 24 of ') + _qaLast.list.length + (isEs?' — vea Excel para el conjunto completo.':' — see Excel for the full set.'), { x:0.4, y:6.9, w:12.5, h:0.3, fontSize:10, italic:true, color:NEUTRAL });
+
+    pptx.writeFile({ fileName: 'QA_Dashboard_' + Date.now() + '.pptx' });
+    _qaExportStatus(isEs ? '✅ PowerPoint exportado.' : '✅ PowerPoint exported.');
+  }).catch(function(err){
+    _qaExportStatus((isEs?'❌ Error: ':'❌ Error: ') + err.message, true);
   });
 }
 
