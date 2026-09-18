@@ -2077,6 +2077,25 @@ try {
   </div>
 </div>
 
+<!-- Per-product schedule Product ID picker — multi-product jobs pulled from
+     the schedule bridge. Shows once per product's inspect page, offering
+     whichever Product IDs the schedule listed for this job that haven't
+     already been assigned to an earlier product on it — so Product ID gets
+     picked from the real schedule instead of retyped by hand each time.
+     See _maybeOfferProductIdPicker() / loadProduct(). -->
+<div class="continue-overlay" id="productIdPickerOverlay" onclick="if(event.target===this)closeProductIdPicker()">
+  <div class="continue-modal" style="max-width:420px;">
+    <div class="continue-modal-head">
+      <div style="font-size:17px;font-weight:800;">📋 <span data-en>Pick Product ID</span><span data-es>Elegir ID de Producto</span></div>
+      <button class="continue-modal-close" onclick="closeProductIdPicker()">✕</button>
+    </div>
+    <div class="continue-modal-body">
+      <div style="font-size:14.5px;color:var(--text-secondary);margin-bottom:12px;" id="product-id-picker-heading"></div>
+      <div id="product-id-picker-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Layout — hidden until Google Sign-In succeeds (see google-signin-overlay
      above); shown by _onGoogleSignIn(). Not just cosmetic: this is what stops
      a shared tablet from displaying whatever job data a previous person's
@@ -2694,6 +2713,7 @@ try {
               </div>
             </div>
             <button class="sig-clear" onclick="clearSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
+            <button type="button" class="field-confirm-btn" id="confirm-setup-sig-btn" onclick="confirmSetupSignature()" style="margin-top:8px;">✓</button>
           </div>
         </div>
 
@@ -2808,6 +2828,7 @@ try {
             </div>
           </div>
           <button class="sig-clear" onclick="clearInspectSignature()"><span data-en>Clear</span><span data-es>Borrar</span></button>
+          <button type="button" class="field-confirm-btn" id="confirm-inspect-sig-btn" onclick="confirmInspectSignature()" style="margin-top:8px;">✓</button>
         </div>
 
         <div class="card">
@@ -12198,6 +12219,14 @@ async function beginInspection() {
   // Multi-product: go to inspect screen
   CHECKLIST = getChecklist(station);
 
+  // The schedule bridge (_scheduleData) may list every Product ID the
+  // schedule already knows about for this job — stashed here once so each
+  // product's inspect page can offer whichever of those numbers haven't
+  // already been assigned to an earlier product, instead of the operator
+  // retyping them from a paper copy of the schedule. Empty for a job that
+  // wasn't pulled from the schedule (or whose schedule entry has no
+  // products listed) — _maybeOfferProductIdPicker() just no-ops then.
+  var _schedEntryForPool = _scheduleData && _scheduleData.jobs && _scheduleData.jobs[job];
   jobState = {
     jobNumber:  job,
     station:    station,
@@ -12208,7 +12237,8 @@ async function beginInspection() {
     count:      count,
     entries:    [],
     current:    0,
-    startTime:  new Date()
+    startTime:  new Date(),
+    scheduleProductPool: (_schedEntryForPool && _schedEntryForPool.products) ? _schedEntryForPool.products.slice() : []
   };
 
   buildTabs();
@@ -12317,7 +12347,9 @@ function handleSetupPhoto(input) {
     setPhotoText('setup-photo-text', 'captured');
     input.value = '';
     // Auto-advance (Bindery/Pressroom Cutter only) — attaching a photo is
-    // itself the "done" signal, no confirm button needed for it.
+    // itself the "done" signal for THIS field, so it jumps straight to
+    // Signature; Signature itself still gets its own ✓ Confirm button
+    // (#confirm-setup-sig-btn) since signing isn't a single discrete action.
     if (_isAutoAdvanceStation()) _scrollToField(document.getElementById('sig-canvas'));
   };
   reader.readAsDataURL(file);
@@ -13122,9 +13154,12 @@ function _scrollToField(el) {
    typing = might still want to scan; done typing = ready to confirm).
    Picking a Station or a product-count button, or attaching a photo,
    already IS that "done" signal — those auto-advance straight from their
-   own existing handler below instead. The signature field needs no confirm
-   button of its own: it sits immediately above the Submit/Next button, so
-   there's nothing further to jump to.
+   own existing handler below instead. The signature field gets the same
+   "✓" button too (re-added 2026-09-18 — briefly removed on the theory that
+   Submit/Next being right below made it redundant, but the operator wants
+   it back as the explicit "I'm done signing" tap that jumps to Submit/Next),
+   sitting standalone under Clear rather than swapped in for a scan button
+   since signing has none.
 ══════════════════════════════════ */
 function _isAutoAdvanceStation() {
   // #setup-station's live value is checked FIRST, not jobState.station —
@@ -13154,8 +13189,11 @@ function _updateSetupAutoAdvanceUI(station) {
     if (confirmEl) confirmEl.style.display = on ? 'flex' : 'none';
     if (scanEl) scanEl.style.display = on ? 'none' : 'flex';
   });
+  // Signature has no scan button to swap with — just shown/hidden on its own.
+  var sigConfirmEl = document.getElementById('confirm-setup-sig-btn');
+  if (sigConfirmEl) sigConfirmEl.style.display = on ? 'flex' : 'none';
 }
-// Same idea for the INSPECT screen's confirm button — called from
+// Same idea for the INSPECT screen's confirm buttons — called from
 // loadProduct, since that's the equivalent per-product "screen is now
 // showing" moment on that side of the flow.
 function _updateInspectAutoAdvanceUI() {
@@ -13164,6 +13202,8 @@ function _updateInspectAutoAdvanceUI() {
   var scanEl = document.getElementById('inspect-product-scan-btn');
   if (confirmEl) confirmEl.style.display = on ? 'flex' : 'none';
   if (scanEl) scanEl.style.display = on ? 'none' : 'flex';
+  var sigConfirmEl = document.getElementById('confirm-inspect-sig-btn');
+  if (sigConfirmEl) sigConfirmEl.style.display = on ? 'flex' : 'none';
 }
 
 function confirmSetupJobNumber() {
@@ -13176,10 +13216,68 @@ function confirmSetupProduct() {
   if (!el || !el.value.trim()) { showAlert('Enter the product ID first.'); _scrollToField(el); return; }
   _scrollToField(document.getElementById('setup-photo-card'));
 }
+function confirmSetupSignature() {
+  if (!sigHasMark) { showAlert('Please sign first.'); _scrollToField(document.getElementById('sig-canvas')); return; }
+  _scrollToField(document.getElementById('setup-begin-btn'));
+}
 function confirmInspectProduct() {
   var el = document.getElementById('product-id');
   if (!el || !el.value.trim()) { showAlert('Enter the product ID first.'); _scrollToField(el); return; }
   _scrollToField(document.getElementById('photo-area'));
+}
+function confirmInspectSignature() {
+  if (!iSigHasMark) { showAlert('Please sign first.'); _scrollToField(document.getElementById('inspect-sig-canvas')); return; }
+  _scrollToField(document.getElementById('next-btn'));
+}
+
+/* ══════════════════════════════════
+   PER-PRODUCT SCHEDULE PRODUCT ID PICKER (added 2026-09-18)
+   A multi-product job pulled from the schedule bridge knows every Product ID
+   the schedule listed for it (jobState.scheduleProductPool, stashed at
+   beginInspection() — see there). Offers whichever of those haven't already
+   been assigned to an earlier product ON THIS SAME JOB, once per product's
+   inspect page, instead of the operator retyping them from a paper copy.
+   Empty pool (job wasn't pulled from the schedule, or its schedule entry
+   listed no products) — every function here just no-ops.
+══════════════════════════════════ */
+function _maybeOfferProductIdPicker(idx) {
+  var pool = jobState.scheduleProductPool;
+  if (!pool || !pool.length) return;
+  var saved = jobState.entries[idx];
+  if (saved && saved.productId) return; // already answered — tabbing back, don't re-nag
+  var used = jobState.entries.filter(function(e, i) { return i !== idx && e && e.productId; }).map(function(e) { return e.productId; });
+  var remaining = pool.filter(function(p) { return used.indexOf(p) === -1; });
+  if (!remaining.length) return;
+  // Exactly one candidate left isn't a real choice — fill it straight in,
+  // same as the analogous Gluer sequential-batch picker does.
+  if (remaining.length === 1) { _applyPickedProductId(remaining[0]); return; }
+  _openProductIdPicker(idx, remaining);
+}
+function _applyPickedProductId(product) {
+  var el = document.getElementById('product-id');
+  if (!el) return;
+  el.value = product;
+  if (_isAutoAdvanceStation()) confirmInspectProduct();
+}
+function _openProductIdPicker(idx, remaining) {
+  var isEs = isEsLang();
+  document.getElementById('product-id-picker-heading').textContent =
+    (isEs ? 'Trabajo ' : 'Job ') + jobState.jobNumber +
+    (isEs ? ' — elija el ID de producto para el Producto ' : ' — pick the Product ID for Product ') + (idx + 1) + ':';
+  var listEl = document.getElementById('product-id-picker-list');
+  listEl.innerHTML = '';
+  remaining.forEach(function(p) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'job-picker-row';
+    b.textContent = p;
+    b.onclick = function(){ closeProductIdPicker(); _applyPickedProductId(p); };
+    listEl.appendChild(b);
+  });
+  document.getElementById('productIdPickerOverlay').classList.add('open');
+}
+function closeProductIdPicker() {
+  document.getElementById('productIdPickerOverlay').classList.remove('open');
 }
 
 /* ── Collapsible checklist component ──
@@ -13442,6 +13540,7 @@ function loadProduct(idx) {
   if (_isAutoAdvanceStation()) {
     setTimeout(function(){ _scrollToField(document.getElementById('product-id')); }, 50);
   }
+  _maybeOfferProductIdPicker(idx);
 }
 
 function getToggleVal(itemId) {
@@ -13535,9 +13634,11 @@ function handlePhoto(input) {
     setPhotoText('photo-text', 'captured');
     input.value = '';
     // Auto-advance (Bindery/Pressroom Cutter only) — attaching a photo is
-    // itself the "done" signal, no confirm button needed for it. This
-    // screen only ever shows with jobState.multiSig true (count > 1), but
-    // guard anyway rather than assume.
+    // itself the "done" signal for THIS field, so it jumps straight to
+    // Signature (which gets its own ✓ Confirm button, see
+    // #confirm-inspect-sig-btn, since signing isn't a single discrete
+    // action). This screen only ever shows with jobState.multiSig true
+    // (count > 1), but guard anyway rather than assume.
     if (_isAutoAdvanceStation() && jobState.multiSig) _scrollToField(document.getElementById('inspect-sig-canvas'));
   };
   reader.readAsDataURL(file);
@@ -13781,7 +13882,8 @@ function saveDraft() {
         customer: jobState.customer,   product: jobState.product,
         signature: jobState.signature, multiSig: jobState.multiSig,
         count: jobState.count,         entries: jobState.entries ? jobState.entries.slice() : [],
-        current: jobState.current
+        current: jobState.current,
+        scheduleProductPool: jobState.scheduleProductPool ? jobState.scheduleProductPool.slice() : []
       };
       draft.jobNumber = jobState.jobNumber;
       draft.station   = jobState.station;
