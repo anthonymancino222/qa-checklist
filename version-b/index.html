@@ -2555,7 +2555,7 @@ try {
           <div class="card">
             <div class="card-label"><span data-en>Product ID</span><span data-es>ID de Producto</span> <span class="req">*</span></div>
             <div class="input-row">
-            <input id="veritiv-product" class="input" type="text" inputmode="numeric" placeholder="Enter Product ID" data-ph-en="Enter Product ID" data-ph-es="Ingrese ID de Producto" autocomplete="off">
+            <input id="veritiv-product" class="input" type="text" inputmode="numeric" placeholder="Enter Product ID" data-ph-en="Enter Product ID" data-ph-es="Ingrese ID de Producto" autocomplete="off" onfocus="_maybeOfferSetupProductPicker('veritiv-product')">
             <button class="scan-btn" onclick="openScanner('veritiv-product','alnum','Product ID')" title="Scan printed number or barcode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
@@ -2670,7 +2670,7 @@ try {
                  the JS that sets it updated too; tracked as a follow-up. -->
             <div class="card-label" id="product-field-label">Product / description</div>
             <div class="input-row">
-            <input id="setup-product" class="input" type="text" placeholder="e.g. Folding carton 4×6" data-ph-en="e.g. Folding carton 4×6" data-ph-es="ej. Caja plegable 4×6" autocomplete="off">
+            <input id="setup-product" class="input" type="text" placeholder="e.g. Folding carton 4×6" data-ph-en="e.g. Folding carton 4×6" data-ph-es="ej. Caja plegable 4×6" autocomplete="off" onfocus="_maybeOfferSetupProductPicker('setup-product')">
             <button class="scan-btn" id="setup-product-scan-btn" onclick="openScanner('setup-product','alnum',document.getElementById('product-field-label').textContent)" title="Scan printed number or barcode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
@@ -2805,7 +2805,7 @@ try {
                the same reason, tracked with it as a follow-up. -->
           <div class="card-label" id="inspect-product-label">Product ID / SKU</div>
           <div class="input-row">
-          <input id="product-id" class="input" type="text" placeholder="Enter product ID or SKU" data-ph-en="Enter product ID or SKU" data-ph-es="Ingrese ID de producto o SKU" autocomplete="off">
+          <input id="product-id" class="input" type="text" placeholder="Enter product ID or SKU" data-ph-en="Enter product ID or SKU" data-ph-es="Ingrese ID de producto o SKU" autocomplete="off" onfocus="_maybeOfferProductIdPicker(jobState.current, {force:true})">
           <button class="scan-btn" id="inspect-product-scan-btn" onclick="openScanner('product-id','alnum',document.getElementById('inspect-product-label').textContent)" title="Scan printed number or barcode">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/>
@@ -10426,6 +10426,11 @@ function pickCount(btn, n) {
   if (n !== 0 && _isAutoAdvanceStation()) {
     _scrollToField(document.getElementById(isSingle ? 'setup-product' : 'setup-begin-btn'));
   }
+  // Schedule Product ID picker — unlike the auto-advance scroll above, this
+  // isn't station-scoped: it only depends on whether the job has schedule
+  // data, so it offers itself here (the moment the Product field becomes
+  // relevant, i.e. count settles on 1) for every station.
+  if (n !== 0 && isSingle) _maybeOfferSetupProductPicker('setup-product');
 }
 
 /* ══════════════════════════════════
@@ -13260,32 +13265,52 @@ function confirmInspectSignature() {
 }
 
 /* ══════════════════════════════════
-   PER-PRODUCT SCHEDULE PRODUCT ID PICKER (added 2026-09-18)
-   A multi-product job pulled from the schedule bridge knows every Product ID
-   the schedule listed for it (jobState.scheduleProductPool, stashed at
-   beginInspection() — see there). Offers whichever of those haven't already
-   been assigned to an earlier product ON THIS SAME JOB, once per product's
-   inspect page, instead of the operator retyping them from a paper copy.
-   Empty pool (job wasn't pulled from the schedule, or its schedule entry
-   listed no products) — every function here just no-ops.
+   SCHEDULE PRODUCT ID PICKER (added 2026-09-18, extended 2026-09-19)
+   A job pulled from the schedule bridge knows every Product ID the
+   schedule listed for it. This offers those as a tappable popup instead of
+   the operator retyping them from a paper copy — on EVERY station's
+   Product ID field, not just Bindery/Pressroom Cutter (that scoping only
+   ever applied to the auto-advance checkmarks/auto-scroll, a separate
+   feature — this one is tied to whether the JOB has schedule data, not to
+   which station it's for). Fires automatically the moment a field is
+   reached (multi-product: once per product's inspect page in loadProduct;
+   single-product: _applyScheduleJobPrefill at job-pick time) AND again on
+   focus/tap into the field itself, so it's always re-invokable if it was
+   missed, dismissed, or the operator wants to reconsider a pick — the
+   on-focus path uses force:true to skip the "already answered" guard that
+   the automatic path uses (that guard exists so tabbing back to an already-
+   filled product doesn't get nagged at again; a deliberate tap is a
+   different signal). Empty pool / job wasn't pulled from the schedule —
+   every function here just no-ops.
 ══════════════════════════════════ */
 // Returns true when the popup was actually opened, so loadProduct() can
 // skip its own background auto-scroll-to-Product-ID in that case — the two
 // competing for attention at the same moment (page scrolling underneath a
 // modal that just popped in) was part of why operators reported the popup
 // as easy to miss.
-function _maybeOfferProductIdPicker(idx) {
+function _maybeOfferProductIdPicker(idx, opts) {
+  opts = opts || {};
+  if (typeof jobState === 'undefined' || !jobState || !jobState.entries) return false;
   var pool = jobState.scheduleProductPool;
   if (!pool || !pool.length) return false;
   var saved = jobState.entries[idx];
-  if (saved && saved.productId) return false; // already answered — tabbing back, don't re-nag
+  if (!opts.force && saved && saved.productId) return false; // already answered — tabbing back, don't re-nag
   var used = jobState.entries.filter(function(e, i) { return i !== idx && e && e.productId; }).map(function(e) { return e.productId; });
   var remaining = pool.filter(function(p) { return used.indexOf(p) === -1; });
   if (!remaining.length) return false;
   // Exactly one candidate left isn't a real choice — fill it straight in,
-  // same as the analogous Gluer sequential-batch picker does.
-  if (remaining.length === 1) { _applyPickedProductId(remaining[0]); return false; }
-  _openProductIdPicker(idx, remaining);
+  // same as the analogous Gluer sequential-batch picker does. On a
+  // deliberate on-focus tap, though, silently overwriting whatever's
+  // already there (or there isn't) isn't wanted — just no-op instead.
+  if (remaining.length === 1) {
+    if (opts.force) return false;
+    _applyPickedProductId(remaining[0]);
+    return false;
+  }
+  var isEs = isEsLang();
+  var heading = (isEs ? 'Trabajo ' : 'Job ') + jobState.jobNumber +
+    (isEs ? ' — elija el ID de producto para el Producto ' : ' — pick the Product ID for Product ') + (idx + 1) + ':';
+  _openProductIdPicker(remaining, heading, _applyPickedProductId);
   return true;
 }
 function _applyPickedProductId(product) {
@@ -13294,11 +13319,31 @@ function _applyPickedProductId(product) {
   el.value = product;
   if (_isAutoAdvanceStation()) confirmInspectProduct();
 }
-function _openProductIdPicker(idx, remaining) {
+// Single-product-field version of the same idea — used by the setup
+// screen's Product field (and Packing's Veritiv Product field), where
+// there's just one field to fill rather than a per-product pool to track
+// usage against. Reads the schedule directly off whichever job number is
+// currently typed, since (unlike jobState) there's no in-progress record
+// yet at this point in the flow.
+function _maybeOfferSetupProductPicker(fieldId) {
+  var job = document.getElementById('setup-job');
+  job = job && job.value.trim();
+  if (!job) return false;
+  var el = document.getElementById(fieldId);
+  if (!el) return false;
+  var entry = _scheduleData && _scheduleData.jobs && _scheduleData.jobs[job];
+  if (!entry || !entry.products || !entry.products.length) return false;
+  if (entry.products.length === 1) {
+    if (!el.value.trim()) el.value = entry.products[0];
+    return false;
+  }
   var isEs = isEsLang();
-  document.getElementById('product-id-picker-heading').textContent =
-    (isEs ? 'Trabajo ' : 'Job ') + jobState.jobNumber +
-    (isEs ? ' — elija el ID de producto para el Producto ' : ' — pick the Product ID for Product ') + (idx + 1) + ':';
+  var heading = (isEs ? 'Trabajo ' : 'Job ') + job + (isEs ? ' — elija el producto:' : ' — pick the product:');
+  _openProductIdPicker(entry.products, heading, function(p){ el.value = p; });
+  return true;
+}
+function _openProductIdPicker(remaining, heading, onPick) {
+  document.getElementById('product-id-picker-heading').textContent = heading;
   var listEl = document.getElementById('product-id-picker-list');
   listEl.innerHTML = '';
   remaining.forEach(function(p) {
@@ -13306,7 +13351,7 @@ function _openProductIdPicker(idx, remaining) {
     b.type = 'button';
     b.className = 'job-picker-row';
     b.textContent = p;
-    b.onclick = function(){ closeProductIdPicker(); _applyPickedProductId(p); };
+    b.onclick = function(){ closeProductIdPicker(); onPick(p); };
     listEl.appendChild(b);
   });
   document.getElementById('productIdPickerOverlay').classList.add('open');
