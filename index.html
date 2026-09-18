@@ -11692,27 +11692,68 @@ function applyDCDefaults(prefix, jobNumber) {
       if (btns[1]) btns[1].classList.add('pass'); // Yes = index 1 (N/A, Yes, No)
     }
   });
-  _prefillDcDieNumber(prefix, jobNumber);
+  // Deferred one tick, same reason _refreshChecklistProgressLabel's own call
+  // is deferred a few lines above wherever this runs from the continue-modal
+  // (see that comment) — the modal overlay isn't visible yet at this exact
+  // point, so the die-number field's offsetParent-null visibility guard
+  // would always see it as hidden and skip offering the picker.
+  setTimeout(function(){ _prefillDcDieNumber(prefix, jobNumber); }, 0);
 }
 
-// Fills the Die Number field from the schedule bridge (_scheduleData — see
-// "SCHEDULE BRIDGE" above) if it's known and the field is still empty. Never
-// overwrites a value someone already typed/scanned. jobNumber is optional —
-// falls back to whatever job the current screen is actually showing, since
-// applyDCDefaults is called from three different screens (new job setup,
-// continue-modal, make-ready inspection) each tracking the job differently.
-function _prefillDcDieNumber(prefix, jobNumber) {
+// Offers the Die Number field from the schedule bridge (_scheduleData — see
+// "SCHEDULE BRIDGE" above), same picker UX as the Product ID field (see
+// _maybeOfferSetupProductPicker) — a single schedule die number fills in
+// automatically, more than one pops up the same picker instead of jamming
+// them all into the field comma-joined (which just meant retyping the real
+// one anyway). jobNumber is optional — falls back to whatever job the
+// current screen is actually showing, since applyDCDefaults is called from
+// three different screens (new job setup, continue-modal, make-ready
+// inspection) each tracking the job differently; the continue-modal ('cm')
+// case tracks it via continueJobId instead of any visible job-number field.
+// opts.force (set from the field's own onfocus, see _onChecklistTextFocus)
+// skips the "already answered" guard so tapping back in can reconsider a
+// pick, same as the Product ID picker's force mode.
+function _prefillDcDieNumber(prefix, jobNumber, opts) {
+  opts = opts || {};
   var el = document.getElementById(prefix + '-val-dc-die-number');
-  if (!el || el.value) return;
+  if (!el) return false;
+  // Guards against popping a picker up over a field that isn't actually on
+  // screen right now — applyDCDefaults also runs against the setup screen's
+  // own (generally unused for DC) checklist markup, which can be sitting
+  // hidden behind post-station-body's display:none.
+  if (el.offsetParent === null) return false;
+  if (!opts.force && el.value) return false;
   if (!jobNumber) {
-    var setupJobEl = document.getElementById('setup-job');
-    jobNumber = (setupJobEl && setupJobEl.value.trim()) ||
-      (typeof jobState !== 'undefined' && jobState ? jobState.jobNumber : '');
+    // 'cm' (operator panel) and 'cmqa' (QA review panel) are both inside the
+    // same Job In Progress continue-modal, tracking the same continueJobId.
+    if ((prefix === 'cm' || prefix === 'cmqa') && typeof continueJobId !== 'undefined' && continueJobId) {
+      var _cmJobs = ipLoad();
+      for (var _i = 0; _i < _cmJobs.length; _i++) { if (_cmJobs[_i].id === continueJobId) { jobNumber = _cmJobs[_i].jobNumber; break; } }
+    }
+    if (!jobNumber) {
+      var setupJobEl = document.getElementById('setup-job');
+      jobNumber = (setupJobEl && setupJobEl.value.trim()) ||
+        (typeof jobState !== 'undefined' && jobState ? jobState.jobNumber : '');
+    }
   }
   var entry = jobNumber && _scheduleData && _scheduleData.jobs[jobNumber];
-  if (entry && entry.dieNumbers && entry.dieNumbers.length) {
-    el.value = entry.dieNumbers.join(', ');
+  if (!entry || !entry.dieNumbers || !entry.dieNumbers.length) return false;
+  if (entry.dieNumbers.length === 1) {
+    if (opts.force) return false;
+    el.value = entry.dieNumbers[0];
+    return false;
   }
+  var isEs = isEsLang();
+  var heading = (isEs ? 'Trabajo ' : 'Job ') + jobNumber + (isEs ? ' — elija el número de troquel:' : ' — pick the die number:');
+  _openProductIdPicker(entry.dieNumbers.slice(), heading, function(d){ el.value = d; });
+  return true;
+}
+// Generic on-focus hook for checklist textinput items (see buildChecklistItem
+// below) — kept generic rather than hard-coding Die Number's onfocus inline,
+// since this template renders every textinput-type checklist item across
+// every station, not just Die Cutter's.
+function _onChecklistTextFocus(prefix, itemId) {
+  if (itemId === 'dc-die-number') _prefillDcDieNumber(prefix, null, { force: true });
 }
 
 // Quick-pick issue tags for "1st 25 pieces have issue?" — reuses the same
@@ -12511,7 +12552,7 @@ function buildChecklistItem(item, prefix) {
   } else if (type === 'textinput') {
     inner += '</div>';
     var dv = item.defaultVal ? escHtml(item.defaultVal) : '';
-    inner += '<div style="margin-top:8px;"><input class="input" id="'+prefix+'-val-'+item.id+'" type="text" placeholder="'+(dv||(isEs ? 'Ingrese un valor…' : 'Enter value…'))+'" autocomplete="off"'+(dv?' value="'+dv+'"':'')+'>  </div>';
+    inner += '<div style="margin-top:8px;"><input class="input" id="'+prefix+'-val-'+item.id+'" type="text" placeholder="'+(dv||(isEs ? 'Ingrese un valor…' : 'Enter value…'))+'" autocomplete="off"'+(dv?' value="'+dv+'"':'')+' onfocus="_onChecklistTextFocus(\''+prefix+'\',\''+item.id+'\')">  </div>';
   } else if (type === 'photo') {
     inner += '</div>';
     inner += '<div class="photo-area" style="margin-top:8px;" id="'+prefix+'-photo-area-'+item.id+'">' +
