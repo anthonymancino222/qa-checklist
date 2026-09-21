@@ -157,6 +157,15 @@ body {
 .header-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 8px; justify-content: flex-end; }
 .header-group-actions { padding-left: 14px; border-left: 1px solid rgba(255,255,255,.15); }
 #signed-in-user { font-size: 13.5px; font-weight: 700; color: #fff; white-space: nowrap; cursor: pointer; }
+/* Only visible while _dataEditMode is on — a plain-sight reminder that
+   record deletes and job-field edits are currently enabled, so it's obvious
+   at a glance from anywhere in the app, not just from the QA Manager screen
+   where the toggle itself lives. Hidden entirely (not just greyed out)
+   the rest of the time. */
+.data-edit-indicator {
+  font-size: 12px; font-weight: 800; letter-spacing: .04em; white-space: nowrap;
+  color: #fff; background: #16a34a; border-radius: 20px; padding: 4px 10px 4px 8px;
+}
 .header-pill-btn {
   font-size: 13.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
   border: 1px solid var(--pink); color: var(--pink); background: transparent;
@@ -2108,6 +2117,7 @@ try {
         <button type="button" id="text-size-preset-btn" onclick="cyclePresetTextSize()" title="Tap to jump between 3 sizes: 100% / 130% / 200%" aria-label="Jump between 3 text sizes">100%</button>
         <button type="button" onclick="stepTextSize(1)" title="Increase text size" aria-label="Increase text size">A+</button>
       </div>
+      <span id="data-edit-indicator" class="data-edit-indicator" style="display:none;" title="Data Edit mode is ON — record deletes and job-field edits are enabled">🟢 DATA</span>
       <span id="signed-in-user" onclick="_signOutOfApp()" title="Tap to sign out">👤 <span id="signed-in-user-name"></span></span>
       <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     </div>
@@ -5021,6 +5031,11 @@ function toggleDataEditMode(onToggled){
 function _updateHeaderDataEditBtn(){
   var btn = document.getElementById('qamgr-data-edit-btn');
   if (btn) btn.textContent = _dataEditMode ? (isEsLang() ? '🔒 Salir de Edición' : '🔒 Exit Edit Mode') : '✏️ DATA EDIT';
+  // Header-wide "DATA" pill — the one visible-from-anywhere sign that edit
+  // mode is currently on, independent of which screen the toggle itself
+  // lives on.
+  var indicator = document.getElementById('data-edit-indicator');
+  if (indicator) indicator.style.display = _dataEditMode ? 'inline-block' : 'none';
   // Keeps every per-modal Delete Job button in sync with the header toggle,
   // regardless of which popup (if any) happens to be open when DATA EDIT
   // gets flipped on/off — so deletion is available from every process stage
@@ -15526,7 +15541,6 @@ var STATION_TO_SCHEDULE_SHEETS = {
   'Long Gluer':       ['FolderGluer'],
   'Short Gluer':      ['FolderGluer'],
   'Bindery Cutter':   ['LabelCutter'],
-  'Pressroom Cutter': ['LabelCutter'],
   // No distinction made between New/Old Die Cutter, Long/Short Gluer, or
   // Bindery/Pressroom Cutter — confirmed with Anthony that showing every job
   // for the shared machine type is fine; only Kama Foil Press, Packing,
@@ -15534,6 +15548,7 @@ var STATION_TO_SCHEDULE_SHEETS = {
   // cover those stations at all), so those fall back to showing every
   // pulled job unfiltered rather than hiding ones that might belong there.
 };
+STATION_TO_SCHEDULE_SHEETS['Pressroom Cutter'] = STATION_TO_SCHEDULE_SHEETS['Bindery Cutter'];
 
 var _jobPickerStation = null;
 
@@ -17109,21 +17124,26 @@ var STATION_RC_OVERRIDES = {
     rootCauses: ["Blade burr tearing cut edge","Clamp pressure too high — crushing stack","Stack too large for single cut","Sheet slipping during cut — ragged edge","Cut offset from score or printed guide"],
     correctiveActions: ["Inspect and replace blade before run","Reduce clamp pressure and verify on test cut","Reduce stack size and run test cuts before production","Verify cut registration on first articles before full run"]
   },
-  "Pressroom Cutter|Damaged": {
-    rootCauses: ["Blade burr tearing cut edge","Clamp pressure too high — crushing stack","Stack too large for single cut","Sheet slipping during cut — ragged edge","Cut offset from score or printed guide"],
-    correctiveActions: ["Inspect and replace blade before run","Reduce clamp pressure and verify on test cut","Reduce stack size and run test cuts before production","Verify cut registration on first articles before full run"]
-  },
 
   // ── Cutter: Scuffing ────────────────────────────────────────────────────
   "Bindery Cutter|Scuffing": {
     rootCauses: ["Blade drag scuffing printed surface","Clamp pad worn — sliding on coated surface","Sheets sliding against each other after cut","No slip sheets between lifts"],
     correctiveActions: ["Replace blade and inspect clamp pad before run","Add slip sheets between lifts after cutting","Reduce stack height to minimize surface contact"]
   },
-  "Pressroom Cutter|Scuffing": {
-    rootCauses: ["Blade drag scuffing printed surface","Clamp pad worn — sliding on coated surface","Sheets sliding against each other after cut","No slip sheets between lifts"],
-    correctiveActions: ["Replace blade and inspect clamp pad before run","Add slip sheets between lifts after cutting","Reduce stack height to minimize surface contact"]
-  },
 };
+
+// Pressroom Cutter runs the exact same cutting process as Bindery Cutter
+// (same equipment type, same failure modes) — a QA tech flagged the two
+// had quietly drifted apart after a hand-copied duplicate went stale, so
+// this aliases every Bindery Cutter root-cause/corrective-action entry
+// onto Pressroom Cutter BY REFERENCE, not by copying the text. Editing
+// Bindery Cutter's entries above now automatically updates Pressroom
+// Cutter too — they can't diverge again.
+Object.keys(STATION_RC_OVERRIDES).forEach(function(key){
+  if (key.indexOf('Bindery Cutter|') === 0){
+    STATION_RC_OVERRIDES[key.replace('Bindery Cutter|', 'Pressroom Cutter|')] = STATION_RC_OVERRIDES[key];
+  }
+});
 
 // Station -> which issue categories are offered (filters the Quality Issue
 // dropdown so operators only see categories relevant to where the job was
@@ -17160,10 +17180,6 @@ var STATION_ISSUES = {
     "Short / quantity","Damaged","Scuffing","Process not followed",
     "Documentation / job ticket","Equipment issue","5S","Safety","Other"
   ],
-  "Pressroom Cutter": [
-    "Short / quantity","Damaged","Scuffing","Process not followed",
-    "Documentation / job ticket","Equipment issue","5S","Safety","Other"
-  ],
   "Packing": [
     "Packing / shipping issue","Damaged","Short / quantity","Scuffing","Inventory",
     "Documentation / job ticket","5S","Safety","SQF","Other"
@@ -17177,6 +17193,9 @@ var STATION_ISSUES = {
     "Inventory","Process not followed","Other"
   ]
 };
+// Same rationale as STATION_RC_OVERRIDES above — Pressroom Cutter aliases
+// Bindery Cutter's quality-issue category list by reference.
+STATION_ISSUES['Pressroom Cutter'] = STATION_ISSUES['Bindery Cutter'];
 
 // Station -> department manager who'd approve/receive a root-cause hand-off
 // from that station. Auto-fills the "Approved by" / "Manager name" pickers.
@@ -17190,11 +17209,11 @@ var STATION_MANAGER = {
   "Short Gluer":       "Jayro M",
   "Kama Foil Press":   "Josue R",
   "Bindery Cutter":    "Johana R",
-  "Pressroom Cutter":  "Johana R",
   "Packing":           "Jayro M",
   "Samples":           "Bao L",
   "Vendor":            "Bao L"
 };
+STATION_MANAGER['Pressroom Cutter'] = STATION_MANAGER['Bindery Cutter'];
 
 // Manager/approver roster for RCA corrective-action approval + department
 // hand-off â€” separate from QA_TECH_NAMES (floor QA techs) since these are
@@ -21141,7 +21160,12 @@ function renderRecords(){
     if (r.product) sublineParts.push(hlId(r.product));
     var subline = sublineParts.join(' · ') || '—';
     var typeBadge = '<span style="font-size:15px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:10px;background:' + m.color + '22;color:' + m.color + ';">' + m.label + '</span>';
-    var deleteBtn = '<button type="button" class="jp-list-delete" onclick="event.stopPropagation();deleteRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')" title="Delete this record" aria-label="Delete this record">🗑️</button>';
+    // Only rendered while DATA EDIT mode is on (itself gated to
+    // _isDataEditAllowedUser() before it can even be switched on) — a QA
+    // manager reported the trash can showing up for everyone on the
+    // Records screen regardless of who was signed in or whether edit mode
+    // was active.
+    var deleteBtn = _dataEditMode ? ('<button type="button" class="jp-list-delete" onclick="event.stopPropagation();deleteRecordEntry(\'' + r.type + '\',\'' + String(r.id).replace(/'/g, "\\'") + '\')" title="Delete this record" aria-label="Delete this record">🗑️</button>') : '';
 
     if (tileMode) {
       // A vertically-stacked card instead of a left-info/right-badges row —
