@@ -7049,8 +7049,26 @@ function toggleFilterPopover(sectionPrefix, kind) {
   if (wasOpenSame) return; // it was open — the close above is the whole toggle
   _renderFilterPopoverContents(sectionPrefix, kind);
   var pop = document.getElementById(sectionPrefix + '-' + kind + '-filter-pop');
-  if (pop) pop.style.display = 'block';
+  if (pop) { pop.style.display = 'block'; _clampPopoverToViewport(pop); }
   _openFilterPopover = { prefix: sectionPrefix, kind: kind };
+}
+// .filter-popover is CSS-anchored (right:0, extending leftward off its
+// button) with no awareness of the viewport edge. On a narrow screen, a
+// button sitting near the left edge of the filter bar's own horizontal
+// scroll — Station is usually first — has no room to its left, so the
+// popover's left portion rendered off-screen and got clipped (reported as
+// "text are cut off", the Station list showing only right-truncated
+// fragments like "ry Cutter" instead of "Bindery Cutter"). Nudging it back
+// into view with a transform after it's shown, instead of changing the
+// CSS anchor, keeps the normal case (plenty of room) untouched.
+function _clampPopoverToViewport(pop) {
+  pop.style.transform = '';
+  var margin = 8;
+  var rect = pop.getBoundingClientRect();
+  var shift = 0;
+  if (rect.left < margin) shift = margin - rect.left;
+  else if (rect.right > window.innerWidth - margin) shift = (window.innerWidth - margin) - rect.right;
+  if (shift) pop.style.transform = 'translateX(' + shift + 'px)';
 }
 // Outside-click close. Can't use a blur/timer like the customer dropdown
 // does (openCustomerDrop/scheduleCloseCustomerDrop) because clicking a
