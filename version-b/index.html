@@ -1090,6 +1090,11 @@ textarea.input {
 .qad-summary-group:first-child { margin-top: 0; padding-top: 0; border-top: none; }
 .qad-summary-group b { display: block; color: var(--text-primary); font-size: 14.5px; margin-bottom: 2px; }
 .qad-table-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+/* View switcher (Quality vs Productivity) reuses .qad-table-tabs' layout but
+   needs to read as the page's primary switch, not a small in-card filter —
+   bigger buttons, no bottom margin since .qad-wrap's own gap already spaces it. */
+.qad-view-tabs { margin-bottom: 0; }
+.qad-view-tabs .tgl { font-size: 15px; padding: 10px 20px; }
 .qad-table-wrap { overflow-x: auto; }
 .qad-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .qad-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-tertiary); padding: 8px 10px; border-bottom: 2px solid var(--border-mid); white-space: nowrap; }
@@ -18348,6 +18353,82 @@ function computeQADataset(){
   return all;
 }
 
+// Productivity analytics — built only from fields jobs already store
+// (qtyToExecute / finalQty / gluerFinalQty / operatorName / station /
+// kamaTimers). Nothing here invents a rate, speed, downtime, or efficiency
+// metric — a job with no qty or timer fields simply isn't counted in the
+// metric that needs them, rather than being estimated.
+function calculateProductivityAnalytics(jobs){
+  var byOperator = {}, byStation = {}, qtyByDate = {};
+  var totalQtyTarget = 0, totalQtyProduced = 0, jobsWithQty = 0, shortJobs = 0, shortPctSum = 0;
+  var kamaMR = [], kamaProd = [];
+
+  jobs.forEach(function(r){
+    var raw = r.raw || {};
+    var name = (raw.operatorName || '').trim();
+    var station = r.station || '';
+    var qtyTarget = parseInt(raw.qtyToExecute, 10) || 0;
+    var qtyProducedRaw = raw.gluerFinalQty != null ? raw.gluerFinalQty : raw.finalQty;
+    var qtyProduced = parseInt(qtyProducedRaw, 10) || 0;
+    var hasQty = qtyTarget > 0 || qtyProduced > 0;
+
+    if (name){
+      if (!byOperator[name]) byOperator[name] = { jobs:0, qtyTarget:0, qtyProduced:0, shortJobs:0 };
+      byOperator[name].jobs++;
+      byOperator[name].qtyTarget += qtyTarget;
+      byOperator[name].qtyProduced += qtyProduced;
+    }
+    if (station){
+      if (!byStation[station]) byStation[station] = { jobs:0, qtyTarget:0, qtyProduced:0, shortJobs:0 };
+      byStation[station].jobs++;
+      byStation[station].qtyTarget += qtyTarget;
+      byStation[station].qtyProduced += qtyProduced;
+    }
+    if (hasQty){
+      totalQtyTarget += qtyTarget;
+      totalQtyProduced += qtyProduced;
+      jobsWithQty++;
+      var d = _recordsValidDate(r.ts);
+      if (d){
+        var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        if (!qtyByDate[key]) qtyByDate[key] = { qtyTarget:0, qtyProduced:0 };
+        qtyByDate[key].qtyTarget += qtyTarget;
+        qtyByDate[key].qtyProduced += qtyProduced;
+      }
+    }
+    if (qtyTarget > 0 && qtyProduced > 0 && qtyProduced < qtyTarget){
+      shortJobs++;
+      shortPctSum += (qtyTarget - qtyProduced) / qtyTarget * 100;
+      if (name) byOperator[name].shortJobs++;
+      if (station) byStation[station].shortJobs++;
+    }
+
+    // Only Kama Foil Press make-ready records carry start/end timers — every
+    // other station only has a single creation timestamp, so cycle time is
+    // deliberately NOT computed (let alone shown) for any other station.
+    var kt = raw.kamaTimers;
+    if (kt && kt.makeReadyStart && kt.makeReadyEnd){
+      var mr = (new Date(kt.makeReadyEnd) - new Date(kt.makeReadyStart)) / 60000;
+      if (mr > 0 && mr < 24*60) kamaMR.push(mr);
+    }
+    if (kt && kt.productionStart && kt.productionEnd){
+      var pr = (new Date(kt.productionEnd) - new Date(kt.productionStart)) / 60000;
+      if (pr > 0 && pr < 24*60) kamaProd.push(pr);
+    }
+  });
+
+  function avg(arr){ return arr.length ? arr.reduce(function(a,b){ return a+b; }, 0) / arr.length : 0; }
+
+  return {
+    byOperator: byOperator, byStation: byStation, qtyByDate: qtyByDate,
+    totalQtyTarget: totalQtyTarget, totalQtyProduced: totalQtyProduced,
+    jobsWithQty: jobsWithQty, shortJobs: shortJobs,
+    avgShortPct: shortJobs ? Math.round(shortPctSum / shortJobs) : 0,
+    kamaAvgMakeReadyMin: Math.round(avg(kamaMR)), kamaAvgProductionMin: Math.round(avg(kamaProd)),
+    kamaSampleCount: Math.max(kamaMR.length, kamaProd.length)
+  };
+}
+
 function calculateQAAnalytics(list){
   var jobs = list.filter(function(r){ return r.type === 'job'; });
   var ncrs = list.filter(function(r){ return r.type === 'ncr'; });
@@ -18426,7 +18507,8 @@ function calculateQAAnalytics(list){
     rootCauses: rootCauses,
     byOperator: byOperator,
     recordsByDate: recordsByDate,
-    jobsByStage: stages
+    jobsByStage: stages,
+    productivity: calculateProductivityAnalytics(jobs)
   };
 }
 
@@ -18570,6 +18652,25 @@ function _qaFilterBarHTML(matchCount){
   return h;
 }
 
+// Which department/purpose this dashboard is currently showing — Quality
+// (NCR/RCA-focused, the original screen) or Productivity (qty/operator/
+// station throughput). Mirrors the existing _qaTableMode tab pattern below:
+// one module-level var, a setter that toggles .sel and re-renders.
+var _qaViewMode = 'quality';
+function _qaSetViewMode(mode, btn){
+  _qaViewMode = mode;
+  document.querySelectorAll('#qad-view-tabs .tgl').forEach(function(b){ b.classList.remove('sel'); });
+  if (btn) btn.classList.add('sel');
+  renderQAData();
+}
+function _qaViewTabsHTML(){
+  var isEs = isEsLang();
+  var modes = [['quality', isEs?'Calidad':'Quality'], ['productivity', isEs?'Productividad':'Productivity']];
+  return '<div class="qad-table-tabs qad-view-tabs" id="qad-view-tabs">' + modes.map(function(m){
+    return '<button type="button" class="tgl'+(_qaViewMode===m[0]?' sel':'')+'" onclick="_qaSetViewMode(\''+m[0]+'\',this)">'+m[1]+'</button>';
+  }).join('') + '</div>';
+}
+
 function _qaKpiCard(cls, label, value, sub){
   return '<div class="qad-kpi-card '+cls+'"><div class="qad-kpi-label">'+label+'</div><div class="qad-kpi-value">'+value+'</div>'+(sub?'<div class="qad-kpi-sub">'+sub+'</div>':'')+'</div>';
 }
@@ -18652,6 +18753,53 @@ function _qaMainPanelsHTML(a){
   return h;
 }
 
+function _qaProductivityKpiRowHTML(a){
+  var isEs = isEsLang();
+  var p = a.productivity;
+  var h = '<div class="qad-kpi-row">';
+  h += _qaKpiCard('', isEs?'Trabajos':'Jobs', a.totalJobs, '');
+  h += _qaKpiCard('', isEs?'Cant. Objetivo':'Qty Target', p.totalQtyTarget.toLocaleString(), '');
+  h += _qaKpiCard('green', isEs?'Cant. Producida':'Qty Produced', p.totalQtyProduced.toLocaleString(), '');
+  h += _qaKpiCard(p.shortJobs ? 'red' : 'green', isEs?'Trabajos Bajo Objetivo':'Jobs Short of Target', p.shortJobs,
+    p.shortJobs ? ((isEs?'Prom. ':'Avg ') + p.avgShortPct + '% ' + (isEs?'corto':'short')) : '');
+  h += _qaKpiCard('', isEs?'Trabajos con Cantidad Registrada':'Jobs With Qty Recorded', p.jobsWithQty, '');
+  h += '</div>';
+  return h;
+}
+
+function _qaProductivityPanelsHTML(a){
+  var isEs = isEsLang();
+  var p = a.productivity;
+  var h = '';
+  var opKeys = Object.keys(p.byOperator).sort(function(x,y){ return p.byOperator[y].jobs - p.byOperator[x].jobs; });
+  var stKeys = Object.keys(p.byStation).sort(function(x,y){ return p.byStation[y].jobs - p.byStation[x].jobs; });
+
+  h += '<div class="qad-row-2">';
+  h += _qaCard('qad-prod-op-jobs-body', isEs?'Trabajos por Operador':'Jobs Run by Operator', isEs?'Cuántos trabajos registró cada operador — carga de trabajo, no una evaluación de desempeño':'How many jobs each operator logged — workload, not a performance ranking',
+    opKeys.length ? '<div style="height:260px;"><canvas id="qad-prod-op-jobs-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin operador registrado en los trabajos del filtro actual.':'No operator recorded on jobs in the current filter.'));
+  h += _qaCard('qad-prod-op-qty-body', isEs?'Cantidad Producida por Operador':'Qty Produced by Operator', isEs?'Suma de Cantidad Final Producida por operador':'Sum of Final Qty Produced per operator',
+    opKeys.some(function(k){return p.byOperator[k].qtyProduced>0;}) ? '<div style="height:260px;"><canvas id="qad-prod-op-qty-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin cantidades producidas registradas por operador.':'No produced quantities recorded by operator.'));
+  h += '</div>';
+
+  h += '<div class="qad-row-2">';
+  h += _qaCard('qad-prod-st-jobs-body', isEs?'Trabajos por Estación':'Jobs Run by Station', isEs?'Estación funciona como departamento para este filtro':'Station stands in as department for this filter',
+    stKeys.length ? '<div style="height:260px;"><canvas id="qad-prod-st-jobs-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin datos de estación en el filtro actual.':'No station data in the current filter.'));
+  h += _qaCard('qad-prod-st-qty-body', isEs?'Cantidad Producida por Estación':'Qty Produced by Station', '',
+    stKeys.some(function(k){return p.byStation[k].qtyProduced>0;}) ? '<div style="height:260px;"><canvas id="qad-prod-st-qty-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin cantidades producidas registradas por estación.':'No produced quantities recorded by station.'));
+  h += '</div>';
+
+  var dateKeys = Object.keys(p.qtyByDate).sort();
+  h += '<div class="qad-row-2">';
+  h += _qaCard('qad-prod-trend-body', isEs?'Cantidad Objetivo vs. Producida en el Tiempo':'Qty Target vs. Produced Over Time', isEs?'Según la fecha registrada de cada trabajo':'Based on each job\'s recorded date',
+    dateKeys.length ? '<div style="height:240px;"><canvas id="qad-prod-trend-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin fechas utilizables con datos de cantidad.':'No usable dates with qty data.'));
+  h += _qaCard('qad-prod-kama-body', isEs?'Kama Foil Press — Tiempo de Ciclo':'Kama Foil Press — Cycle Time', p.kamaSampleCount
+    ? (isEs?'Promedio de '+p.kamaSampleCount+' trabajos con temporizador registrado — solo Kama Foil Press':'Average of '+p.kamaSampleCount+' jobs with a recorded timer — Kama Foil Press only')
+    : (isEs?'Ninguna otra estación registra temporizadores de inicio/fin':'No other station records start/end timers'),
+    p.kamaSampleCount ? '<div style="height:240px;"><canvas id="qad-prod-kama-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin trabajos de Kama Foil Press con temporizadores en el filtro actual.':'No Kama Foil Press jobs with recorded timers in the current filter.'));
+  h += '</div>';
+  return h;
+}
+
 function _qaSummaryHTML(a){
   var isEs = isEsLang();
   var lines = [];
@@ -18710,7 +18858,7 @@ function _qaRenderTable(){
   var common = ['Type','Job #','Product / Form ID','Customer','Station','Status','Date','Operator / QA Tech'];
   var extra = _qaTableMode==='ncr' ? ['Quality Issue','Disposition','Root Cause','Corrective Action']
     : _qaTableMode==='rca' ? ['Quality Issue','Root Cause','Corrective Action','Disposition','Close Date / Status']
-    : _qaTableMode==='job' ? ['Process / Status','CAD Style','Operator','Shipping Approved']
+    : _qaTableMode==='job' ? ['Process / Status','CAD Style','Operator','Shipping Approved','Qty to Execute','Final Qty']
     : [];
   var headers = common.concat(extra);
   var html = '<table class="qad-table"><thead><tr>' + headers.map(function(hh){ return '<th>'+hh+'</th>'; }).join('') + '</tr></thead><tbody>';
@@ -18720,7 +18868,7 @@ function _qaRenderTable(){
     var cells = [r.type.toUpperCase(), escHtml(r.jobNumber), escHtml(r.product), escHtml(r.customer), escHtml(stationLabel(r.station)), escHtml(r.status), escHtml(r.ts), escHtml(operator)];
     if (_qaTableMode === 'ncr') cells = cells.concat([escHtml(raw.issueCategory), escHtml(raw.disposition), escHtml(raw.rootCause), escHtml(raw.correctiveAction)]);
     else if (_qaTableMode === 'rca') cells = cells.concat([escHtml(raw.issueCategory), escHtml(raw.rootCause), escHtml(raw.correctiveAction), escHtml(raw.disposition), escHtml(raw.closeDate) + (raw.status ? ' / ' + escHtml(rcaStatusLabel(raw.status)) : '')]);
-    else if (_qaTableMode === 'job') cells = cells.concat([escHtml(processLabel(raw.process) || raw.process), escHtml(_currentCadStyle(raw)), escHtml(raw.operatorName), raw.shippingApproved ? (isEs?'Sí':'Yes') : (isEs?'No':'No')]);
+    else if (_qaTableMode === 'job') cells = cells.concat([escHtml(processLabel(raw.process) || raw.process), escHtml(_currentCadStyle(raw)), escHtml(raw.operatorName), raw.shippingApproved ? (isEs?'Sí':'Yes') : (isEs?'No':'No'), (raw.qtyToExecute!=null?escHtml(String(raw.qtyToExecute)):''), (raw.gluerFinalQty!=null?escHtml(String(raw.gluerFinalQty)):(raw.finalQty!=null?escHtml(String(raw.finalQty)):''))]);
     html += '<tr>' + cells.map(function(c){ return '<td>'+c+'</td>'; }).join('') + '</tr>';
   });
   html += '</tbody></table>';
@@ -18769,13 +18917,15 @@ function renderQAData(){
   _qaLast = { list: list, analytics: a };
   var myGen = ++_qaRenderGen;
 
+  var isProd = _qaViewMode === 'productivity';
   el.innerHTML =
     '<div class="qad-wrap">' +
       _qaFilterBarHTML(list.length) +
       _qaTopExportBarHTML() +
-      _qaKpiRowHTML(a) +
-      _qaKpiStripHTML(a) +
-      _qaMainPanelsHTML(a) +
+      _qaViewTabsHTML() +
+      (isProd ? _qaProductivityKpiRowHTML(a) : _qaKpiRowHTML(a)) +
+      (isProd ? '' : _qaKpiStripHTML(a)) +
+      (isProd ? _qaProductivityPanelsHTML(a) : _qaMainPanelsHTML(a)) +
       _qaCard('qad-summary-body', isEsLang()?'Resumen de Datos Seleccionados':'Selected Data Summary', '', _qaSummaryHTML(a)) +
       '<div class="qad-card"><div class="qad-card-title">' + (isEsLang()?'Detalle de Registros Seleccionados':'Selected Record Details') + '</div>' +
         _qaTableTabsHTML() + '<div class="qad-table-wrap" id="qad-table-wrap"></div></div>' +
@@ -18794,7 +18944,10 @@ function renderQAData(){
   // moment later (the export always reads the current _qaLast, so it was
   // never actually wrong — the charts were). myGen === _qaRenderGen only
   // passes for the most recent call, so a stale one is simply dropped.
-  _ensureChartJs().then(function(){ if (myGen === _qaRenderGen) _qaRenderCharts(a); }).catch(function(){});
+  _ensureChartJs().then(function(){
+    if (myGen !== _qaRenderGen) return;
+    if (isProd) _qaRenderProductivityCharts(a); else _qaRenderCharts(a);
+  }).catch(function(){});
 }
 
 function _qaRenderCharts(a){
@@ -18868,6 +19021,38 @@ function _qaRenderCharts(a){
   if (opTop.length) _qaHBar('qad-operator-canvas', opTop.map(function(e){return e[0];}), [{ label: isEs?'Registros':'Records', data: opTop.map(function(e){return e[1];}), backgroundColor: QA_PALETTE[9] }]);
 }
 
+function _qaRenderProductivityCharts(a){
+  var isEs = isEsLang();
+  var p = a.productivity;
+  if (typeof Chart !== 'undefined'){
+    var cs = getComputedStyle(document.body);
+    Chart.defaults.color = cs.getPropertyValue('--text-secondary').trim() || '#5c6b7a';
+    Chart.defaults.borderColor = cs.getPropertyValue('--border').trim() || '#e0e0e0';
+  }
+  var opKeys = Object.keys(p.byOperator).sort(function(x,y){ return p.byOperator[y].jobs - p.byOperator[x].jobs; }).slice(0, 12);
+  if (opKeys.length) _qaHBar('qad-prod-op-jobs-canvas', opKeys, [{ label: isEs?'Trabajos':'Jobs', data: opKeys.map(function(k){ return p.byOperator[k].jobs; }), backgroundColor: QA_PALETTE[9] }]);
+  var opQtyKeys = opKeys.filter(function(k){ return p.byOperator[k].qtyProduced > 0; });
+  if (opQtyKeys.length) _qaHBar('qad-prod-op-qty-canvas', opQtyKeys, [{ label: isEs?'Cant. Producida':'Qty Produced', data: opQtyKeys.map(function(k){ return p.byOperator[k].qtyProduced; }), backgroundColor: QA_PALETTE[4] }]);
+
+  var stKeys = Object.keys(p.byStation).sort(function(x,y){ return p.byStation[y].jobs - p.byStation[x].jobs; });
+  if (stKeys.length) _qaHBar('qad-prod-st-jobs-canvas', stKeys.map(stationLabel), [{ label: isEs?'Trabajos':'Jobs', data: stKeys.map(function(k){ return p.byStation[k].jobs; }), backgroundColor: QA_PALETTE[3] }]);
+  var stQtyKeys = stKeys.filter(function(k){ return p.byStation[k].qtyProduced > 0; });
+  if (stQtyKeys.length) _qaHBar('qad-prod-st-qty-canvas', stQtyKeys.map(stationLabel), [{ label: isEs?'Cant. Producida':'Qty Produced', data: stQtyKeys.map(function(k){ return p.byStation[k].qtyProduced; }), backgroundColor: QA_PALETTE[6] }]);
+
+  var dateKeys = Object.keys(p.qtyByDate).sort();
+  if (dateKeys.length){
+    _qaLine('qad-prod-trend-canvas', dateKeys, [
+      { label: isEs?'Objetivo':'Target', data: dateKeys.map(function(d){ return p.qtyByDate[d].qtyTarget; }), borderColor: QA_PALETTE[3], backgroundColor: QA_PALETTE[3], tension: .25 },
+      { label: isEs?'Producida':'Produced', data: dateKeys.map(function(d){ return p.qtyByDate[d].qtyProduced; }), borderColor: QA_PALETTE[4], backgroundColor: QA_PALETTE[4], tension: .25 }
+    ]);
+  }
+  if (p.kamaSampleCount){
+    _qaHBar('qad-prod-kama-canvas', [isEs?'Preparación (min)':'Make Ready (min)', isEs?'Producción (min)':'Production (min)'], [
+      { label: isEs?'Promedio':'Average', data: [p.kamaAvgMakeReadyMin, p.kamaAvgProductionMin], backgroundColor: [QA_PALETTE[2], QA_PALETTE[0]] }
+    ]);
+  }
+}
+
 function _qaExportStatus(msg, isErr){
   document.querySelectorAll('.qad-export-status-el').forEach(function(el){
     el.textContent = msg; el.style.color = isErr ? 'var(--red)' : 'var(--text-secondary)';
@@ -18907,6 +19092,11 @@ function qaExportExcel(){
       [(isEs?'Trabajos En Espera':'Jobs On Hold'), a.onHold],
       [(isEs?'Trabajos Pend. Calidad':'QA Pending Jobs'), a.qaPending],
       [(isEs?'Trabajos Listos p/Liberar':'Ready for Release Jobs'), a.readyForRelease],
+      [],
+      [(isEs?'Cantidad Objetivo (Trabajos)':'Qty Target (Jobs)'), a.productivity.totalQtyTarget],
+      [(isEs?'Cantidad Producida (Trabajos)':'Qty Produced (Jobs)'), a.productivity.totalQtyProduced],
+      [(isEs?'Trabajos Bajo Objetivo':'Jobs Short of Target'), a.productivity.shortJobs],
+      [(isEs?'% Corto Promedio (trabajos bajo objetivo)':'Avg % Short (jobs short of target)'), a.productivity.avgShortPct],
       [], [(isEs?'Registros por Estación':'Records by Station')], ['Station','Jobs','NCRs','RCAs']
     ];
     Object.keys(a.byStation).forEach(function(st){ var s = a.byStation[st]; summaryRows.push([stationLabel(st), s.jobs, s.ncrs, s.rcas]); });
@@ -18935,6 +19125,30 @@ function qaExportExcel(){
       };
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(jobRows), isEs?'Trabajos':'Jobs');
+
+    // Sheet 2b — Productivity (by operator, by station — department view)
+    var pAn = a.productivity;
+    var prodRows = [
+      [(isEs?'Productividad — Por Operador':'Productivity — By Operator')], [],
+      [(isEs?'Operador':'Operator'), (isEs?'Trabajos':'Jobs'), (isEs?'Cant. Objetivo':'Qty Target'), (isEs?'Cant. Producida':'Qty Produced'), (isEs?'Trabajos Bajo Objetivo':'Jobs Short')]
+    ];
+    Object.keys(pAn.byOperator).sort(function(x,y){ return pAn.byOperator[y].jobs - pAn.byOperator[x].jobs; }).forEach(function(name){
+      var o = pAn.byOperator[name];
+      prodRows.push([name, o.jobs, o.qtyTarget, o.qtyProduced, o.shortJobs]);
+    });
+    prodRows.push([], [(isEs?'Productividad — Por Estación':'Productivity — By Station')], []);
+    prodRows.push([(isEs?'Estación':'Station'), (isEs?'Trabajos':'Jobs'), (isEs?'Cant. Objetivo':'Qty Target'), (isEs?'Cant. Producida':'Qty Produced'), (isEs?'Trabajos Bajo Objetivo':'Jobs Short')]);
+    Object.keys(pAn.byStation).sort(function(x,y){ return pAn.byStation[y].jobs - pAn.byStation[x].jobs; }).forEach(function(st){
+      var s = pAn.byStation[st];
+      prodRows.push([stationLabel(st), s.jobs, s.qtyTarget, s.qtyProduced, s.shortJobs]);
+    });
+    if (pAn.kamaSampleCount){
+      prodRows.push([], [(isEs?'Kama Foil Press — Tiempo de Ciclo Promedio (solo trabajos con temporizador)':'Kama Foil Press — Average Cycle Time (jobs with a recorded timer only)')], []);
+      prodRows.push([(isEs?'Muestras':'Sample Size'), pAn.kamaSampleCount]);
+      prodRows.push([(isEs?'Preparación Promedio (min)':'Avg Make Ready (min)'), pAn.kamaAvgMakeReadyMin]);
+      prodRows.push([(isEs?'Producción Promedio (min)':'Avg Production (min)'), pAn.kamaAvgProductionMin]);
+    }
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prodRows), isEs?'Productividad':'Productivity');
 
     // Sheet 3 — NCRs
     var ncrRows = a.ncrs.map(function(r){
@@ -19084,6 +19298,54 @@ function qaExportPowerPoint(){
         ? 'Los análisis de ACR reflejan los registros de ACR disponibles en este dispositivo.'
         : 'RCA analytics reflect RCA records available to this device.',
         { x:6.9, y:4.45, w:6.0, h:0.6, fontSize:10, italic:true, color:NEUTRAL });
+    }
+
+    // ── Optional Slide: PRODUCTIVITY SUMMARY — only when there are job
+    // records to report on; an all-NCR/RCA filter would otherwise show an
+    // empty slide of qty/operator panels that don't apply to it. ──
+    if (a.totalJobs){
+      var pAn = a.productivity;
+      var s2b = pptx.addSlide();
+      s2b.background = { color: GRAY };
+      s2b.addShape('rect', { x:0, y:0, w:13.33, h:0.9, fill:{ color: BLACK } });
+      s2b.addText(isEs?'RESUMEN DE PRODUCTIVIDAD':'PRODUCTIVITY SUMMARY', { x:0.4, y:0.18, w:12.5, h:0.55, fontSize:22, bold:true, color:WHITE, fontFace:'Arial' });
+
+      var pKpis = [
+        [isEs?'TRABAJOS':'JOBS', a.totalJobs, PINK],
+        [isEs?'CANT. OBJETIVO':'QTY TARGET', pAn.totalQtyTarget.toLocaleString(), NEUTRAL],
+        [isEs?'CANT. PRODUCIDA':'QTY PRODUCED', pAn.totalQtyProduced.toLocaleString(), GREEN],
+        [isEs?'BAJO OBJETIVO':'SHORT OF TARGET', pAn.shortJobs, pAn.shortJobs ? RED : GREEN]
+      ];
+      var pKpiW = 3.0, pKpiGap = 0.15, pkx = 0.4;
+      pKpis.forEach(function(k){
+        s2b.addShape('roundRect', { x:pkx, y:1.1, w:pKpiW, h:1.15, fill:{color:WHITE}, line:{color:'E0E0E0', width:1}, rectRadius:0.08 });
+        s2b.addText(String(k[1]), { x:pkx, y:1.18, w:pKpiW, h:0.55, align:'center', fontSize:24, bold:true, color:k[2], fontFace:'Arial' });
+        s2b.addText(k[0], { x:pkx, y:1.72, w:pKpiW, h:0.4, align:'center', fontSize:9, bold:true, color:NEUTRAL, fontFace:'Arial' });
+        pkx += pKpiW + pKpiGap;
+      });
+
+      var pOpKeys = Object.keys(pAn.byOperator).sort(function(x,y){ return pAn.byOperator[y].jobs - pAn.byOperator[x].jobs; }).slice(0, 10);
+      s2b.addText(isEs?'Trabajos por Operador':'Jobs by Operator', { x:0.4, y:2.55, w:4.0, h:0.3, fontSize:12, bold:true, color:BLACK });
+      if (pOpKeys.length) {
+        s2b.addChart(pptx.ChartType.bar, [{ name:isEs?'Trabajos':'Jobs', labels:pOpKeys, values:pOpKeys.map(function(k){return pAn.byOperator[k].jobs;}) }],
+          { x:0.4, y:2.85, w:4.0, h:3.9, barDir:'bar', chartColors:[QA_PALETTE[9]], showLegend:false });
+      }
+      var pStKeys = Object.keys(pAn.byStation).sort(function(x,y){ return pAn.byStation[y].jobs - pAn.byStation[x].jobs; });
+      s2b.addText(isEs?'Trabajos por Estación':'Jobs by Station', { x:4.75, y:2.55, w:4.0, h:0.3, fontSize:12, bold:true, color:BLACK });
+      if (pStKeys.length) {
+        s2b.addChart(pptx.ChartType.bar, [{ name:isEs?'Trabajos':'Jobs', labels:pStKeys.map(stationLabel), values:pStKeys.map(function(k){return pAn.byStation[k].jobs;}) }],
+          { x:4.75, y:2.85, w:4.0, h:3.9, barDir:'bar', chartColors:[PINK], showLegend:false });
+      }
+      var pQtyOpKeys = pOpKeys.filter(function(k){ return pAn.byOperator[k].qtyProduced > 0; });
+      s2b.addText(isEs?'Cant. Producida por Operador':'Qty Produced by Operator', { x:9.1, y:2.55, w:3.85, h:0.3, fontSize:12, bold:true, color:BLACK });
+      if (pQtyOpKeys.length) {
+        s2b.addChart(pptx.ChartType.bar, [{ name:isEs?'Cant. Producida':'Qty Produced', labels:pQtyOpKeys, values:pQtyOpKeys.map(function(k){return pAn.byOperator[k].qtyProduced;}) }],
+          { x:9.1, y:2.85, w:3.85, h:3.9, barDir:'bar', chartColors:[GREEN], showLegend:false });
+      } else if (pAn.kamaSampleCount) {
+        s2b.addText((isEs?'Kama Foil Press — tiempo de ciclo promedio de '+pAn.kamaSampleCount+' trabajos: ':'Kama Foil Press — average cycle time across '+pAn.kamaSampleCount+' jobs: ') +
+          (isEs?'Prep. ':'Make Ready ') + pAn.kamaAvgMakeReadyMin + ' min, ' + (isEs?'Producción ':'Production ') + pAn.kamaAvgProductionMin + ' min.',
+          { x:9.1, y:2.85, w:3.85, h:2.0, fontSize:10, italic:true, color:NEUTRAL });
+      }
     }
 
     // ── Optional Slide 3: FILTERED DATA SUMMARY ──
