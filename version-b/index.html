@@ -7064,9 +7064,22 @@ function toggleFilterPopover(sectionPrefix, kind) {
 function _clampPopoverToViewport(pop) {
   pop.style.transform = '';
   var margin = 8;
+  // At tablet/desktop widths the icon sidebar is a real flex sibling (not
+  // absolutely positioned), so it occupies real space at the left edge of
+  // the window — clamping to x=0 alone still let a popover land underneath
+  // it, which is exactly what showed up as cut-off Operator/Station names
+  // even after the first (window-edge-only) fix. The left bound is
+  // whichever is further right: the window edge, or the sidebar's own
+  // right edge when it's actually taking up layout space.
+  var leftBound = margin;
+  var sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    var sbRect = sidebar.getBoundingClientRect();
+    if (sbRect.width > 0) leftBound = Math.max(leftBound, sbRect.right + margin);
+  }
   var rect = pop.getBoundingClientRect();
   var shift = 0;
-  if (rect.left < margin) shift = margin - rect.left;
+  if (rect.left < leftBound) shift = leftBound - rect.left;
   else if (rect.right > window.innerWidth - margin) shift = (window.innerWidth - margin) - rect.right;
   if (shift) pop.style.transform = 'translateX(' + shift + 'px)';
 }
