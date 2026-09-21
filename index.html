@@ -1102,6 +1102,15 @@ textarea.input {
 .qad-export-btn.pdf  { background: var(--steel); color: #fff; }
 .qad-export-btn:active { opacity: .85; }
 .qad-export-status { font-size: 13.5px; color: var(--text-secondary); margin-top: 8px; }
+/* Top export toolbar — same buttons as the full Export card at the bottom
+   of the page (see _qaExportButtonsHTML), just sized down and laid out in
+   one line so it doesn't compete with the filter bar for attention, while
+   still being reachable without scrolling all the way down. */
+.qad-top-export-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+.qad-top-export-label { font-size: 13px; font-weight: 700; color: var(--text-tertiary); margin-right: 2px; }
+.qad-top-export-bar .qad-export-status { margin-top: 0; margin-left: 4px; }
+.qad-export-btn.compact { padding: 7px 13px; font-size: 13px; border-radius: 9px; }
+.btn-secondary.compact { padding: 7px 13px; font-size: 13px; }
 @media (max-width: 1199px) {
   .qad-kpi-row { grid-template-columns: repeat(3, 1fr); }
   .qad-kpi-strip { grid-template-columns: repeat(3, 1fr); }
@@ -18592,31 +18601,51 @@ function _qaRenderTable(){
   wrap.innerHTML = html;
 }
 
+// Shared by both the top toolbar and the bottom Export card — same buttons,
+// same handlers, just sized differently (compact vs full) depending on
+// where they sit. Added a top copy because scrolling all the way to the
+// bottom just to export was the one complaint about the original layout.
+function _qaExportButtonsHTML(compact){
+  var isEs = isEsLang();
+  var cls = compact ? ' compact' : '';
+  return '<button type="button" class="qad-export-btn xlsx' + cls + '" onclick="qaExportExcel()">📊 ' + (isEs?'Excel':(compact?'Excel':'Export to Excel')) + '</button>' +
+    '<button type="button" class="qad-export-btn pptx' + cls + '" onclick="qaExportPowerPoint()">📽️ ' + (isEs?'PowerPoint':(compact?'PowerPoint':'Export to PowerPoint')) + '</button>' +
+    '<button type="button" class="btn-secondary' + cls + '" onclick="qaExportCSV()">⬇️ ' + (isEs?'CSV':(compact?'CSV':'Export CSV (legacy)')) + '</button>';
+}
+function _qaTopExportBarHTML(){
+  var isEs = isEsLang();
+  return '<div class="qad-top-export-bar">' +
+    '<span class="qad-top-export-label">' + (isEs?'Exportar:':'Export:') + '</span>' +
+    _qaExportButtonsHTML(true) +
+    '<span class="qad-export-status qad-export-status-el" id="qad-export-status-top"></span>' +
+  '</div>';
+}
 function _qaExportSectionHTML(){
   var isEs = isEsLang();
   var h = '<div class="qad-card">';
   h += '<div class="qad-card-title">' + (isEs?'Exportar':'Export') + '</div>';
   h += '<div class="qad-card-sub">' + (isEs?'Vista previa en vivo — el mismo conjunto de datos filtrado que se muestra arriba.':'Live preview — the exact same filtered dataset shown above.') + '</div>';
-  h += '<div class="qad-export-row">';
-  h += '<button type="button" class="qad-export-btn xlsx" onclick="qaExportExcel()">📊 ' + (isEs?'Exportar a Excel':'Export to Excel') + '</button>';
-  h += '<button type="button" class="qad-export-btn pptx" onclick="qaExportPowerPoint()">📽️ ' + (isEs?'Exportar a PowerPoint':'Export to PowerPoint') + '</button>';
-  h += '<button type="button" class="btn-secondary" onclick="qaExportCSV()">⬇️ ' + (isEs?'Exportar CSV (heredado)':'Export CSV (legacy)') + '</button>';
-  h += '</div>';
-  h += '<div class="qad-export-status" id="qad-export-status"></div>';
+  h += '<div class="qad-export-row">' + _qaExportButtonsHTML(false) + '</div>';
+  h += '<div class="qad-export-status qad-export-status-el" id="qad-export-status"></div>';
   h += '</div>';
   return h;
 }
 
+// Bumped on every renderQAData() call, and captured by each one's own chart
+// render below — see the comment on that .then() for why.
+var _qaRenderGen = 0;
 function renderQAData(){
   var el = document.getElementById('ncrpie-body');
   if (!el) return;
   var list = computeQADataset();
   var a = calculateQAAnalytics(list);
   _qaLast = { list: list, analytics: a };
+  var myGen = ++_qaRenderGen;
 
   el.innerHTML =
     '<div class="qad-wrap">' +
       _qaFilterBarHTML(list.length) +
+      _qaTopExportBarHTML() +
       _qaKpiRowHTML(a) +
       _qaKpiStripHTML(a) +
       _qaMainPanelsHTML(a) +
@@ -18628,7 +18657,17 @@ function renderQAData(){
 
   _updateAllFilterBadges('qadata');
   _qaRenderTable();
-  _ensureChartJs().then(function(){ _qaRenderCharts(a); }).catch(function(){});
+  // The KPI cards/table above are always correct instantly — they're built
+  // synchronously from `a`, same as an export. Charts are the one part that
+  // waits on an async Chart.js load first. If a filter gets changed again
+  // before that load finishes, an EARLIER render's callback can still fire
+  // — and land — AFTER a later render already drew the current, correct
+  // charts, silently overwriting them with stale data. That's exactly what
+  // made the on-screen charts able to disagree with an export taken a
+  // moment later (the export always reads the current _qaLast, so it was
+  // never actually wrong — the charts were). myGen === _qaRenderGen only
+  // passes for the most recent call, so a stale one is simply dropped.
+  _ensureChartJs().then(function(){ if (myGen === _qaRenderGen) _qaRenderCharts(a); }).catch(function(){});
 }
 
 function _qaRenderCharts(a){
@@ -18703,8 +18742,9 @@ function _qaRenderCharts(a){
 }
 
 function _qaExportStatus(msg, isErr){
-  var el = document.getElementById('qad-export-status');
-  if (el) { el.textContent = msg; el.style.color = isErr ? 'var(--red)' : 'var(--text-secondary)'; }
+  document.querySelectorAll('.qad-export-status-el').forEach(function(el){
+    el.textContent = msg; el.style.color = isErr ? 'var(--red)' : 'var(--text-secondary)';
+  });
 }
 // Same CSV this screen's data already powers Records' own "Export Shown" —
 // reuses _downloadRecordsCSV verbatim (same column order, same RCA-coverage
@@ -18924,6 +18964,19 @@ function qaExportPowerPoint(){
     s3.background = { color: GRAY };
     s3.addShape('rect', { x:0, y:0, w:13.33, h:0.9, fill:{ color: BLACK } });
     s3.addText(isEs?'RESUMEN DE DATOS FILTRADOS':'FILTERED DATA SUMMARY', { x:0.4, y:0.18, w:12.5, h:0.55, fontSize:22, bold:true, color:WHITE, fontFace:'Arial' });
+    // ROW_CAP is deliberately small — with autoPage:false, PptxGenJS renders
+    // every row at its natural height with no clipping or pagination, so a
+    // table with too many rows (or long wrapped text in the Customer/Date
+    // columns) grows past the slide's bottom edge instead of stopping. 14
+    // rows at this font size stays safely inside the slide even with
+    // wrapped cells. The "Showing X of Y" note also moved ABOVE the table
+    // (was a fixed y below it) — a note "below" a table whose real height
+    // isn't known in advance is exactly what put it overlapping mid-table
+    // in the first place.
+    var ROW_CAP = 14;
+    if (_qaLast.list.length > ROW_CAP) {
+      s3.addText((isEs?'Mostrando '+ROW_CAP+' de ':'Showing '+ROW_CAP+' of ') + _qaLast.list.length + (isEs?' — vea Excel para el conjunto completo.':' — see Excel for the full set.'), { x:0.4, y:0.98, w:12.5, h:0.3, fontSize:11, italic:true, color:NEUTRAL });
+    }
     var tableRows = [[
       { text:'Type', options:{bold:true,fill:{color:BLACK},color:WHITE} },
       { text:'Job #', options:{bold:true,fill:{color:BLACK},color:WHITE} },
@@ -18932,11 +18985,10 @@ function qaExportPowerPoint(){
       { text:isEs?'Estado':'Status', options:{bold:true,fill:{color:BLACK},color:WHITE} },
       { text:isEs?'Fecha':'Date', options:{bold:true,fill:{color:BLACK},color:WHITE} }
     ]];
-    _qaLast.list.slice(0, 24).forEach(function(r){
+    _qaLast.list.slice(0, ROW_CAP).forEach(function(r){
       tableRows.push([r.type.toUpperCase(), r.jobNumber||'', r.customer||'', stationLabel(r.station)||'', r.status||'', r.ts||'']);
     });
-    s3.addTable(tableRows, { x:0.4, y:1.1, w:12.5, fontSize:9, border:{type:'solid', color:'D1D5DB', pt:0.5}, autoPage:false });
-    if (_qaLast.list.length > 24) s3.addText((isEs?'Mostrando 24 de ':'Showing 24 of ') + _qaLast.list.length + (isEs?' — vea Excel para el conjunto completo.':' — see Excel for the full set.'), { x:0.4, y:6.9, w:12.5, h:0.3, fontSize:10, italic:true, color:NEUTRAL });
+    s3.addTable(tableRows, { x:0.4, y:1.4, w:12.5, fontSize:9, border:{type:'solid', color:'D1D5DB', pt:0.5}, autoPage:false });
 
     pptx.writeFile({ fileName: 'QA_Dashboard_' + Date.now() + '.pptx' });
     _qaExportStatus(isEs ? '✅ PowerPoint exportado.' : '✅ PowerPoint exported.');
