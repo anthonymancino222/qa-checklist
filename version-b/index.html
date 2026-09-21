@@ -19072,7 +19072,7 @@ function _qaRenderProductivityCharts(a){
   if (opQtyKeys.length) _qaHBar('qad-prod-op-qty-canvas', opQtyKeys, [{ label: isEs?'Cant. Producida':'Qty Produced', data: opQtyKeys.map(function(k){ return p.byOperator[k].qtyProduced; }), backgroundColor: QA_PALETTE[4] }]);
 
   var stKeys = Object.keys(p.byStation).sort(function(x,y){ return p.byStation[y].jobs - p.byStation[x].jobs; });
-  if (stKeys.length) _qaHBar('qad-prod-st-jobs-canvas', stKeys.map(stationLabel), [{ label: isEs?'Trabajos':'Jobs', data: stKeys.map(function(k){ return p.byStation[k].jobs; }), backgroundColor: QA_PALETTE[3] }]);
+  if (stKeys.length) _qaHBar('qad-prod-st-jobs-canvas', stKeys.map(stationLabel), [{ label: isEs?'Trabajos':'Jobs', data: stKeys.map(function(k){ return p.byStation[k].jobs; }), backgroundColor: QA_PALETTE[7] }]);
   var stQtyKeys = stKeys.filter(function(k){ return p.byStation[k].qtyProduced > 0; });
   if (stQtyKeys.length) _qaHBar('qad-prod-st-qty-canvas', stQtyKeys.map(stationLabel), [{ label: isEs?'Cant. Producida':'Qty Produced', data: stQtyKeys.map(function(k){ return p.byStation[k].qtyProduced; }), backgroundColor: QA_PALETTE[6] }]);
 
