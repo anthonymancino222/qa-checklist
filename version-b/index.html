@@ -6636,15 +6636,77 @@ function _logDataEditAudit(job, label) {
 // conflict: an audit push that arrived after the delete would resurrect the
 // very record it was trying to document.
 function _logDataEditAuditThenDelete(type, id, label) {
-  if (type !== 'job') { _deleteRecordById(type, id); return Promise.resolve(); }
-  var jobs = ipLoad();
-  var job = null;
-  for (var i = 0; i < jobs.length; i++) { if (String(jobs[i].id) === String(id)) { job = jobs[i]; break; } }
-  if (!job) { _deleteRecordById(type, id); return Promise.resolve(); }
-  _logDataEditAudit(job, label);
-  return Promise.resolve(ipSave(jobs)).catch(function(){}).then(function(){
-    _deleteRecordById(type, id);
-  });
+  if (type === 'job') {
+    var jobs = ipLoad();
+    var job = null;
+    for (var i = 0; i < jobs.length; i++) { if (String(jobs[i].id) === String(id)) { job = jobs[i]; break; } }
+    if (job) {
+      _logDataEditAudit(job, label);
+      return Promise.resolve(ipSave(jobs)).catch(function(){}).then(function(){
+        _deleteRecordById(type, id);
+      });
+    }
+  }
+  // NCR / NCR draft / RCA have no stageHistory of their own to write an
+  // audit entry into, so those deletes previously left NO trace at all of
+  // who deleted them or when — an SQF-relevant gap, since RCA in particular
+  // can never be restored (see the "Deleted Items" comment above: RCA isn't
+  // synced to the backend, so there's no server-side flag to undo). This
+  // records who/what/when in a separate, backend-synced trail BEFORE the
+  // delete happens, so even an unrecoverable RCA delete leaves a real audit
+  // record behind — just not the RCA's own content.
+  _recordDeleteAuditEntry(type, id, label, _deleteAuditSummary(type, id));
+  _deleteRecordById(type, id);
+  return Promise.resolve();
+}
+// Snapshots a few identifying fields off a record right before it's deleted,
+// so the audit entry says WHAT was deleted (job #, customer, station...),
+// not just an opaque id. Best-effort — an audit entry with a thin summary
+// is still far better than the no-trail-at-all status this replaces.
+function _deleteAuditSummary(type, id) {
+  var idStr = String(id);
+  try {
+    if (type === 'ncr' || type === 'ncr_draft') {
+      var isDraft = type === 'ncr_draft';
+      var rec = (isDraft ? ncrDraftLoad() : ncrLoad()).filter(function(r){
+        return String(isDraft ? r.__draftId : r.ncrId) === idStr;
+      })[0];
+      if (!rec) return {};
+      return isDraft
+        ? { jobNumber: rec.jobNumber||'', products: (rec.products||[]).filter(Boolean).join(', '), customer: rec.customerIsOther ? (rec.customerManual||'') : (rec.customer||''), station: rec.station||'' }
+        : { jobNumber: rec.jobNumber||'', product: rec.product||'', customer: rec.customerFinal||'', station: rec.station||'', status: rec.status||'', issueCategory: rec.issueCategory||'', rootCause: rec.rootCause||'' };
+    }
+    if (type === 'rca') {
+      var idx = parseInt(idStr.replace('rca-', ''), 10);
+      var list = rcaLoadRecords();
+      var r = (idx >= 0 && idx < list.length) ? list[idx] : null;
+      if (!r) return {};
+      return { jobNumber: r.jobNumber||'', productNumber: r.productNumber||'', customer: r.customer||'', station: r.station||'', status: r.status||'', rootCause: r.rootCause||'' };
+    }
+  } catch (e) {}
+  return {};
+}
+// Writes one delete-audit entry to the backend as its own record type
+// ('delete_audit') — the generic /records/:id PUT endpoint accepts any
+// type string, so this needs no backend changes. Fire-and-forget: a failed
+// audit push shouldn't block the delete the user already confirmed, same
+// as every other best-effort sync call in this file.
+function _recordDeleteAuditEntry(type, id, label, summary) {
+  if (!QA_BACKEND_URL) return;
+  var entry = {
+    id: 'delaudit-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+    recordType: type,
+    recordId: String(id),
+    label: label,
+    summary: summary || {},
+    deletedBy: _signedInUser ? _signedInUser.email : null,
+    deletedAt: formatTS()
+  };
+  fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(entry.id), {
+    method: 'PUT',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
+    body: JSON.stringify({ type: 'delete_audit', data: entry })
+  }).catch(function(){});
 }
 
 /* ══════════════════════════════════
@@ -18264,11 +18326,16 @@ function deleteNCRInProgress(ncrId){
       isEs ? 'Esto eliminará este RNC de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this NCR. This cannot be undone.',
       function(ok){
         if (!ok) return;
-        _deleteRecordById('ncr', ncrId);
-        ncrState.detailId = null;
-        updateNCRBadges();
-        renderNCRProgress();
-        showToast(isEs ? 'RNC eliminado' : 'NCR deleted', 'pass');
+        // Routed through the same audit-then-delete helper the Records
+        // screen's delete uses (see its own comment) — this button used to
+        // call _deleteRecordById directly, which left no trace of who
+        // deleted the NCR or when.
+        _logDataEditAuditThenDelete('ncr', ncrId, 'DATA EDIT — NCR Deleted from NCR In Progress').then(function(){
+          ncrState.detailId = null;
+          updateNCRBadges();
+          renderNCRProgress();
+          showToast(isEs ? 'RNC eliminado' : 'NCR deleted', 'pass');
+        });
       },
       { okLabel: isEs ? 'Eliminar' : 'Delete' }
     );
