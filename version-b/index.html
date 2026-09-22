@@ -7099,6 +7099,22 @@ document.addEventListener('mousedown', function(e){
 function _filterKindKey(kind) {
   return kind === 'station' ? 'stations' : (kind === 'operator' ? 'operator' : (kind === 'customer' ? 'customer' : 'cad'));
 }
+// sec.render() rebuilds the whole filter bar's innerHTML — including a
+// brand-new .filter-popover element that starts out display:none, same as
+// on first page load. That silently closed the popover after every single
+// checkbox click, even though nothing here ever called _closeFilterPopover
+// — reported as "the menu closes after 1 selection" and blocking picking
+// more than one Station/Operator/Customer/CAD option per open. Re-showing
+// it on the freshly-rendered element (only when it's the one still meant
+// to be open) keeps it up through as many picks as the user wants, closed
+// only by the Close button, an outside click, or re-tapping its own filter
+// button.
+function _reopenFilterPopoverIfOpen(sectionPrefix, kind) {
+  if (!_openFilterPopover || _openFilterPopover.prefix !== sectionPrefix || _openFilterPopover.kind !== kind) return;
+  _renderFilterPopoverContents(sectionPrefix, kind);
+  var pop = document.getElementById(sectionPrefix + '-' + kind + '-filter-pop');
+  if (pop) { pop.style.display = 'block'; _clampPopoverToViewport(pop); }
+}
 function _toggleFilterOption(sectionPrefix, kind, value, checked) {
   var sec = _FILTER_SECTIONS[sectionPrefix];
   var f = _getSectionFilters(sec.storeKey);
@@ -7110,6 +7126,7 @@ function _toggleFilterOption(sectionPrefix, kind, value, checked) {
   f[key] = arr;
   _setSectionFilters(sec.storeKey, f);
   sec.render();
+  _reopenFilterPopoverIfOpen(sectionPrefix, kind);
 }
 function _clearFilterOptions(sectionPrefix, kind) {
   var sec = _FILTER_SECTIONS[sectionPrefix];
@@ -7117,7 +7134,7 @@ function _clearFilterOptions(sectionPrefix, kind) {
   f[_filterKindKey(kind)] = [];
   _setSectionFilters(sec.storeKey, f);
   sec.render();
-  _renderFilterPopoverContents(sectionPrefix, kind); // stay open, checkboxes now cleared
+  _reopenFilterPopoverIfOpen(sectionPrefix, kind); // stay open, checkboxes now cleared
 }
 
 // Shared comparator for the sort/order controls — takes small accessor
