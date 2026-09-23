@@ -4087,11 +4087,14 @@ try {
     <span id="rca-status-text">Draft — select a workflow path to begin</span>
   </div>
 
-  <!-- Shown only while editing a previously-closed record (rcaOpenRecordForEdit) —
-       makes it unmistakable that saving here updates that existing record
-       rather than creating a new one. -->
-  <div id="rca-editing-notice" class="hidden" style="background:var(--amber-soft);border:1px solid var(--amber);color:var(--amber-ink);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px;font-weight:600;">
-    ✏️ <span data-en>Editing an existing closed record — saving will update it, not create a new one.</span><span data-es>Editando un registro cerrado existente — al guardar se actualizará, no se creará uno nuevo.</span>
+  <!-- Shown only while filling out a versioned copy of an existing record
+       (rcaOpenRecordForEdit) — text is filled in dynamically with the
+       specific job numbers involved, since this can't be known ahead of
+       time. Blue/informational rather than a warning color — this is closer
+       to resuming a draft than doing something risky: the original record
+       is never touched. -->
+  <div id="rca-editing-notice" class="hidden" style="background:var(--blue-soft);border:1px solid var(--blue-mid);color:var(--indigo);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px;font-weight:600;">
+    📝 <span data-en></span><span data-es></span>
   </div>
 
   <div style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;font-weight:600"><span data-en>Choose workflow path</span><span data-es>Elija la ruta de trabajo</span></div>
@@ -20291,11 +20294,11 @@ function rcaCollectData(status, action){
     closeQATech:rcaGetCloseQAName(), verifyMethod:rcaGetVal('verify-method'),
     status:status,
     token:_rcaToken,
-    // Server-side re-check for the "edit_closed" action (RCA_AppScript_v3.gs)
-    // — the client-side _isDataEditAllowedUser() gate keeps the button
-    // hidden from anyone else, but a stray/forged POST hitting the backend
-    // directly bypasses that entirely, so the backend checks this against
-    // its own copy of the same allowlist too.
+    // Just an audit trail, not an access-control check — editing a record
+    // always saves as a brand-new versioned copy (see rcaOpenRecordForEdit),
+    // never an in-place update, so there's nothing here for a backend
+    // permission check to gate. Kept in case it's useful later for tracing
+    // who filed which version of a job.
     editorEmail:_signedInUser ? _signedInUser.email : '',
     testMode:document.getElementById("rca-test-mode-toggle").checked,
     testEmail:RCA_TEST_EMAIL
@@ -20349,8 +20352,8 @@ function rcaLockForm(){
   // form is only meant to stop further edits to the underlying data.
   document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"]):not([onclick^="rcaPrintReport"]):not([onclick^="rcaResetForm"])').forEach(e=>e.disabled=true);
   var isEs = isEsLang();
-  document.getElementById('rca-success-banner-text').textContent = _rcaEditingClosedRecord
-    ? (isEs ? '¡Registro actualizado!' : 'Record updated!')
+  document.getElementById('rca-success-banner-text').textContent = _rcaVersioningFrom
+    ? (isEs ? '¡Nueva versión guardada!' : 'New version saved!')
     : RCA_LIVE
     ? (isEs ? '¡Registro guardado en Google Sheets!' : 'Record saved to Google Sheets!')
     : (isEs ? '¡Registro guardado! (local — sincronización con Apps Script desactivada)' : 'Record saved! (local — Apps Script sync off)');
@@ -20382,7 +20385,7 @@ function rcaResetForm(){
   if (typeof rcaRenderPhotoGrid === 'function') rcaRenderPhotoGrid();
   _rcaToken = '';
   _rcaManagerMode = false; _rcaCloseoutMode = false;
-  _rcaEditingClosedRecord = false;
+  _rcaVersioningFrom = null;
   rcaCurrentPath = null;
 
   // Back to the pristine "choose a path" screen.
@@ -20464,13 +20467,13 @@ function rcaReturnToQA(){
   });
 }
 
-// Clears the editing state and its on-screen notice — called once an edit
-// has actually been saved (success or not; a failed save leaves the record
-// on the backend unchanged either way, and the operator can just try again
-// or back out, but there's no reason to keep pretending this is still "an
-// edit in progress" after the save attempt has already gone out).
+// Clears the "filling out a versioned copy" state and its on-screen notice
+// — called once that copy has actually been saved (success or not; a
+// failed save means nothing went out at all, and the operator can just try
+// again, but there's no reason to keep showing "this will save as Job X-A"
+// after the save attempt has already gone out).
 function _rcaFinishEditing(){
-  _rcaEditingClosedRecord = false;
+  _rcaVersioningFrom = null;
   var notice = document.getElementById('rca-editing-notice');
   if (notice) notice.classList.add('hidden');
 }
@@ -20482,13 +20485,16 @@ function rcaCloseOut(){
   if(!rcaValidate(['job-num','prod-num','station'])) return;
   if(!rcaGetVal('close-date')||!rcaGetCloseQAName()){showAlert(isEs?'Complete la fecha de cierre y el nombre del técnico de calidad.':'Please fill in close-out date and QA tech name.');_scrollToField(document.getElementById('rca-close-date'));return;}
   const btn=document.getElementById('rca-btn-close');
-  var isEdit = _rcaEditingClosedRecord;
+  // A versioned copy is saved exactly like any other brand-new record — see
+  // rcaOpenRecordForEdit, which deliberately clears _rcaToken so there's
+  // nothing here to "update"; this only changes the status text/toast.
+  var isVersioned = !!_rcaVersioningFrom;
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
-  rcaSetStatus('saving', isEdit ? (isEs?'Guardando cambios...':'Saving changes...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
-  rcaSendToSheets(rcaCollectData('Closed', isEdit ? 'edit_closed' : 'close_out'), ok=>{
-    rcaSetStatus('closed', isEdit ? (isEs?'Registro actualizado':'Record updated') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
-    rcaShowToast(ok?(isEdit?(isEs?'✅ ¡Registro actualizado!':'✅ Record updated!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
-    if (isEdit) _rcaFinishEditing();
+  rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
+  rcaSendToSheets(rcaCollectData('Closed','close_out'), ok=>{
+    rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
+    rcaShowToast(ok?(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+    if (isVersioned) _rcaFinishEditing();
     rcaLockForm();
   });
 }
@@ -20504,13 +20510,13 @@ function rcaSubmitPath1(){
   }
   if(!rcaGetQAName()||!rcaGetCloseQAName()){showAlert(isEs?'Seleccione o ingrese los nombres de los técnicos de calidad.':'Please select or enter QA tech names.');_scrollToField(document.getElementById('rca-qa-name'));return;}
   const btn=document.getElementById('rca-btn-submit1');
-  var isEdit = _rcaEditingClosedRecord;
+  var isVersioned = !!_rcaVersioningFrom;
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
-  rcaSetStatus('saving', isEdit ? (isEs?'Guardando cambios...':'Saving changes...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
-  rcaSendToSheets(rcaCollectData('Closed', isEdit ? 'edit_closed' : undefined), ok=>{
-    rcaSetStatus('closed', isEdit ? (isEs?'Registro actualizado':'Record updated') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
-    rcaShowToast(ok?(isEdit?(isEs?'✅ ¡Registro actualizado!':'✅ Record updated!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
-    if (isEdit) _rcaFinishEditing();
+  rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
+  rcaSendToSheets(rcaCollectData('Closed'), ok=>{
+    rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
+    rcaShowToast(ok?(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+    if (isVersioned) _rcaFinishEditing();
     rcaLockForm();
   });
 }
@@ -22068,14 +22074,33 @@ function rcaPrintRecordReport(idxKey, customerFacing){
   rcaPrintReport(customerFacing, r);
 }
 
-/* ── Editing an already-closed RCA record ─────────────────────────────────
+/* ── Editing an already-saved RCA record — versioned copy, never an
+   in-place overwrite ──────────────────────────────────────────────────────
    Gated to the same two accounts as every other data-correction action in
-   this app (DATA_EDIT_ALLOWED_EMAILS / _isDataEditAllowedUser). Loads the
-   record's full stored data back into the live #view-rca form (unlocked),
-   and marks it so the next save updates that SAME record by its token
-   instead of creating a duplicate row — see rcaCloseOut/rcaSubmitPath1's
-   _rcaEditingClosedRecord check and the backend's "edit_closed" action. */
-var _rcaEditingClosedRecord = false;
+   this app (DATA_EDIT_ALLOWED_EMAILS / _isDataEditAllowedUser). Rather than
+   updating the original record, this loads its data into a fresh copy of
+   the form — exactly like resuming a draft — with the job number suffixed
+   " - A" (then " - B" for a second correction, and so on). Saving it goes
+   through the exact same "create a new record" path as any brand-new
+   submission (fresh token, appendRow on the backend) — the original row is
+   never touched, so there's no way this can corrupt or lose it. Suffix
+   numbering only looks at records visible on THIS device (RCA records
+   aren't cross-device synced — see the Records module notes) — two people
+   editing the same job on two different devices at the same time could
+   both land on " - A" and collide in the Sheet as two separate rows; low
+   odds for how this gets used, but worth knowing about. */
+function _rcaNextVersionSuffix(jobNumber){
+  var base = String(jobNumber || '').replace(/\s*-\s*[A-Z]$/, '');
+  var used = [];
+  rcaLoadRecords().forEach(function(rec){
+    var m = /^\s*(.+?)\s*-\s*([A-Z])\s*$/.exec(String(rec.jobNumber || ''));
+    if (m && m[1] === base) used.push(m[2]);
+  });
+  var code = 65; // 'A'
+  while (used.indexOf(String.fromCharCode(code)) !== -1) code++;
+  return { base: base, suffix: String.fromCharCode(code), newJobNumber: base + ' - ' + String.fromCharCode(code) };
+}
+var _rcaVersioningFrom = null; // { base, suffix, newJobNumber } while filling a versioned copy
 function rcaOpenRecordForEdit(idxKey){
   if (!_isDataEditAllowedUser()){
     showAlert(isEsLang() ? 'Editar registros requiere iniciar sesión como Anthony o Mathias.' : 'Editing records requires signing in as Anthony or Mathias.');
@@ -22084,32 +22109,31 @@ function rcaOpenRecordForEdit(idxKey){
   var idx = parseInt(String(idxKey).replace('rca-',''), 10);
   var r = rcaLoadRecords()[idx];
   if (!r) return;
-  if (!r.token){
-    // Records saved before tokens existed on every path (or a local-only
-    // simulated record that never reached the backend) have nothing to
-    // update by — editing those would have to create a new row, which is a
-    // duplicate, not a correction. Refuse rather than silently doing that.
-    showAlert(isEsLang() ? 'Este registro no tiene un token guardado y no se puede editar de forma segura (podría duplicarse en lugar de corregirse). Contacte a Anthony.' : 'This record has no saved token and can\'t be safely edited (it would risk creating a duplicate instead of a correction). Contact Anthony.');
-    return;
-  }
+  var ver = _rcaNextVersionSuffix(r.jobNumber);
   closeRecordView();
   switchView('rca');
   rcaUnlockForm();
   document.getElementById('rca-success-banner').classList.add('hidden');
   document.getElementById('rca-manager-submitted-banner').classList.add('hidden');
-  _rcaEditingClosedRecord = true;
-  _rcaToken = r.token;
+  _rcaVersioningFrom = ver;
+  _rcaToken = ''; // deliberately blank — this saves as a brand-new record, not an update
   rcaSetPath(1);
-  // Hide the path-selector (this is always an edit of a Path-1-style full
-  // record now, regardless of which path originally created it) without
-  // disabling the actual data fields the way _rcaLockIncidentInfo() would —
-  // those need to stay editable, just the "start over on a different path"
-  // choice doesn't make sense mid-edit.
+  // Hide the path-selector (this is always filled out as a Path-1-style
+  // full record now, regardless of which path originally created the
+  // record it's based on) without disabling the actual data fields the way
+  // _rcaLockIncidentInfo() would — those need to stay editable, just the
+  // "start over on a different path" choice doesn't make sense here.
   var pathSel = document.querySelector('#view-rca .path-selector');
   if (pathSel) pathSel.style.display = 'none';
   _rcaFillFullRecordForEdit(r);
+  document.getElementById('rca-job-num').value = ver.newJobNumber;
   var notice = document.getElementById('rca-editing-notice');
-  if (notice) notice.classList.remove('hidden');
+  if (notice){
+    var isEs = isEsLang();
+    notice.querySelector('[data-en]').textContent = 'Continuing from Job ' + ver.base + ' — this will save as a new record, Job ' + ver.newJobNumber + '. The original stays unchanged.';
+    notice.querySelector('[data-es]').textContent = 'Continuando desde el Trabajo ' + ver.base + ' — esto se guardará como un registro nuevo, Trabajo ' + ver.newJobNumber + '. El original no se modifica.';
+    notice.classList.remove('hidden');
+  }
   document.getElementById('view-rca').scrollIntoView({behavior:'smooth', block:'start'});
 }
 // Re-enables every field/button in the RCA form — the inverse of
