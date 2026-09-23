@@ -2027,14 +2027,34 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
      added right before window.print() and removed after) — the app has no
      other print path, so normal browsing/printing behavior is unchanged. */
   body.pt-printing > *:not(#pt-tagMeasureWrap){ display:none !important; }
-  body.pt-printing{ background:#fff !important; }
+  /* Dark mode redefines --text-primary/--text-secondary/etc. to near-white
+     values for shop-floor viewing comfort (body.dark-mode, see the theme
+     block above). Forcing the background to white here without also
+     resetting those same variables left printed/exported pages with
+     near-white or light-gray text on white paper — unreadable whenever the
+     device happened to be in dark mode at export time. Re-declaring the
+     light-mode values here (same specificity as body.dark-mode, but this
+     rule comes later in the stylesheet so it wins for print) fixes both
+     print paths regardless of which theme the device is in. */
+  body.pt-printing{
+    background:#fff !important; color:#1c232b !important;
+    --bg:#f5f5f3; --surface:#ffffff; --surface-raised:#fafafa;
+    --text-primary:#1c232b; --text-secondary:#5c6b7a; --text-tertiary:#5e6b78;
+    --border:#e0e0e0; --border-mid:#cfcfcf;
+  }
   body.pt-printing #pt-tagMeasureWrap{ height:auto !important; overflow:visible !important; }
   body.pt-printing *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
   /* Only active while an RCA PDF export is in progress (body.rca-printing is
      added right before window.print() and removed after) — same isolation
-     pattern as the pallet tag print above. */
+     pattern as the pallet tag print above, and the same dark-mode-variable
+     fix applies here too. */
   body.rca-printing > *:not(#rca-pdf-report){ display:none !important; }
-  body.rca-printing{ background:#fff !important; }
+  body.rca-printing{
+    background:#fff !important; color:#1c232b !important;
+    --bg:#f5f5f3; --surface:#ffffff; --surface-raised:#fafafa;
+    --text-primary:#1c232b; --text-secondary:#5c6b7a; --text-tertiary:#5e6b78;
+    --border:#e0e0e0; --border-mid:#cfcfcf;
+  }
   body.rca-printing #rca-pdf-report{ display:block !important; }
   body.rca-printing #rca-pdf-report *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
 }
