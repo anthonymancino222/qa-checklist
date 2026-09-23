@@ -6579,6 +6579,27 @@ function _mergeChecklist(oldChecklist, newChecklist) {
   (newChecklist || []).forEach(function(item){ if (!(item.id in merged)) order.push(item.id); merged[item.id] = item; });
   return order.map(function(id){ return merged[id]; });
 }
+// Recursively replaces any embedded base64 image (a string starting with
+// "data:image") with `true` — same recognition rule as the Drive photo-
+// migration pattern, just applied at write time instead of as a one-time
+// backfill. A stage snapshot's job is to record WHAT was true at that
+// stage (a signature was captured, a photo was taken, values were X/Y/Z),
+// not to carry a second full copy of the image bytes forever — those bytes
+// already live on the job's own current fields (or on Drive, for real
+// photos). Found 2026-09-23: across one device's real data, stageHistory
+// entries alone accounted for ~2.4MB of embedded, fully-duplicated
+// signature images out of a ~5.6MB local store that was hitting its
+// browser storage quota outright.
+function _stripEmbeddedImagesForHistory(v) {
+  if (typeof v === 'string') return v.indexOf('data:image') === 0 ? true : v;
+  if (Array.isArray(v)) return v.map(_stripEmbeddedImagesForHistory);
+  if (v && typeof v === 'object') {
+    var out = {};
+    Object.keys(v).forEach(function(k){ out[k] = _stripEmbeddedImagesForHistory(v[k]); });
+    return out;
+  }
+  return v;
+}
 function _stageSnapshot(existingHistory, stage, label, data) {
   var hist = existingHistory ? existingHistory.slice() : [];
   // signedInAs records whoever was actually logged in when this stage was
@@ -6587,7 +6608,7 @@ function _stageSnapshot(existingHistory, stage, label, data) {
   // DATA_EDIT_ALLOWED_EMAILS' own comment for why these aren't the same
   // thing). null on a shared floor login just means "an authorized device,
   // no individual identity" — not a bug, just what a shared login can tell you.
-  hist.push({ stage: stage, label: label, ts: formatTS(), signedInAs: (_signedInUser ? _signedInUser.email : null), data: data });
+  hist.push({ stage: stage, label: label, ts: formatTS(), signedInAs: (_signedInUser ? _signedInUser.email : null), data: _stripEmbeddedImagesForHistory(data) });
   return hist;
 }
 // Every DATA EDIT change is gated to a named account (DATA_EDIT_ALLOWED_EMAILS)
