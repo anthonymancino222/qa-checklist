@@ -4087,8 +4087,16 @@ try {
       <div class="field-row single" style="margin-bottom:12px">
         <div class="field-group">
           <label><span data-en>Pull from existing record</span><span data-es>Extraer de un registro existente</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>optional</span><span data-es>opcional</span>)</span></label>
+          <!-- Same pullScheduleNow() the QC setup screen and NCR form use —
+               so this dropdown can also offer any job on today's pulled
+               schedule, not just NCR/QC records already saved on this
+               device. See rcaPullScheduleClick / rcaPopulatePrefill. -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+            <button type="button" class="pull-schedule-btn" style="padding:10px 16px;font-size:14px;" onclick="rcaPullScheduleClick()">🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span></button>
+            <span id="rca-schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>
+          </div>
           <select id="rca-prefill-select" onchange="rcaPrefill(this.value)">
-            <option value="">— select an NCR or QC job to pre-fill —</option>
+            <option value="">— select an NCR, QC job, or scheduled job to pre-fill —</option>
           </select>
         </div>
       </div>
@@ -17183,6 +17191,18 @@ var STATION_RC_OVERRIDES = {
     rootCauses: ["Blade drag scuffing printed surface","Clamp pad worn — sliding on coated surface","Sheets sliding against each other after cut","No slip sheets between lifts"],
     correctiveActions: ["Replace blade and inspect clamp pad before run","Add slip sheets between lifts after cutting","Reduce stack height to minimize surface contact"]
   },
+
+  // ── Cutter: Bad Cut ─────────────────────────────────────────────────────
+  "Bindery Cutter|Bad Cut": {
+    rootCauses: ["Cut out of square — table or gauge misaligned","Blade dull or nicked, leaving an uneven edge","Cut size off from job spec","Backgauge drifted during the run","Sheet not squared against the gauge before cutting"],
+    correctiveActions: ["Check and re-square the cutting table/gauge before run","Inspect blade for nicks and replace if dull","Verify cut size against job ticket on first articles","Re-check backgauge position partway through a long run","Retrain operator on squaring sheets before each cut"]
+  },
+
+  // ── Cutter: Cutter Draw ─────────────────────────────────────────────────
+  "Bindery Cutter|Cutter Draw": {
+    rootCauses: ["Blade pulling/dragging material during the cut instead of shearing cleanly","Clamp not holding stack firmly enough, letting sheets shift mid-cut","Blade dull, increasing drag instead of a clean shear","Cutting speed too high for stock weight/caliper"],
+    correctiveActions: ["Inspect and replace blade before run","Increase clamp pressure and verify stack doesn't shift on a test cut","Reduce cutting speed for heavier stock","Run and check a test cut before full production"]
+  },
 };
 
 // Pressroom Cutter runs the exact same cutting process as Bindery Cutter
@@ -17230,7 +17250,7 @@ var STATION_ISSUES = {
     "Documentation / job ticket","Equipment issue","5S","Safety","SQF","Other"
   ],
   "Bindery Cutter": [
-    "Short / quantity","Damaged","Scuffing","Process not followed",
+    "Short / quantity","Damaged","Scuffing","Bad Cut","Cutter Draw","Process not followed",
     "Documentation / job ticket","Equipment issue","5S","Safety","Other"
   ],
   "Packing": [
@@ -19412,13 +19432,14 @@ function rcaCustomerChange(v){
   }
 }
 
-/* Populate the RCA prefill dropdown from NCRs + QC jobs.
-   Re-run whenever the RCA view opens so new records appear. */
+/* Populate the RCA prefill dropdown from NCRs + QC jobs + (if pulled)
+   today's schedule-bridge data. Re-run whenever the RCA view opens so new
+   records appear, and again after a manual Pull Schedule tap. */
 function rcaPopulatePrefill(){
   var sel = document.getElementById('rca-prefill-select');
   if (!sel) return;
   var keep = sel.value;
-  sel.innerHTML = '<option value="">— select an NCR or QC job to pre-fill —</option>';
+  sel.innerHTML = '<option value="">— select an NCR, QC job, or scheduled job to pre-fill —</option>';
   var ncrs = (typeof ncrLoad === 'function') ? ncrLoad() : [];
   if (ncrs.length){
     var og1 = document.createElement('optgroup'); og1.label = 'NCRs';
@@ -19431,9 +19452,11 @@ function rcaPopulatePrefill(){
     sel.appendChild(og1);
   }
   var jobs = (typeof ipLoad === 'function') ? ipLoad() : [];
+  var qcJobNumbers = {};
   if (jobs.length){
     var og2 = document.createElement('optgroup'); og2.label = 'QC jobs';
     jobs.forEach(function(j){
+      qcJobNumbers[j.jobNumber] = true;
       var pf = j.formNumber || j.productNumber || j.product || '';
       var o = document.createElement('option');
       o.value = 'qc:' + j.id;
@@ -19442,7 +19465,40 @@ function rcaPopulatePrefill(){
     });
     sel.appendChild(og2);
   }
+  // Schedule-bridge jobs — only ones without an existing QC record already
+  // covering that job number, same "prefer the real record" rule the NCR
+  // form's own prefill search uses.
+  if (_scheduleData && _scheduleData.jobs){
+    var scheduleJobNumbers = Object.keys(_scheduleData.jobs).filter(function(jn){ return !qcJobNumbers[jn]; });
+    if (scheduleJobNumbers.length){
+      var og3 = document.createElement('optgroup'); og3.label = 'From schedule';
+      scheduleJobNumbers.forEach(function(jn){
+        var entry = _scheduleData.jobs[jn];
+        var o = document.createElement('option');
+        o.value = 'schedule:' + jn;
+        o.textContent = jn + (entry.customer?' · '+entry.customer:'') + ((entry.products||[]).length?' · '+entry.products[0]:'');
+        og3.appendChild(o);
+      });
+      sel.appendChild(og3);
+    }
+  }
   if (keep) sel.value = keep;
+}
+// Same button/behavior as the QC setup screen and NCR form
+// (pullScheduleNow()) — refreshes _scheduleData, then re-populates the
+// prefill dropdown above so any newly-pulled jobs show up in it.
+function rcaPullScheduleClick(){
+  var isEs = isEsLang();
+  var status = document.getElementById('rca-schedule-pull-status');
+  if (status) { status.textContent = isEs ? 'Actualizando…' : 'Pulling…'; status.style.color = 'var(--text-tertiary)'; }
+  pullScheduleNow()
+    .then(function(data){
+      if (status) { status.style.color = 'var(--text-tertiary)'; status.textContent = (isEs?'Cargados ':'Loaded ') + data.jobCount + (isEs?' trabajos':' jobs'); }
+      rcaPopulatePrefill();
+    })
+    .catch(function(err){
+      if (status) { status.style.color = 'var(--red)'; status.textContent = (isEs?'Error: ':'Pull failed: ') + err.message; }
+    });
 }
 
 function _rcaSetCustomer(cust){
@@ -19491,6 +19547,16 @@ function rcaPrefill(v){
       var mRcEl = document.getElementById('rca-m-rc-summary');
       if (mRcEl && !mRcEl.value.trim()) mRcEl.value = n.rootCause;
     }
+  } else if (kind === 'schedule'){
+    // Same rationale as the NCR form's ncrPrefillFromSchedule: the schedule
+    // bridge doesn't reliably know which specific station/machine a job
+    // will run on, so Station is deliberately left for the tech to pick
+    // below rather than guessed from schedule data.
+    var entry = _scheduleData && _scheduleData.jobs && _scheduleData.jobs[key];
+    if (!entry) return;
+    document.getElementById('rca-job-num').value = key;
+    if ((entry.products||[]).length) document.getElementById('rca-prod-num').value = entry.products[0];
+    if (entry.customer) _rcaSetCustomer(entry.customer);
   }
 }
 const RCA_TEST_EMAIL = "anthony.mancino@moquinpress.com";
@@ -21676,6 +21742,7 @@ window.addEventListener('storage', function(e){
       "Score Issue": ["Missing score","Soft / weak score","Score wrong position"],
       "Cracking": [], "Bursting": [], "Crooked / Misaligned Cut": [],
       "Bad Cut": ["Ragged edge","Incomplete cut","Too deep"],
+      "Cutter Draw": [],
       "Ripped / Torn": [], "Foil / Emboss Registration": [], "Nick / Blanking Issue": [], "Other": []
     }},
     "Press": { categories: {
