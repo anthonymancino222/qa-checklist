@@ -6129,31 +6129,28 @@ function _syncSnapshotSet(type, snap){
 
 // The real entry point every save/retry goes through now. Diffs `list`
 // against the snapshot to find what's new/changed (pushed) and what
-// disappeared (soft-deleted), and only sends that. An empty snapshot means
-// this device has never run this delta logic before (migrating off the old
-// always-resend approach) — the safe one-time move there is a single real
-// full push of everything (identical to the old behavior, just once) so the
-// server is definitely caught up, then seed the snapshot from it; every
-// save after that is the normal small delta.
+// disappeared (soft-deleted), and only sends that.
+//
+// A one-time reconciliation runs first on any device that hasn't done it
+// yet (tracked by _syncMigrationKey, separate from the snapshot itself —
+// see why below), so the snapshot this delta logic trusts is honest before
+// anything gets diffed against it.
+function _syncMigrationKey(type){ return 'vb_qa_sync_migrated_v2_' + type; }
 function _syncPushDelta(type, list){
   if (!QA_BACKEND_URL) return Promise.resolve();
   var idField = _syncIdField(type);
-  var snap = _syncSnapshotGet(type);
 
-  if (!Object.keys(snap).length) {
+  var migrationKey = _syncMigrationKey(type);
+  var needsMigration = !localStorage.getItem(migrationKey);
+  if (needsMigration) {
     // A multi-product submit (e.g. Bindery/Pressroom Cutter QC approval)
     // calls ipAdd — and so this — once per product in a tight synchronous
     // loop, all before any of those calls' own fetches can resolve. Without
-    // the guard below, EVERY one of those calls would independently see the
-    // same still-empty snapshot and kick off its OWN full-store migration
-    // push — several concurrent multi-megabyte JSON bodies (the whole job
-    // store, serialized, once per product) in flight at the same time,
-    // which was enough to crash a tablet browser tab outright on a
-    // 4-product job. Now only the first call actually starts the
-    // migration; every other call waits on that same in-flight promise,
-    // then re-enters this function with its OWN list so whatever it added
-    // still gets pushed for real (as a normal small delta, once the
-    // snapshot exists).
+    // the guard below, EVERY one of those calls would independently kick
+    // off its OWN reconciliation fetch at once. Only the first call
+    // actually starts it; every other call waits on that same in-flight
+    // promise, then re-enters this function with its OWN list so whatever
+    // it added still gets pushed for real, once the migration is done.
     //
     // The guard map lives as a property on this function itself, created
     // lazily on first real use, rather than a module-level var — this
@@ -6172,42 +6169,17 @@ function _syncPushDelta(type, list){
       return inFlight[type].then(function(){ return _syncPushDelta(type, list); });
     }
 
-    var seedFromLocal = function(){
-      var seeded = {};
-      (list || []).forEach(function(r){ var id = r[idField]; if (id != null) seeded[String(id)] = JSON.stringify(r); });
-      _syncSnapshotSet(type, seeded);
-    };
-
-    // Real-world data check (2026-09-11): the job store had 461 records,
-    // 369 of them still carrying an embedded base64 photo pre-dating the
-    // Drive-upload feature — one bulk push of the WHOLE store came out to
-    // 17MB. Unconditionally re-sending that once per device (the original
-    // version of this migration) is exactly what kept re-triggering the
-    // Cloudflare D1 daily-quota alert: on shop-floor wifi a payload that
-    // size can time out client-side (fetch reports failure) while the
-    // Worker still finishes writing every row server-side, so the 30s
-    // retry loop would re-attempt — and re-WRITE all 400+ rows — forever
-    // on any one flaky device.
-    //
-    // The old always-push-everything code already kept SYNC_PENDING_KEY
-    // accurate (cleared on every successful push, left true after a failed
-    // one) long before this delta logic existed — so it's real evidence of
-    // whether this store had anything genuinely unconfirmed at the moment
-    // this device switched over. If it's clean, the server already has
-    // this data (that's what the old design was already guaranteeing);
-    // just trust it and seed the snapshot with ZERO network traffic. Only
-    // actually re-push when there's real evidence something didn't land.
-    var pending;
-    try { pending = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '{}'); } catch(e) { pending = {}; }
-    if (!pending[type]) {
-      seedFromLocal();
-      return Promise.resolve();
-    }
-
-    // Something was genuinely left unconfirmed — a real push is needed, but
-    // guard against hammering a large payload every 30s if it keeps failing
-    // (the exact runaway-retry scenario above). At most one attempt every
-    // 5 minutes per store.
+    // REVISED 2026-09-23: see index.html's own _syncPushDelta comment — this
+    // used to trust SYNC_PENDING_KEY as proof the server was caught up and
+    // seeded the snapshot from LOCAL data with zero network traffic, which
+    // is exactly the dishonest-confirmation gap that let a pull elsewhere
+    // in this app revert an already-approved shipping job back to pending.
+    // Now this always asks the server directly (one real listRecords call,
+    // same cost the regular pull already pays) and marks an id confirmed
+    // only when the server's own copy byte-for-byte matches local right
+    // now. Anything that differs — or that the server doesn't have — is
+    // left OUT of the seeded snapshot, so the normal delta logic below
+    // genuinely pushes it instead of silently trusting it was already there.
     var cooldownKey = 'vb_qa_sync_migration_cooldown_' + type;
     var lastAttempt = parseInt(localStorage.getItem(cooldownKey) || '0', 10) || 0;
     if (Date.now() - lastAttempt < 5 * 60 * 1000) {
@@ -6215,15 +6187,34 @@ function _syncPushDelta(type, list){
     }
     try { localStorage.setItem(cooldownKey, String(Date.now())); } catch(e) {}
 
-    var migration = _syncPushAll(type, list).then(function(ok){
-      if (!ok) return; // still couldn't confirm — leave pending as-is, cooldown limits how often this retries
-      seedFromLocal();
-      _syncMarkPending(type, false);
-    });
+    var migration = _qaJsonpGet({ action: 'listRecords', type: type })
+      .then(function(json){
+        var remoteById = {};
+        (json.records || []).forEach(function(r){ if (!r.deleted) remoteById[String(r.id)] = r.data; });
+        var seeded = {};
+        (list || []).forEach(function(r){
+          var id = r[idField];
+          if (id == null) return;
+          var idStr = String(id);
+          if (remoteById.hasOwnProperty(idStr)) {
+            var localJson = JSON.stringify(r);
+            if (JSON.stringify(remoteById[idStr]) === localJson) seeded[idStr] = localJson;
+          }
+        });
+        _syncSnapshotSet(type, seeded);
+        // Marked done regardless of match count — a zero-match result is
+        // still a genuine, confirmed answer from the server, not a reason
+        // to keep re-asking. Kept separate from the snapshot map itself so
+        // an all-mismatch {} snapshot can't be mistaken for "never ran".
+        try { localStorage.setItem(migrationKey, '1'); } catch(e) {}
+      })
+      .catch(function(){ /* couldn't confirm (offline/auth) — retried after cooldown, migrationKey stays unset */ });
     inFlight[type] = migration;
     migration.then(function(){ delete inFlight[type]; });
-    return migration;
+    return migration.then(function(){ return _syncPushDelta(type, list); });
   }
+
+  var snap = _syncSnapshotGet(type);
 
   var seen = {};
   var dirty = []; // [{id, json, data}]
@@ -6292,15 +6283,17 @@ function _syncDeleteRecord(type, id){
 // DIFFERENT device that this one hasn't seen yet. Deliberately conservative
 // for this first pass: if a record with the same id exists on both sides,
 // the LOCAL copy wins (no overwrite) — avoids clobbering an in-progress
-// edit on this device with a stale remote copy. Full last-write-wins
-// reconciliation is a later refinement, not needed for the core "don't lose
-// data across devices" goal.
+// edit on this device with a stale remote copy.
 //
-// REVERTED 2026-09-23: see index.html's own _syncPullAndMerge comment — the
-// same-day last-write-wins attempt reverted already-approved shipping jobs
-// back to "pending" because the snapshot it trusted could be seeded without
-// ever confirming the server actually had that data. Back to unconditional
-// "local wins" until that snapshot integrity gap is fixed first.
+// HISTORY: see index.html's own _syncPullAndMerge comment for the full
+// story — a same-day (2026-09-23) last-write-wins attempt reverted an
+// already-approved shipping job back to pending, because the snapshot it
+// trusted could be seeded without ever confirming the server actually had
+// that data. _syncPushDelta's migration path is now fixed to only mark an
+// id confirmed after a real server round-trip agrees with local, so it's
+// safe to restore last-write-wins here too: local wins only if it's
+// actually diverged from what this device last genuinely confirmed the
+// server held.
 function _syncPullAndMerge(type, currentList, saveFn) {
   if (!QA_BACKEND_URL) return;
   var idField = _syncIdField(type);
@@ -6310,9 +6303,26 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       var remote = records.filter(function(r){ return !r.deleted; });
       var deletedIds = {};
       records.forEach(function(r){ if (r.deleted) deletedIds[String(r.id)] = true; });
-      var localIds = {};
-      currentList.forEach(function(r){ localIds[String(r[idField])] = true; });
-      var additions = remote.filter(function(r){ return !localIds[String(r.id)]; }).map(function(r){ return r.data; });
+
+      var localById = {};
+      currentList.forEach(function(r){ localById[String(r[idField])] = r; });
+      var additions = remote.filter(function(r){ return !localById[String(r.id)]; }).map(function(r){ return r.data; });
+
+      // Computed against the snapshot as it stood BEFORE this pull (read
+      // now, overwritten further down) — that's what makes "does local
+      // still match the last-confirmed snapshot" a meaningful dirty check,
+      // not a comparison against the value this same pull is about to set.
+      var snap = _syncSnapshotGet(type);
+      var updates = {}; // id -> remote data this device should adopt
+      remote.forEach(function(r){
+        var idStr = String(r.id);
+        var local = localById[idStr];
+        if (!local) return; // handled by `additions` above
+        var localJson = JSON.stringify(local);
+        var remoteJson = JSON.stringify(r.data);
+        if (localJson !== remoteJson && snap[idStr] === localJson) updates[idStr] = r.data;
+      });
+
       // A record deleted on ANOTHER device never used to disappear here —
       // this only ever added, so a stale local copy stuck around forever,
       // and could even resurrect the "deleted" record server-side the next
@@ -6320,6 +6330,10 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // `deleted` on conflict). Pruning locally-held records the server has
       // since deleted closes that loop.
       var pruned = currentList.filter(function(r){ return !deletedIds[String(r[idField])]; });
+      var merged = pruned.map(function(r){
+        var idStr = String(r[idField]);
+        return updates.hasOwnProperty(idStr) ? updates[idStr] : r;
+      });
 
       // Seed the delta-push snapshot (see _syncPushDelta) with whatever the
       // server just handed back — this device now KNOWS the server holds
@@ -6329,12 +6343,12 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // local edit): the snapshot gets the REMOTE version, which still
       // won't match that local record's own JSON, so it correctly stays
       // "dirty" and gets pushed for real on the next delta pass.
-      var snap = _syncSnapshotGet(type);
       remote.forEach(function(r){ snap[String(r.id)] = JSON.stringify(r.data); });
       Object.keys(deletedIds).forEach(function(id){ delete snap[id]; });
       _syncSnapshotSet(type, snap);
 
-      if (additions.length || pruned.length !== currentList.length) saveFn(pruned.concat(additions));
+      var changed = additions.length || Object.keys(updates).length || pruned.length !== currentList.length;
+      if (changed) saveFn(merged.concat(additions));
     })
     .catch(function(){ /* offline at startup — just use what's local */ });
 }

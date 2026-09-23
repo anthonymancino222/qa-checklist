@@ -4087,6 +4087,13 @@ try {
     <span id="rca-status-text">Draft — select a workflow path to begin</span>
   </div>
 
+  <!-- Shown only while editing a previously-closed record (rcaOpenRecordForEdit) —
+       makes it unmistakable that saving here updates that existing record
+       rather than creating a new one. -->
+  <div id="rca-editing-notice" class="hidden" style="background:var(--amber-soft);border:1px solid var(--amber);color:var(--amber-ink);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px;font-weight:600;">
+    ✏️ <span data-en>Editing an existing closed record — saving will update it, not create a new one.</span><span data-es>Editando un registro cerrado existente — al guardar se actualizará, no se creará uno nuevo.</span>
+  </div>
+
   <div style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;font-weight:600"><span data-en>Choose workflow path</span><span data-es>Elija la ruta de trabajo</span></div>
   <div class="path-selector">
     <div class="path-card" id="rca-path1-card" onclick="rcaSetPath(1)">
@@ -4498,6 +4505,9 @@ try {
 
     <div id="rca-success-banner" class="success-banner hidden">
       ✅ <span id="rca-success-banner-text">Record saved!</span>
+      <div style="margin-top:10px;">
+        <button type="button" class="btn btn-primary" onclick="rcaResetForm()">＋ <span data-en>Start New RCA</span><span data-es>Iniciar Nueva ACR</span></button>
+      </div>
     </div>
 
     <div id="rca-manager-submitted-banner" class="success-banner hidden">
@@ -6080,31 +6090,28 @@ function _syncSnapshotSet(type, snap){
 
 // The real entry point every save/retry goes through now. Diffs `list`
 // against the snapshot to find what's new/changed (pushed) and what
-// disappeared (soft-deleted), and only sends that. An empty snapshot means
-// this device has never run this delta logic before (migrating off the old
-// always-resend approach) — the safe one-time move there is a single real
-// full push of everything (identical to the old behavior, just once) so the
-// server is definitely caught up, then seed the snapshot from it; every
-// save after that is the normal small delta.
+// disappeared (soft-deleted), and only sends that.
+//
+// A one-time reconciliation runs first on any device that hasn't done it
+// yet (tracked by _syncMigrationKey, separate from the snapshot itself —
+// see why below), so the snapshot this delta logic trusts is honest before
+// anything gets diffed against it.
+function _syncMigrationKey(type){ return 'qa_sync_migrated_v2_' + type; }
 function _syncPushDelta(type, list){
   if (!QA_BACKEND_URL) return Promise.resolve();
   var idField = _syncIdField(type);
-  var snap = _syncSnapshotGet(type);
 
-  if (!Object.keys(snap).length) {
+  var migrationKey = _syncMigrationKey(type);
+  var needsMigration = !localStorage.getItem(migrationKey);
+  if (needsMigration) {
     // A multi-product submit (e.g. Bindery/Pressroom Cutter QC approval)
     // calls ipAdd — and so this — once per product in a tight synchronous
     // loop, all before any of those calls' own fetches can resolve. Without
-    // the guard below, EVERY one of those calls would independently see the
-    // same still-empty snapshot and kick off its OWN full-store migration
-    // push — several concurrent multi-megabyte JSON bodies (the whole job
-    // store, serialized, once per product) in flight at the same time,
-    // which was enough to crash a tablet browser tab outright on a
-    // 4-product job. Now only the first call actually starts the
-    // migration; every other call waits on that same in-flight promise,
-    // then re-enters this function with its OWN list so whatever it added
-    // still gets pushed for real (as a normal small delta, once the
-    // snapshot exists).
+    // the guard below, EVERY one of those calls would independently kick
+    // off its OWN reconciliation fetch at once. Only the first call
+    // actually starts it; every other call waits on that same in-flight
+    // promise, then re-enters this function with its OWN list so whatever
+    // it added still gets pushed for real, once the migration is done.
     //
     // The guard map lives as a property on this function itself, created
     // lazily on first real use, rather than a module-level var — this
@@ -6123,42 +6130,34 @@ function _syncPushDelta(type, list){
       return inFlight[type].then(function(){ return _syncPushDelta(type, list); });
     }
 
-    var seedFromLocal = function(){
-      var seeded = {};
-      (list || []).forEach(function(r){ var id = r[idField]; if (id != null) seeded[String(id)] = JSON.stringify(r); });
-      _syncSnapshotSet(type, seeded);
-    };
-
+    // REVISED 2026-09-23: this used to trust SYNC_PENDING_KEY as proof the
+    // server was already caught up, and seeded the snapshot straight from
+    // LOCAL data with zero network traffic whenever that flag looked clean
+    // — completing based on an assumption, never an actual confirmation.
+    // That trust was misplaced: SYNC_PENDING_KEY can look clean even when
+    // the server genuinely never received a specific record (e.g. a push
+    // that failed silently because of an expired sign-in token — see
+    // pullScheduleNow's "unauthorized" failures the same day). A
+    // dishonestly "confirmed" snapshot entry is exactly what let a later
+    // pull adopt the server's stale copy over an already-approved shipping
+    // job, reverting it back to pending.
+    //
+    // Now this always asks the server directly (one GET, same cost as the
+    // pull that already runs on every load) and marks an id confirmed only
+    // when the server's own copy byte-for-byte matches what's local right
+    // now. Anything that differs — or that the server doesn't have at all
+    // — is simply left OUT of the seeded snapshot, which the normal delta
+    // logic below correctly reads as "needs pushing," so it goes out for
+    // real instead of being silently trusted.
+    //
     // Real-world data check (2026-09-11): the job store had 461 records,
     // 369 of them still carrying an embedded base64 photo pre-dating the
     // Drive-upload feature — one bulk push of the WHOLE store came out to
-    // 17MB. Unconditionally re-sending that once per device (the original
-    // version of this migration) is exactly what kept re-triggering the
-    // Cloudflare D1 daily-quota alert: on shop-floor wifi a payload that
-    // size can time out client-side (fetch reports failure) while the
-    // Worker still finishes writing every row server-side, so the 30s
-    // retry loop would re-attempt — and re-WRITE all 400+ rows — forever
-    // on any one flaky device.
-    //
-    // The old always-push-everything code already kept SYNC_PENDING_KEY
-    // accurate (cleared on every successful push, left true after a failed
-    // one) long before this delta logic existed — so it's real evidence of
-    // whether this store had anything genuinely unconfirmed at the moment
-    // this device switched over. If it's clean, the server already has
-    // this data (that's what the old design was already guaranteeing);
-    // just trust it and seed the snapshot with ZERO network traffic. Only
-    // actually re-push when there's real evidence something didn't land.
-    var pending;
-    try { pending = JSON.parse(localStorage.getItem(SYNC_PENDING_KEY) || '{}'); } catch(e) { pending = {}; }
-    if (!pending[type]) {
-      seedFromLocal();
-      return Promise.resolve();
-    }
-
-    // Something was genuinely left unconfirmed — a real push is needed, but
-    // guard against hammering a large payload every 30s if it keeps failing
-    // (the exact runaway-retry scenario above). At most one attempt every
-    // 5 minutes per store.
+    // 17MB, which is what a blind full-resend here would have cost on
+    // every device. Reading first and only pushing genuine mismatches
+    // avoids that; photos now upload to Drive as they're taken (see
+    // _uploadPhotoToDrive) rather than staying embedded, so this store's
+    // actual size is far smaller than that incident today.
     var cooldownKey = 'qa_sync_migration_cooldown_' + type;
     var lastAttempt = parseInt(localStorage.getItem(cooldownKey) || '0', 10) || 0;
     if (Date.now() - lastAttempt < 5 * 60 * 1000) {
@@ -6166,15 +6165,37 @@ function _syncPushDelta(type, list){
     }
     try { localStorage.setItem(cooldownKey, String(Date.now())); } catch(e) {}
 
-    var migration = _syncPushAll(type, list).then(function(ok){
-      if (!ok) return; // still couldn't confirm — leave pending as-is, cooldown limits how often this retries
-      seedFromLocal();
-      _syncMarkPending(type, false);
-    });
+    var migration = fetch(QA_BACKEND_URL + '/records?type=' + type, { headers: _authHeaders() })
+      .then(function(res){ if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(function(json){
+        var remoteById = {};
+        (json.records || []).forEach(function(r){ if (!r.deleted) remoteById[String(r.id)] = r.data; });
+        var seeded = {};
+        (list || []).forEach(function(r){
+          var id = r[idField];
+          if (id == null) return;
+          var idStr = String(id);
+          if (remoteById.hasOwnProperty(idStr)) {
+            var localJson = JSON.stringify(r);
+            if (JSON.stringify(remoteById[idStr]) === localJson) seeded[idStr] = localJson;
+          }
+        });
+        _syncSnapshotSet(type, seeded);
+        // Marked done regardless of how many ids actually matched — even a
+        // zero-match result (a brand-new store, or one that's wildly out of
+        // sync) is a genuine, confirmed answer from the server, not a
+        // reason to keep re-asking. Kept separate from the snapshot map
+        // itself specifically so an all-mismatch result (an empty {}
+        // snapshot) can't be mistaken for "migration never ran" and loop.
+        try { localStorage.setItem(migrationKey, '1'); } catch(e) {}
+      })
+      .catch(function(){ /* couldn't confirm (offline/auth) — retried after cooldown, migrationKey stays unset */ });
     inFlight[type] = migration;
     migration.then(function(){ delete inFlight[type]; });
-    return migration;
+    return migration.then(function(){ return _syncPushDelta(type, list); });
   }
+
+  var snap = _syncSnapshotGet(type);
 
   var seen = {};
   var dirty = []; // [{id, json, data}]
@@ -6242,40 +6263,66 @@ function _syncDeleteRecord(type, id){
   }).catch(function(){ /* offline — server copy stays until this succeeds some other time */ });
 }
 
-// One-time pull-and-merge on app load — brings in any records created on a
-// DIFFERENT device that this one hasn't seen yet. Deliberately conservative
-// for this first pass: if a record with the same id exists on both sides,
-// the LOCAL copy wins (no overwrite) — avoids clobbering an in-progress
-// edit on this device with a stale remote copy. Full last-write-wins
-// reconciliation is a later refinement, not needed for the core "don't lose
-// data across devices" goal.
+// Pull-and-merge — brings in any records created OR CHANGED on a different
+// device that this one hasn't seen yet.
 //
-// REVERTED 2026-09-23: a same-day attempt at last-write-wins reconciliation
-// (comparing local against the delta-push snapshot to tell a stale local
-// copy apart from a dirty one) caused already-approved shipping jobs to
-// revert back to "pending" on pull. Root cause: the snapshot is seeded
-// WITHOUT a real network round-trip whenever a device's SYNC_PENDING_KEY
-// looks clean (see _syncPushDelta's migration path) — so a device whose
-// earlier push silently failed (e.g. an expired sign-in token — see
-// pullScheduleNow's "unauthorized" failures found the same day) could still
-// have a snapshot that wrongly claims the server is caught up. That made
-// the new logic treat a locally-approved job as "not dirty," and it adopted
-// the server's genuinely-still-pending copy instead of protecting the
-// approval. Back to the safe, unconditional "local wins" behavior until the
-// snapshot's own integrity guarantee is fixed first.
+// HISTORY: originally, a record present on both sides always kept the LOCAL
+// copy unconditionally, so a change made elsewhere could never actually
+// land here even after many syncs. A same-day fix on 2026-09-23 replaced
+// that with last-write-wins based on the delta-push snapshot (see
+// _syncPushDelta) — but the snapshot itself could be seeded WITHOUT a real
+// network round-trip (its old migration path trusted a local "looks clean"
+// flag), so a device whose earlier push had silently failed (e.g. an
+// expired sign-in token) could carry a snapshot that wrongly claimed the
+// server was caught up. That let this logic adopt the server's
+// genuinely-still-pending copy over an already-approved shipping job,
+// reverting it. Reverted same-day back to unconditional "local wins."
+//
+// _syncPushDelta's migration path is now fixed to only ever mark an id
+// confirmed after an actual server round-trip agrees with local — so the
+// snapshot this function reads is trustworthy, and it's safe to restore
+// last-write-wins: if local still matches what this device last genuinely
+// confirmed the server had, it has no unconfirmed edit of its own, so it's
+// safe to take the server's newer version. A local copy that has actually
+// diverged from that confirmed snapshot (a real unsynced edit) still wins.
 function _syncPullAndMerge(type, currentList, saveFn) {
   if (!QA_BACKEND_URL) return;
   var idField = _syncIdField(type);
   return fetch(QA_BACKEND_URL + '/records?type=' + type, { headers: _authHeaders() })
-    .then(function(res){ return res.json(); })
+    .then(function(res){
+      // A 401 (expired/missing sign-in token) still comes back as valid
+      // JSON ({error:'unauthorized'}) — without this check, `json.records
+      // || []` below would silently read that as "server has zero
+      // records," making a stale-token pull look like a harmless
+      // successful no-op instead of the failure it actually is.
+      if (!res.ok) return res.json().then(function(e){ throw new Error((e && e.error) || ('HTTP ' + res.status)); });
+      return res.json();
+    })
     .then(function(json){
       var records = json.records || [];
       var remote = records.filter(function(r){ return !r.deleted; });
       var deletedIds = {};
       records.forEach(function(r){ if (r.deleted) deletedIds[String(r.id)] = true; });
-      var localIds = {};
-      currentList.forEach(function(r){ localIds[String(r[idField])] = true; });
-      var additions = remote.filter(function(r){ return !localIds[String(r.id)]; }).map(function(r){ return r.data; });
+
+      var localById = {};
+      currentList.forEach(function(r){ localById[String(r[idField])] = r; });
+      var additions = remote.filter(function(r){ return !localById[String(r.id)]; }).map(function(r){ return r.data; });
+
+      // Computed against the snapshot as it stood BEFORE this pull (read
+      // now, overwritten further down) — that's what makes "does local
+      // still match the last-confirmed snapshot" a meaningful dirty check,
+      // not a comparison against the value this same pull is about to set.
+      var snap = _syncSnapshotGet(type);
+      var updates = {}; // id -> remote data this device should adopt
+      remote.forEach(function(r){
+        var idStr = String(r.id);
+        var local = localById[idStr];
+        if (!local) return; // handled by `additions` above
+        var localJson = JSON.stringify(local);
+        var remoteJson = JSON.stringify(r.data);
+        if (localJson !== remoteJson && snap[idStr] === localJson) updates[idStr] = r.data;
+      });
+
       // A record deleted on ANOTHER device never used to disappear here —
       // this only ever added, so a stale local copy stuck around forever,
       // and could even resurrect the "deleted" record server-side the next
@@ -6283,6 +6330,10 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // `deleted` on conflict). Pruning locally-held records the server has
       // since deleted closes that loop.
       var pruned = currentList.filter(function(r){ return !deletedIds[String(r[idField])]; });
+      var merged = pruned.map(function(r){
+        var idStr = String(r[idField]);
+        return updates.hasOwnProperty(idStr) ? updates[idStr] : r;
+      });
 
       // Seed the delta-push snapshot (see _syncPushDelta) with whatever the
       // server just handed back — this device now KNOWS the server holds
@@ -6292,14 +6343,14 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // local edit): the snapshot gets the REMOTE version, which still
       // won't match that local record's own JSON, so it correctly stays
       // "dirty" and gets pushed for real on the next delta pass.
-      var snap = _syncSnapshotGet(type);
       remote.forEach(function(r){ snap[String(r.id)] = JSON.stringify(r.data); });
       Object.keys(deletedIds).forEach(function(id){ delete snap[id]; });
       _syncSnapshotSet(type, snap);
 
-      if (additions.length || pruned.length !== currentList.length) saveFn(pruned.concat(additions));
+      var changed = additions.length || Object.keys(updates).length || pruned.length !== currentList.length;
+      if (changed) saveFn(merged.concat(additions));
     })
-    .catch(function(){ /* offline at startup — just use what's local */ });
+    .catch(function(){ /* offline, or a genuine auth failure — either way, leave local as-is; retried on the normal cycle */ });
 }
 function _syncInitialPull() {
   _syncPullAndMerge('job', ipLoad(), ipSave);
@@ -19992,9 +20043,13 @@ function _rcaPdfField(label, value){
 // Builds the report HTML into #rca-pdf-report and returns { d, filenameBase }
 // for whichever output path (print or direct-download) called it — shared by
 // rcaPrintReport and rcaExportPDF so the two paths can never drift apart.
-function _rcaBuildReport(customerFacing){
+// `presetData`, when given, is used as-is instead of reading the live form —
+// this is what lets the Records-list popup regenerate a PDF straight from a
+// previously-saved record (its own stored data), without touching or even
+// requiring the live #view-rca form to be open on that field data at all.
+function _rcaBuildReport(customerFacing, presetData){
   var isEs = isEsLang();
-  var d = rcaCollectData(rcaCurrentPath===1 ? (rcaGetVal('close-date')?'Closed':'Draft') : 'Draft', 'export_pdf');
+  var d = presetData || rcaCollectData(rcaCurrentPath===1 ? (rcaGetVal('close-date')?'Closed':'Draft') : 'Draft', 'export_pdf');
   var report = document.getElementById('rca-pdf-report');
   var L = isEs ? {
     title:'Análisis de Causa Raíz y Acción Correctiva', subtitle:'Moquin Press — Gestión de Calidad',
@@ -20075,8 +20130,10 @@ function _rcaBuildReport(customerFacing){
 
 // Print path — opens the browser's print dialog (still useful for anyone
 // who actually wants to print at a shop printer rather than save a file).
-function rcaPrintReport(customerFacing){
-  _rcaBuildReport(customerFacing);
+// `presetData`, when given (e.g. from the Records-list popup for a
+// previously-saved record), is passed straight through to _rcaBuildReport.
+function rcaPrintReport(customerFacing, presetData){
+  _rcaBuildReport(customerFacing, presetData);
   document.body.classList.add('rca-printing');
   setTimeout(function(){
     window.print();
@@ -20103,11 +20160,19 @@ var _RCA_LIGHT_VARS = {
   '--text-primary':'#1c232b', '--text-secondary':'#5c6b7a', '--text-tertiary':'#5e6b78',
   '--border':'#e0e0e0', '--border-mid':'#cfcfcf'
 };
-function rcaExportPDF(customerFacing){
+// `presetData`, when given, skips reading the live form (see _rcaBuildReport)
+// so a closed record's PDF can be regenerated straight from its own stored
+// data — the exact fix for "forgot to save a copy the first time". `btnEl`,
+// when given, is used directly instead of the onclick-text selector lookup
+// below (which only ever matches the live form's own two buttons) — the
+// Records-list popup's buttons have a different onclick signature entirely
+// and pass themselves in this way to still get the same disabled/spinner
+// treatment while the PDF renders.
+function rcaExportPDF(customerFacing, presetData, btnEl){
   var isEs = isEsLang();
-  var built = _rcaBuildReport(customerFacing);
+  var built = _rcaBuildReport(customerFacing, presetData);
   var report = built.report;
-  var btn = document.querySelector('button[onclick="rcaExportPDF('+customerFacing+')"]');
+  var btn = btnEl || document.querySelector('button[onclick="rcaExportPDF('+customerFacing+')"]');
   var btnOrigHTML = btn ? btn.innerHTML : null;
   if (btn){ btn.disabled = true; btn.innerHTML = isEs ? '⏳ Generando…' : '⏳ Generating…'; }
 
@@ -20205,6 +20270,12 @@ function rcaCollectData(status, action){
     closeQATech:rcaGetCloseQAName(), verifyMethod:rcaGetVal('verify-method'),
     status:status,
     token:_rcaToken,
+    // Server-side re-check for the "edit_closed" action (RCA_AppScript_v3.gs)
+    // — the client-side _isDataEditAllowedUser() gate keeps the button
+    // hidden from anyone else, but a stray/forged POST hitting the backend
+    // directly bypasses that entirely, so the backend checks this against
+    // its own copy of the same allowlist too.
+    editorEmail:_signedInUser ? _signedInUser.email : '',
     testMode:document.getElementById("rca-test-mode-toggle").checked,
     testEmail:RCA_TEST_EMAIL
   };
@@ -20251,17 +20322,63 @@ function rcaSendToSheets(data, onDone){
 }
 
 function rcaLockForm(){
-  // Export buttons stay usable after submit/close — a finished record still
-  // needs to be printed/shared, and locking the form is only meant to stop
-  // further edits to the underlying data.
-  document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"]):not([onclick^="rcaPrintReport"])').forEach(e=>e.disabled=true);
+  // Export buttons (and the "Start New RCA" button inside the success
+  // banner itself) stay usable after submit/close — a finished record still
+  // needs to be printed/shared or followed by a fresh one, and locking the
+  // form is only meant to stop further edits to the underlying data.
+  document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"]):not([onclick^="rcaPrintReport"]):not([onclick^="rcaResetForm"])').forEach(e=>e.disabled=true);
   var isEs = isEsLang();
-  document.getElementById('rca-success-banner-text').textContent = RCA_LIVE
+  document.getElementById('rca-success-banner-text').textContent = _rcaEditingClosedRecord
+    ? (isEs ? '¡Registro actualizado!' : 'Record updated!')
+    : RCA_LIVE
     ? (isEs ? '¡Registro guardado en Google Sheets!' : 'Record saved to Google Sheets!')
     : (isEs ? '¡Registro guardado! (local — sincronización con Apps Script desactivada)' : 'Record saved! (local — Apps Script sync off)');
   rcaShow('success-banner');
   document.getElementById('rca-status-bar').style.background='var(--green-soft)';
   document.getElementById('rca-status-bar').style.borderColor='var(--green)';
+}
+
+// "+ Start New RCA" — there was previously no way back to a fresh, unlocked
+// form after closing a record short of a full page reload; this clears
+// every field/selection state back to a pristine Path-1/2-unselected form
+// in place, without losing the person's sign-in or navigating away.
+function rcaResetForm(){
+  var root = document.getElementById('view-rca');
+  // Re-enable everything rcaLockForm() (or a previous edit session) disabled.
+  root.querySelectorAll('input, select, textarea, button').forEach(function(e){ e.disabled = false; });
+  root.querySelectorAll('.disp-option').forEach(function(el){
+    el.style.pointerEvents = ''; el.style.opacity = ''; el.classList.remove('selected');
+  });
+  // Clear every plain text/date/textarea field and select.
+  root.querySelectorAll('input[type="text"], input[type="date"], textarea').forEach(function(e){ e.value = ''; });
+  root.querySelectorAll('select').forEach(function(e){ e.selectedIndex = 0; });
+  root.querySelectorAll('.other-input').forEach(function(e){ e.classList.add('hidden'); });
+
+  // Reset every piece of module-level selection/photo/token state.
+  _rcaGridSelectedSets = {};
+  rcaDispSelectedValues = []; rcaDisp2SelectedValues = [];
+  rcaPhotos = [];
+  if (typeof rcaRenderPhotoGrid === 'function') rcaRenderPhotoGrid();
+  _rcaToken = '';
+  _rcaManagerMode = false; _rcaCloseoutMode = false;
+  _rcaEditingClosedRecord = false;
+  rcaCurrentPath = null;
+
+  // Back to the pristine "choose a path" screen.
+  document.getElementById('rca-path1-card').classList.remove('active');
+  document.getElementById('rca-path2-card').classList.remove('active');
+  document.getElementById('rca-form-body').classList.add('hidden');
+  var pathSel = root.querySelector('.path-selector');
+  if (pathSel) pathSel.style.display = '';
+  ['rca-success-banner','rca-manager-submitted-banner','rca-editing-notice'].forEach(function(id){
+    var e = document.getElementById(id); if (e) e.classList.add('hidden');
+  });
+  var closeoutSummary = document.getElementById('rca-closeout-summary');
+  if (closeoutSummary) closeoutSummary.innerHTML = '';
+  document.getElementById('rca-status-bar').style.background = '';
+  document.getElementById('rca-status-bar').style.borderColor = '';
+  rcaSetStatus('draft', isEsLang() ? 'Borrador — elija una ruta de trabajo para comenzar' : 'Draft — select a workflow path to begin');
+  document.getElementById('view-rca').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function rcaValidate(ids){
@@ -20326,6 +20443,16 @@ function rcaReturnToQA(){
   });
 }
 
+// Clears the editing state and its on-screen notice — called once an edit
+// has actually been saved (success or not; a failed save leaves the record
+// on the backend unchanged either way, and the operator can just try again
+// or back out, but there's no reason to keep pretending this is still "an
+// edit in progress" after the save attempt has already gone out).
+function _rcaFinishEditing(){
+  _rcaEditingClosedRecord = false;
+  var notice = document.getElementById('rca-editing-notice');
+  if (notice) notice.classList.add('hidden');
+}
 function rcaCloseOut(){
   var isEs = isEsLang();
   // Job #/Product #/Station were validated once already at the send-to-manager
@@ -20334,11 +20461,13 @@ function rcaCloseOut(){
   if(!rcaValidate(['job-num','prod-num','station'])) return;
   if(!rcaGetVal('close-date')||!rcaGetCloseQAName()){showAlert(isEs?'Complete la fecha de cierre y el nombre del técnico de calidad.':'Please fill in close-out date and QA tech name.');_scrollToField(document.getElementById('rca-close-date'));return;}
   const btn=document.getElementById('rca-btn-close');
+  var isEdit = _rcaEditingClosedRecord;
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
-  rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...'));
-  rcaSendToSheets(rcaCollectData('Closed','close_out'), ok=>{
-    rcaSetStatus('closed', RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally'));
-    rcaShowToast(ok?(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+  rcaSetStatus('saving', isEdit ? (isEs?'Guardando cambios...':'Saving changes...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
+  rcaSendToSheets(rcaCollectData('Closed', isEdit ? 'edit_closed' : 'close_out'), ok=>{
+    rcaSetStatus('closed', isEdit ? (isEs?'Registro actualizado':'Record updated') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
+    rcaShowToast(ok?(isEdit?(isEs?'✅ ¡Registro actualizado!':'✅ Record updated!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+    if (isEdit) _rcaFinishEditing();
     rcaLockForm();
   });
 }
@@ -20354,11 +20483,13 @@ function rcaSubmitPath1(){
   }
   if(!rcaGetQAName()||!rcaGetCloseQAName()){showAlert(isEs?'Seleccione o ingrese los nombres de los técnicos de calidad.':'Please select or enter QA tech names.');_scrollToField(document.getElementById('rca-qa-name'));return;}
   const btn=document.getElementById('rca-btn-submit1');
+  var isEdit = _rcaEditingClosedRecord;
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
-  rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...'));
-  rcaSendToSheets(rcaCollectData('Closed'), ok=>{
-    rcaSetStatus('closed', RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally'));
-    rcaShowToast(ok?(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+  rcaSetStatus('saving', isEdit ? (isEs?'Guardando cambios...':'Saving changes...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
+  rcaSendToSheets(rcaCollectData('Closed', isEdit ? 'edit_closed' : undefined), ok=>{
+    rcaSetStatus('closed', isEdit ? (isEs?'Registro actualizado':'Record updated') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
+    rcaShowToast(ok?(isEdit?(isEs?'✅ ¡Registro actualizado!':'✅ Record updated!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+    if (isEdit) _rcaFinishEditing();
     rcaLockForm();
   });
 }
@@ -21832,7 +21963,16 @@ function openRecordNCRDraft(draftId){
   switchView('ncr');
 }
 
-/* ── RCA ── (view only for now — RCA has no load-into-form edit path yet) */
+/* ── RCA ──
+   View popup for a saved record. Shows the full 5-Why breakdown (not just
+   the rolled-up root-cause summary — the individual whys are already saved
+   in full, see rcaCollectData/_rcaMirrorLocal, but were never actually
+   displayed anywhere after the fact, which read as "did this even save
+   everything?"). Also offers Download PDF / Print straight from this
+   record's own stored data (no need to still have the live form open —
+   this is the fix for "forgot to save a copy the first time"), and an Edit
+   button gated to the same DATA_EDIT_ALLOWED_EMAILS roster used elsewhere
+   in this app for data-correction actions. */
 function openRecordRCA(idxKey){
   var idx = parseInt(String(idxKey).replace('rca-',''), 10);
   var list = rcaLoadRecords();
@@ -21850,16 +21990,184 @@ function openRecordRCA(idxKey){
     [_rvrEs?'Estación':'Station', {html: hlId(stationLabel(r.station))}],
     [_rvrEs?'Cliente':'Customer', r.customer || '—'],
     [_rvrEs?'Técnico de Calidad':'QA Tech', r.qaTech || '—'],
+    [_rvrEs?'Declaración del problema':'Problem statement', r.problemStmt || '—'],
+    [_rvrEs?'Por qué 1':'Why 1', r.why1 || '—'],
+    [_rvrEs?'Por qué 2':'Why 2', r.why2 || '—'],
+    [_rvrEs?'Por qué 3':'Why 3', r.why3 || '—'],
+    [_rvrEs?'Por qué 4':'Why 4', r.why4 || '—'],
+    [_rvrEs?'Por qué 5':'Why 5', r.why5 || '—'],
     [_rvrEs?'Causa Raíz':'Root Cause', r.rcSummary || '—'],
     [_rvrEs?'Acción Correctiva':'Corrective Action', r.correctiveAction || '—'],
     [_rvrEs?'Disposición':'Disposition', r.disposition || '—'],
     [_rvrEs?'Notas de Cierre':'Closing Notes', r.closeNotes || '—'],
     [_rvrEs?'Guardado':'Saved', r.savedAt || '—']
   ];
+  var canEdit = _isDataEditAllowedUser();
+  var actionsHtml = '<div class="action-row" style="margin-top:12px;flex-wrap:wrap;">' +
+    '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', false, this)">⬇️ ' + (_rvrEs?'Descargar PDF — Interno':'Download PDF — Internal') + '</button>' +
+    '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', true, this)">⬇️ ' + (_rvrEs?'Descargar PDF — Cliente':'Download PDF — Customer') + '</button>' +
+    '<button type="button" class="btn" onclick="rcaPrintRecordReport(\''+idxKey+'\', false)">🖨️ ' + (_rvrEs?'Imprimir':'Print') + '</button>' +
+    (canEdit ? '<button type="button" class="btn btn-warn" onclick="rcaOpenRecordForEdit(\''+idxKey+'\')">✏️ ' + (_rvrEs?'Editar este registro':'Edit this record') + '</button>' : '') +
+    '</div>';
+  var permNote = canEdit ? '' :
+    '<div style="font-size:13px;color:var(--text-tertiary);padding:8px 4px 0;">' +
+    (_rvrEs ? 'Editar registros requiere iniciar sesión como Anthony o Mathias.' : 'Editing records requires signing in as Anthony or Mathias.') + '</div>';
   document.getElementById('rv-body').innerHTML = '<div class="card">' + rows.map(function(x){
     return '<div class="ncr-sumrow"><b>'+escHtml(x[0])+'</b><span>'+_rowVal(x[1])+'</span></div>';
-  }).join('') + '</div><div style="font-size:14px;color:var(--text-tertiary);padding:0 4px;">' + (_rvrEs ? 'Editar registros de ACR existentes aún no está disponible — esto es solo de visualización por ahora.' : 'Editing existing RCA records isn\'t wired up yet — this is view-only for now.') + '</div>';
+  }).join('') + '</div>' + actionsHtml + permNote;
   document.getElementById('recordViewOverlay').classList.add('open');
+}
+function rcaExportRecordPDF(idxKey, customerFacing, btnEl){
+  var idx = parseInt(String(idxKey).replace('rca-',''), 10);
+  var r = rcaLoadRecords()[idx];
+  if (!r) return;
+  rcaExportPDF(customerFacing, r, btnEl);
+}
+function rcaPrintRecordReport(idxKey, customerFacing){
+  var idx = parseInt(String(idxKey).replace('rca-',''), 10);
+  var r = rcaLoadRecords()[idx];
+  if (!r) return;
+  rcaPrintReport(customerFacing, r);
+}
+
+/* ── Editing an already-closed RCA record ─────────────────────────────────
+   Gated to the same two accounts as every other data-correction action in
+   this app (DATA_EDIT_ALLOWED_EMAILS / _isDataEditAllowedUser). Loads the
+   record's full stored data back into the live #view-rca form (unlocked),
+   and marks it so the next save updates that SAME record by its token
+   instead of creating a duplicate row — see rcaCloseOut/rcaSubmitPath1's
+   _rcaEditingClosedRecord check and the backend's "edit_closed" action. */
+var _rcaEditingClosedRecord = false;
+function rcaOpenRecordForEdit(idxKey){
+  if (!_isDataEditAllowedUser()){
+    showAlert(isEsLang() ? 'Editar registros requiere iniciar sesión como Anthony o Mathias.' : 'Editing records requires signing in as Anthony or Mathias.');
+    return;
+  }
+  var idx = parseInt(String(idxKey).replace('rca-',''), 10);
+  var r = rcaLoadRecords()[idx];
+  if (!r) return;
+  if (!r.token){
+    // Records saved before tokens existed on every path (or a local-only
+    // simulated record that never reached the backend) have nothing to
+    // update by — editing those would have to create a new row, which is a
+    // duplicate, not a correction. Refuse rather than silently doing that.
+    showAlert(isEsLang() ? 'Este registro no tiene un token guardado y no se puede editar de forma segura (podría duplicarse en lugar de corregirse). Contacte a Anthony.' : 'This record has no saved token and can\'t be safely edited (it would risk creating a duplicate instead of a correction). Contact Anthony.');
+    return;
+  }
+  closeRecordView();
+  switchView('rca');
+  rcaUnlockForm();
+  document.getElementById('rca-success-banner').classList.add('hidden');
+  document.getElementById('rca-manager-submitted-banner').classList.add('hidden');
+  _rcaEditingClosedRecord = true;
+  _rcaToken = r.token;
+  rcaSetPath(1);
+  // Hide the path-selector (this is always an edit of a Path-1-style full
+  // record now, regardless of which path originally created it) without
+  // disabling the actual data fields the way _rcaLockIncidentInfo() would —
+  // those need to stay editable, just the "start over on a different path"
+  // choice doesn't make sense mid-edit.
+  var pathSel = document.querySelector('#view-rca .path-selector');
+  if (pathSel) pathSel.style.display = 'none';
+  _rcaFillFullRecordForEdit(r);
+  var notice = document.getElementById('rca-editing-notice');
+  if (notice) notice.classList.remove('hidden');
+  document.getElementById('view-rca').scrollIntoView({behavior:'smooth', block:'start'});
+}
+// Re-enables every field/button in the RCA form — the inverse of
+// rcaLockForm(), needed before loading an existing record back in for
+// editing (the form may currently be locked from an earlier close-out in
+// this same browser session).
+function rcaUnlockForm(){
+  document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button').forEach(function(e){ e.disabled = false; });
+  document.querySelectorAll('#view-rca .disp-option').forEach(function(el){ el.style.pointerEvents = ''; el.style.opacity = ''; });
+  var pathSel = document.querySelector('#view-rca .path-selector');
+  if (pathSel) pathSel.style.display = '';
+}
+// Sets a select-or-"Other" style field pair (id / id+'-other', the pattern
+// used throughout this form) to `value`, adding it as the "Other" free-text
+// entry when it's not one of the select's existing options.
+function _rcaSetSelectOrOther(selId, otherId, value){
+  var sel = document.getElementById(selId), other = document.getElementById(otherId);
+  if (!sel) return;
+  var has = Array.prototype.some.call(sel.options, function(o){ return o.value === value; });
+  if (has){ sel.value = value; if (other) other.classList.add('hidden'); }
+  else if (value){
+    sel.value = 'Other';
+    if (other){ other.value = value; other.classList.remove('hidden'); }
+  }
+}
+// Same idea as _rcaSetSelectOrOther but for the approved-by/manager-name
+// selects, whose "Other" sentinel value is '__other' (see RCA_NAME_SELECT_MAP)
+// rather than the literal string 'Other'.
+function _rcaSetNameSelect(selId, value){
+  var m = RCA_NAME_SELECT_MAP[selId]; if (!m) return;
+  var sel = document.getElementById(selId);
+  if (!sel) return;
+  var has = Array.prototype.some.call(sel.options, function(o){ return o.value === value; });
+  sel.value = has ? value : (value ? '__other' : '');
+  if (!has && value){ var other = document.getElementById(m.other); if (other) other.value = value; }
+  rcaNameSelectChange(selId);
+}
+// Selects the given (possibly multi-) disposition value(s) in the Path-1
+// disposition grid, matching the click-toggle behavior of rcaSetDisp but
+// driven from stored data instead of a user click.
+function _rcaSetDispositionForEdit(value){
+  rcaDispSelectedValues = String(value||'').split(', ').filter(Boolean);
+  document.getElementById('rca-disp-value').value = rcaDispSelectedValues.join(', ');
+  document.querySelectorAll('#rca-disp-grid .disp-option').forEach(function(el){
+    el.classList.toggle('selected', rcaDispSelectedValues.indexOf(el.textContent) !== -1);
+  });
+  _rcaSyncGridSummary('rca-disp-grid', 'rca-disp-value');
+}
+// Populates every editable field in the Path-1 form from a previously-saved
+// record — the counterpart to rcaCollectData(), which is what produced this
+// exact object shape in the first place. Reuses _rcaFillIncidentInfo (the
+// same section-1 prefill the manager/closeout token-load paths already use)
+// and rcaOnStationChange to rebuild the station-specific root-cause/
+// corrective-action grids before selecting values in them.
+function _rcaFillFullRecordForEdit(r){
+  _rcaFillIncidentInfo(r);
+  rcaOnStationChange(); // builds root-cause/corrective-action grids for this station+category
+  _rcaPopulateMgrSelects();
+
+  var rcParts = String(r.rootCause||'').split(' — ');
+  _rcaSetGridValue('rca-rootcause-grid', 'rca-rootcause-value', rcParts[0] || '');
+  document.getElementById('rca-rootcause-detail').value = rcParts.length > 1 ? rcParts.slice(1).join(' — ') : '';
+  // Re-render so the just-set selection actually shows as picked (mirrors
+  // how rcaOnStationChange leaves these grids freshly built but unselected).
+  _rcaRenderGrid('rca-rootcause-grid', 'rca-rootcause-value', rcaCascadeOptions('rootCauses'));
+
+  var caParts = String(r.correctiveAction||'').split(' — ');
+  _rcaSetGridValue('rca-correctiveaction-grid', 'rca-correctiveaction-value', caParts[0] || '');
+  document.getElementById('rca-future-action').value = caParts.length > 1 ? caParts.slice(1).join(' — ') : '';
+  _rcaRenderGrid('rca-correctiveaction-grid', 'rca-correctiveaction-value', rcaCascadeOptions('correctiveActions'));
+
+  document.getElementById('rca-problem-stmt').value = r.problemStmt || '';
+  document.getElementById('rca-w1').value = r.why1 || '';
+  document.getElementById('rca-w2').value = r.why2 || '';
+  document.getElementById('rca-w3').value = r.why3 || '';
+  document.getElementById('rca-w4').value = r.why4 || '';
+  document.getElementById('rca-w5').value = r.why5 || '';
+  document.getElementById('rca-rc-summary').value = r.rcSummary || '';
+  document.getElementById('rca-imm-action').value = r.immAction || '';
+  _rcaSetNameSelect('rca-approved-by-select', r.approvedBy || '');
+  document.getElementById('rca-approval-date').value = r.approvalDate || '';
+
+  _rcaSetDispositionForEdit(r.disposition || '');
+  document.getElementById('rca-disp-notes').value = r.dispNotes || '';
+
+  document.getElementById('rca-close-date').value = r.closeDate || '';
+  document.getElementById('rca-close-notes').value = r.closeNotes || '';
+  _rcaSetSelectOrOther('rca-close-qa-name', 'rca-close-qa-name-other', r.closeQATech || '');
+  var verifySel = document.getElementById('rca-verify-method');
+  if (verifySel) verifySel.value = r.verifyMethod || '';
+
+  // Numeric ids (not e.g. "edit0") — rcaRenderPhotoGrid's onclick="rcaRemovePhoto(N)"
+  // is built as a bare, unquoted number; a string id would render as an
+  // undefined bare identifier there and throw when clicked.
+  rcaPhotos = (r.photos || []).map(function(src){ return { id: _ncrPhotoSeq++, src: src }; });
+  if (typeof rcaRenderPhotoGrid === 'function') rcaRenderPhotoGrid();
 }
 
 /* Same-browser, cross-tab live refresh — a stand-in for the eventual
