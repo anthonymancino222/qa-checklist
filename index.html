@@ -4473,8 +4473,12 @@ try {
         <button class="btn" onclick="rcaSaveDraft()">💾 <span data-en>Save draft</span><span data-es>Guardar borrador</span></button>
       </div>
       <div class="action-row" style="margin-top:8px">
-        <button type="button" class="btn" onclick="rcaExportPDF(false)">📄 <span data-en>Export PDF — Internal (full detail)</span><span data-es>Exportar PDF — Interno (detalle completo)</span></button>
-        <button type="button" class="btn" onclick="rcaExportPDF(true)">📄 <span data-en>Export PDF — Customer-facing (summary)</span><span data-es>Exportar PDF — Para cliente (resumen)</span></button>
+        <button type="button" class="btn" onclick="rcaExportPDF(false)">⬇️ <span data-en>Download PDF — Internal (full detail)</span><span data-es>Descargar PDF — Interno (detalle completo)</span></button>
+        <button type="button" class="btn" onclick="rcaExportPDF(true)">⬇️ <span data-en>Download PDF — Customer-facing (summary)</span><span data-es>Descargar PDF — Para cliente (resumen)</span></button>
+      </div>
+      <div class="action-row" style="margin-top:4px">
+        <button type="button" class="btn" onclick="rcaPrintReport(false)">🖨️ <span data-en>Print — Internal (full detail)</span><span data-es>Imprimir — Interno (detalle completo)</span></button>
+        <button type="button" class="btn" onclick="rcaPrintReport(true)">🖨️ <span data-en>Print — Customer-facing (summary)</span><span data-es>Imprimir — Para cliente (resumen)</span></button>
       </div>
     </div>
 
@@ -19979,7 +19983,10 @@ function rcaHandoffToDept(){
 function _rcaPdfField(label, value){
   return '<div class="rca-pdf-field"><b>'+escHtml(label)+'</b><span>'+escHtml(value||'—')+'</span></div>';
 }
-function rcaExportPDF(customerFacing){
+// Builds the report HTML into #rca-pdf-report and returns { d, filenameBase }
+// for whichever output path (print or direct-download) called it — shared by
+// rcaPrintReport and rcaExportPDF so the two paths can never drift apart.
+function _rcaBuildReport(customerFacing){
   var isEs = isEsLang();
   var d = rcaCollectData(rcaCurrentPath===1 ? (rcaGetVal('close-date')?'Closed':'Draft') : 'Draft', 'export_pdf');
   var report = document.getElementById('rca-pdf-report');
@@ -20055,11 +20062,101 @@ function rcaExportPDF(customerFacing){
   h += '</div>';
   report.innerHTML = h;
 
+  var filenameBase = 'RCA_' + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
+    '_' + (customerFacing ? 'Customer' : 'Internal') + '_' + (d.dateFound || formatTS().slice(0,10));
+  return { d: d, report: report, filenameBase: filenameBase };
+}
+
+// Print path — opens the browser's print dialog (still useful for anyone
+// who actually wants to print at a shop printer rather than save a file).
+function rcaPrintReport(customerFacing){
+  _rcaBuildReport(customerFacing);
   document.body.classList.add('rca-printing');
   setTimeout(function(){
     window.print();
     document.body.classList.remove('rca-printing');
   }, 60);
+}
+
+/* ── Direct PDF download (no print dialog) — requested directly: the print
+   dialog's "Save as PDF" destination is an extra, easy-to-miss step (and on
+   some devices/browsers isn't offered at all), so "Export PDF" now hands
+   back an actual .pdf file the person can attach to an email right away.
+   Renders #rca-pdf-report with html2canvas (forcing the light-mode color
+   variables directly on the element first — same dark-mode-in-print bug as
+   the print path, but this doesn't go through @media print at all, so it
+   needs its own fix rather than relying on that CSS) and slices the result
+   across as many US-Letter pages as the content needs via jsPDF. ── */
+var QA_JSPDF_CDN = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+var QA_HTML2CANVAS_CDN = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+function _ensurePdfLibs(){
+  return Promise.all([_loadScriptOnce(QA_JSPDF_CDN), _loadScriptOnce(QA_HTML2CANVAS_CDN)]);
+}
+var _RCA_LIGHT_VARS = {
+  '--bg':'#f5f5f3', '--surface':'#ffffff', '--surface-raised':'#fafafa',
+  '--text-primary':'#1c232b', '--text-secondary':'#5c6b7a', '--text-tertiary':'#5e6b78',
+  '--border':'#e0e0e0', '--border-mid':'#cfcfcf'
+};
+function rcaExportPDF(customerFacing){
+  var isEs = isEsLang();
+  var built = _rcaBuildReport(customerFacing);
+  var report = built.report;
+  var btn = document.querySelector('button[onclick="rcaExportPDF('+customerFacing+')"]');
+  var btnOrigHTML = btn ? btn.innerHTML : null;
+  if (btn){ btn.disabled = true; btn.innerHTML = isEs ? '⏳ Generando…' : '⏳ Generating…'; }
+
+  _ensurePdfLibs().then(function(){
+    // Force light-mode colors directly on the element (inherited by every
+    // descendant that reads var(--text-primary) etc.) so the capture is
+    // readable regardless of whether the device is in dark mode — the
+    // @media print fix doesn't apply here since html2canvas never triggers
+    // print media.
+    report.style.display = 'block';
+    Object.keys(_RCA_LIGHT_VARS).forEach(function(k){ report.style.setProperty(k, _RCA_LIGHT_VARS[k]); });
+    report.style.background = '#fff';
+    report.style.color = '#1c232b';
+    report.style.position = 'fixed';
+    report.style.left = '-99999px';
+    report.style.top = '0';
+    report.style.width = '800px';
+
+    return html2canvas(report, { scale: 2, backgroundColor: '#ffffff', useCORS: true }).then(function(canvas){
+      var jsPDF = window.jspdf.jsPDF;
+      var pageW = 8.5, pageH = 11; // inches, US Letter
+      var pdf = new jsPDF({ unit: 'in', format: 'letter' });
+      var imgW = pageW;
+      var imgH = (canvas.height * imgW) / canvas.width;
+      var pageCanvasH = (pageH * canvas.width) / imgW; // canvas px per page
+      var renderedH = 0, first = true;
+      while (renderedH < canvas.height){
+        var sliceH = Math.min(pageCanvasH, canvas.height - renderedH);
+        var pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceH;
+        var ctx = pageCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        ctx.drawImage(canvas, 0, renderedH, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        var sliceImgH = (sliceH * imgW) / canvas.width;
+        if (!first) pdf.addPage();
+        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, sliceImgH);
+        renderedH += sliceH;
+        first = false;
+      }
+      pdf.save(built.filenameBase + '.pdf');
+    });
+  }).catch(function(err){
+    rcaShowToast(isEs ? 'No se pudo generar el PDF — revise la conexión' : 'Could not generate the PDF — check your connection', true);
+    console.error('rcaExportPDF failed:', err);
+  }).finally(function(){
+    // Restore the element's normal hidden-by-default state rather than just
+    // stripping the style attribute — this div's only other visibility path
+    // is the print-only `body.rca-printing #rca-pdf-report{display:block}`
+    // rule, so simply removing our inline overrides would leave it sitting
+    // there at its element-default `display:block`, visible on the page.
+    report.setAttribute('style', 'display:none;');
+    if (btn){ btn.disabled = false; btn.innerHTML = btnOrigHTML; }
+  });
 }
 
 function rcaGetVal(id){const e=document.getElementById('rca-'+id);return e?e.value.trim():'';}
@@ -20151,7 +20248,7 @@ function rcaLockForm(){
   // Export buttons stay usable after submit/close — a finished record still
   // needs to be printed/shared, and locking the form is only meant to stop
   // further edits to the underlying data.
-  document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"])').forEach(e=>e.disabled=true);
+  document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"]):not([onclick^="rcaPrintReport"])').forEach(e=>e.disabled=true);
   var isEs = isEsLang();
   document.getElementById('rca-success-banner-text').textContent = RCA_LIVE
     ? (isEs ? '¡Registro guardado en Google Sheets!' : 'Record saved to Google Sheets!')
