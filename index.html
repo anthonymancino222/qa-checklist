@@ -2059,12 +2059,18 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   body.rca-printing #rca-pdf-report *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
 }
 .rca-pdf-section{ margin-bottom:18px; }
-.rca-pdf-section h3{ font-size:15px; margin:0 0 8px; border-bottom:2px solid #1d4ed8; padding-bottom:4px; }
+.rca-pdf-section h3{ font-size:15px; margin:0 0 8px; color:#1d4ed8; border-bottom:2px solid #1d4ed8; padding-bottom:4px; text-decoration:underline; }
 .rca-pdf-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; margin-bottom:6px; }
 .rca-pdf-field b{ display:block; font-size:13px; color:#666; text-transform:uppercase; letter-spacing:.03em; }
 .rca-pdf-field span{ font-size:14px; }
 .rca-pdf-photos{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
-.rca-pdf-photos img{ width:140px; height:140px; object-fit:cover; border:1px solid #ddd; border-radius:6px; }
+/* A plain <img> with object-fit:cover + border-radius produces a visible
+   seam artifact in html2canvas's rendering (the PDF-download path) — the
+   crop and the rounded-corner clip mask don't line up, leaving a thin stray
+   line across the top of the photo. A background-image div renders
+   identically in both the browser and html2canvas with no such artifact,
+   and looks the same on-screen or printed. */
+.rca-pdf-photos .rca-pdf-photo{ width:140px; height:140px; background-size:cover; background-position:center; border:1px solid #ddd; border-radius:6px; }
 
 /* Sign-in gate — the ONE overlay in this app with no dismiss/click-outside
    handler, since unlike every other popup here, letting someone close this
@@ -20057,7 +20063,7 @@ function _rcaBuildReport(customerFacing){
 
   if (d.photos && d.photos.length){
     h += '<div class="rca-pdf-section"><h3>' + L.photos + '</h3><div class="rca-pdf-photos">' +
-      d.photos.map(function(src){ return '<img src="'+src+'">'; }).join('') + '</div></div>';
+      d.photos.map(function(src){ return '<div class="rca-pdf-photo" style="background-image:url(&quot;'+escHtml(src)+'&quot;)"></div>'; }).join('') + '</div></div>';
   }
   h += '</div>';
   report.innerHTML = h;
