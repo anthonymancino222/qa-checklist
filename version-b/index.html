@@ -6288,26 +6288,19 @@ function _syncDeleteRecord(type, id){
   _qaWriteAndPoll('delete', { id: id }, 8000).catch(function(){ /* offline — server copy stays until this succeeds some other time */ });
 }
 
-// Pull-and-merge — brings in any records created OR CHANGED on a different
-// device that this one hasn't seen yet.
+// One-time pull-and-merge on app load — brings in any records created on a
+// DIFFERENT device that this one hasn't seen yet. Deliberately conservative
+// for this first pass: if a record with the same id exists on both sides,
+// the LOCAL copy wins (no overwrite) — avoids clobbering an in-progress
+// edit on this device with a stale remote copy. Full last-write-wins
+// reconciliation is a later refinement, not needed for the core "don't lose
+// data across devices" goal.
 //
-// A record present on both sides used to always keep the LOCAL copy,
-// unconditionally — safe against clobbering an in-progress edit on this
-// device, but it meant a change made on another device (or by this same
-// device on an earlier day) could never actually land here: every future
-// pull just re-confirmed the same stale local copy forever, no matter how
-// many times "Sync Now" was tapped. Reported directly — shipping approvals
-// cleared on one device kept reappearing as still-pending on a phone/other
-// desktop, and a fresh approval on one device never showed up on another.
-//
-// The snapshot (see _syncPushDelta) already tracks "the last version THIS
-// device confirmed the server holds" for each id, for push's own delta
-// logic — reusing it here is what tells a genuinely-dirty local edit apart
-// from a merely-stale one: if the local copy still matches that snapshot,
-// this device has no unconfirmed change of its own for it, so it's safe to
-// take the server's newer version. Only a local copy that's actually
-// diverged from the snapshot (an edit this device hasn't pushed yet) still
-// wins, same as before.
+// REVERTED 2026-09-23: see index.html's own _syncPullAndMerge comment — the
+// same-day last-write-wins attempt reverted already-approved shipping jobs
+// back to "pending" because the snapshot it trusted could be seeded without
+// ever confirming the server actually had that data. Back to unconditional
+// "local wins" until that snapshot integrity gap is fixed first.
 function _syncPullAndMerge(type, currentList, saveFn) {
   if (!QA_BACKEND_URL) return;
   var idField = _syncIdField(type);
@@ -6317,26 +6310,9 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       var remote = records.filter(function(r){ return !r.deleted; });
       var deletedIds = {};
       records.forEach(function(r){ if (r.deleted) deletedIds[String(r.id)] = true; });
-
-      var localById = {};
-      currentList.forEach(function(r){ localById[String(r[idField])] = r; });
-      var additions = remote.filter(function(r){ return !localById[String(r.id)]; }).map(function(r){ return r.data; });
-
-      // Computed against the snapshot as it stood BEFORE this pull (read
-      // below, overwritten further down) — that's what makes "does local
-      // still match the last-confirmed snapshot" a meaningful dirty check,
-      // not a comparison against the value this same pull is about to set.
-      var snap = _syncSnapshotGet(type);
-      var updates = {}; // id -> remote data this device should adopt
-      remote.forEach(function(r){
-        var idStr = String(r.id);
-        var local = localById[idStr];
-        if (!local) return; // handled by `additions` above
-        var localJson = JSON.stringify(local);
-        var remoteJson = JSON.stringify(r.data);
-        if (localJson !== remoteJson && snap[idStr] === localJson) updates[idStr] = r.data;
-      });
-
+      var localIds = {};
+      currentList.forEach(function(r){ localIds[String(r[idField])] = true; });
+      var additions = remote.filter(function(r){ return !localIds[String(r.id)]; }).map(function(r){ return r.data; });
       // A record deleted on ANOTHER device never used to disappear here —
       // this only ever added, so a stale local copy stuck around forever,
       // and could even resurrect the "deleted" record server-side the next
@@ -6344,10 +6320,6 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // `deleted` on conflict). Pruning locally-held records the server has
       // since deleted closes that loop.
       var pruned = currentList.filter(function(r){ return !deletedIds[String(r[idField])]; });
-      var merged = pruned.map(function(r){
-        var idStr = String(r[idField]);
-        return updates.hasOwnProperty(idStr) ? updates[idStr] : r;
-      });
 
       // Seed the delta-push snapshot (see _syncPushDelta) with whatever the
       // server just handed back — this device now KNOWS the server holds
@@ -6357,12 +6329,12 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // local edit): the snapshot gets the REMOTE version, which still
       // won't match that local record's own JSON, so it correctly stays
       // "dirty" and gets pushed for real on the next delta pass.
+      var snap = _syncSnapshotGet(type);
       remote.forEach(function(r){ snap[String(r.id)] = JSON.stringify(r.data); });
       Object.keys(deletedIds).forEach(function(id){ delete snap[id]; });
       _syncSnapshotSet(type, snap);
 
-      var changed = additions.length || Object.keys(updates).length || pruned.length !== currentList.length;
-      if (changed) saveFn(merged.concat(additions));
+      if (additions.length || pruned.length !== currentList.length) saveFn(pruned.concat(additions));
     })
     .catch(function(){ /* offline at startup — just use what's local */ });
 }
