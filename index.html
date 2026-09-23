@@ -18126,7 +18126,11 @@ function ncrSalesHTML(d) {
 /* Photos */
 function ncrThumbsHTML(d){
   return (d.photos||[]).map(function(p){
-    return '<div class="ncr-thumb"><img src="'+p.src+'">' +
+    // Thumbnail is a small cropped preview — click it to open the actual
+    // uploaded photo (full resolution, whatever _uploadPhotoToDrive/
+    // ncrCompress produced) in a new tab, so it's never stuck looking
+    // low-res/unreadable just because the preview box is small.
+    return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">' +
       '<button type="button" class="ncr-thumb-edit" onclick="ncrEditPhoto('+p.id+')" title="Markup / edit photo">✏️</button>' +
       '<button type="button" onclick="ncrRemovePhoto('+p.id+')">✕</button></div>';
   }).join('');
@@ -18159,17 +18163,29 @@ function ncrWireForm(){
     });
   });
 }
+// maxDim 1000 / quality 0.72 dates from before this app's photo-to-Drive
+// migration, when a compressed photo had to fit inline as base64 in a
+// Sheet cell or localStorage record (both size-constrained — see the
+// Cloudflare D1 quota incident this app already hit once from oversized
+// embedded photos). Both NCR and RCA now upload straight to Drive via
+// _uploadPhotoToDrive right after this runs, and Drive has no such
+// constraint — so this was needlessly throwing away resolution/detail an
+// inspector actually needs (reported directly: an attached photo was too
+// low-res to read). Raised to a size that keeps small print/labels
+// legible while still landing well under any realistic upload limit
+// (roughly 300KB–1.5MB per photo at these settings, vs. multi-tens-of-MB
+// for an uncompressed phone photo).
 function ncrCompress(file, cb){
   var reader = new FileReader();
   reader.onload = function(e){
     var img = new Image();
     img.onload = function(){
-      var maxDim = 1000, w = img.width, h = img.height;
+      var maxDim = 2200, w = img.width, h = img.height;
       if (w>h && w>maxDim){ h=h*(maxDim/w); w=maxDim; } else if (h>maxDim){ w=w*(maxDim/h); h=maxDim; }
       var canvas = document.createElement('canvas');
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      cb(canvas.toDataURL('image/jpeg',0.72));
+      cb(canvas.toDataURL('image/jpeg',0.9));
     };
     img.src = e.target.result;
   };
@@ -18250,7 +18266,7 @@ function ncrSummaryHTML(d, isNew){
   var h = (isNew ? '<button class="ncr-back" onclick="ncrState.mode=\'form\';renderNCRView()">← ' + (isEs?'Volver a editar':'Back to edit') + '</button>' : '') +
     '<div class="card"><div class="card-label">'+(d.ncrId||(isEs?'Resumen':'Summary'))+ (d.status? ' <span class="ncr-status '+(d.status==='Closed'?'closed':d.status==='In Progress'?'inprog':'open')+'">'+ncrStatusLabel(d.status)+'</span>':'') +'</div>' +
     ncrSummaryRows(d).map(function(r){ return '<div class="ncr-sumrow"><b>'+_ncrEsc(r[0])+'</b><span>'+_rowVal(r[1])+'</span></div>'; }).join('') +
-    ((d.photos&&d.photos.length) ? '<div class="ncr-photo-grid" style="margin-top:12px;">'+d.photos.map(function(p){ return '<div class="ncr-thumb"><img src="'+p.src+'"></div>'; }).join('')+'</div>' : '') +
+    ((d.photos&&d.photos.length) ? '<div class="ncr-photo-grid" style="margin-top:12px;">'+d.photos.map(function(p){ return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size"></div>'; }).join('')+'</div>' : '') +
     (d.collage ? '<div style="margin-top:10px"><img src="'+d.collage+'" style="width:100%;border-radius:10px;border:1px solid var(--border)"></div>' : '') +
     (d.dispositionNote ? '<div class="ncr-sumrow"><b>' + (isEs?'Nota de cierre':'Closing note') + '</b><span>'+_ncrEsc(d.dispositionNote)+'</span></div>' : '') +
     '</div>';
@@ -20010,7 +20026,7 @@ function rcaRenderPhotoGrid(){
   var grid = document.getElementById('rca-photo-grid');
   if (!grid) return;
   grid.innerHTML = rcaPhotos.map(function(p){
-    return '<div class="ncr-thumb"><img src="'+p.src+'"><button type="button" onclick="rcaRemovePhoto('+p.id+')">✕</button></div>';
+    return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size"><button type="button" onclick="rcaRemovePhoto('+p.id+')">✕</button></div>';
   }).join('');
 }
 function rcaRemovePhoto(id){
@@ -20317,21 +20333,53 @@ function rcaCollectData(status, action){
 // record once live, but the sender's own device shouldn't have to wait on
 // a Sheet round trip (there isn't one to wait on anyway — the POST below is
 // fire-and-forget) just to see what it itself just submitted.
+// Returns true/false for whether the record actually made it into
+// localStorage — previously this swallowed any write failure silently (its
+// own comment used to say "storage full — not fatal"), which meant
+// rcaSendToSheets always reported success regardless, and a "Draft saved!"
+// toast could show even though nothing was actually saved. Every RCA
+// record embeds full base64 photos with no size cap on this list, so
+// exceeding the browser's localStorage quota over time is a real, not
+// theoretical, way for that write to fail (this app has hit this exact
+// class of storage-quota bug before).
 function _rcaMirrorLocal(data){
   try {
     var list = [];
     try { list = JSON.parse(localStorage.getItem(RCA_STORE_KEY)) || []; } catch(e) {}
     var mirrored = Object.assign({}, data, { savedAt: formatTS(), simulated: !RCA_LIVE });
     list.unshift(mirrored);
-    localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+    // Cap how many records this device keeps a local copy of, so the
+    // accumulated photo data from old records doesn't eventually crowd out
+    // room for new saves. The Sheet (once RCA_LIVE) stays the real,
+    // uncapped system of record — this only controls what shows in the
+    // Records tab on THIS device.
+    var RCA_LOCAL_CAP = 150;
+    if (list.length > RCA_LOCAL_CAP) list = list.slice(0, RCA_LOCAL_CAP);
+    try {
+      localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+    } catch(quotaErr){
+      // Retry once with every cached record's photos stripped out — losing
+      // photo previews from this device's local Records view is a much
+      // smaller loss than silently losing the entire draft/record (job #,
+      // 5 Whys, root cause, everything) to a storage-quota failure.
+      var stripped = list.map(function(r){ return Object.assign({}, r, { photos: [], photoData: '' }); });
+      localStorage.setItem(RCA_STORE_KEY, JSON.stringify(stripped));
+      console.error('RCA local mirror hit a storage limit — retried with cached photos stripped. Server-side data (once RCA_LIVE) is unaffected.', quotaErr);
+    }
     if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
-  } catch(e) { /* storage full — not fatal, the live send (if any) still went out */ }
+    return true;
+  } catch(e) {
+    console.error('_rcaMirrorLocal failed — this record will not show in Records on this device:', e);
+    return false;
+  }
 }
 function rcaSendToSheets(data, onDone){
-  _rcaMirrorLocal(data);
+  var mirroredOk = _rcaMirrorLocal(data);
   if (!RCA_LIVE){
-    // Local simulation — no network, the mirror above is the whole story.
-    setTimeout(function(){ onDone(true); }, 400);
+    // Local simulation — no network, so the mirror's own success/failure
+    // above IS the real result here (this used to always report success
+    // regardless of whether anything was actually written).
+    setTimeout(function(){ onDone(mirroredOk); }, 400);
     return;
   }
   // Plain no-cors fetch, not a hidden-iframe form post. The iframe technique
@@ -20348,7 +20396,12 @@ function rcaSendToSheets(data, onDone){
     mode: 'no-cors',
     body: JSON.stringify(data)
   })
-    .then(function(){ onDone(true); })
+    // Even when the network send succeeds, still report failure if the
+    // local mirror above didn't — otherwise this device shows a success
+    // toast for a record that won't actually appear in its own Records
+    // tab (the Sheet may well have it, but "it's not in my Records" is
+    // exactly the bug this is fixing).
+    .then(function(){ onDone(mirroredOk); })
     .catch(function(){ onDone(false); });
 }
 
@@ -20499,8 +20552,18 @@ function rcaCloseOut(){
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
   rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
   rcaSendToSheets(rcaCollectData('Closed','close_out'), ok=>{
+    if (!ok){
+      // Previously this locked the form and showed the success banner
+      // regardless of `ok` — a failed save (e.g. this device's storage is
+      // full) looked identical to a successful one, and locking the form
+      // left no way to retry. Now it stays open/editable and says so.
+      rcaSetStatus('draft', isEs?'⚠️ No se pudo guardar':'⚠️ Could not save');
+      rcaShowToast(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente de nuevo.':'⚠️ Could not save on this device (storage full?) — try again.', true);
+      btn.disabled=false; btn.textContent = isEs ? '🔒 Cerrar y enviar registro' : '🔒 Close & submit record';
+      return;
+    }
     rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
-    rcaShowToast(ok?(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+    rcaShowToast(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')));
     if (isVersioned) _rcaFinishEditing();
     rcaLockForm();
   });
@@ -20521,8 +20584,16 @@ function rcaSubmitPath1(){
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
   rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
   rcaSendToSheets(rcaCollectData('Closed'), ok=>{
+    if (!ok){
+      // See rcaCloseOut's identical fix — a failed save used to lock the
+      // form and show the success banner anyway, with no way to retry.
+      rcaSetStatus('draft', isEs?'⚠️ No se pudo guardar':'⚠️ Could not save');
+      rcaShowToast(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente de nuevo.':'⚠️ Could not save on this device (storage full?) — try again.', true);
+      btn.disabled=false; btn.textContent = isEs ? '🔒 Enviar y cerrar registro' : '🔒 Submit & close record';
+      return;
+    }
     rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
-    rcaShowToast(ok?(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!'))):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
+    rcaShowToast(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')));
     if (isVersioned) _rcaFinishEditing();
     rcaLockForm();
   });
@@ -20532,8 +20603,13 @@ function rcaSaveDraft(){
   var isEs = isEsLang();
   rcaSetStatus('saving', isEs?'Guardando borrador...':'Saving draft...');
   rcaSendToSheets(rcaCollectData('Draft'), ok=>{
-    rcaSetStatus('draft', (isEs?'Borrador guardado — ':'Draft saved — ')+new Date().toLocaleTimeString());
-    rcaShowToast(ok?(RCA_LIVE?(isEs?'💾 ¡Borrador guardado en Google Sheets!':'💾 Draft saved to Google Sheets!'):(isEs?'💾 ¡Borrador guardado localmente!':'💾 Draft saved locally!')):(isEs?'Borrador guardado localmente':'Draft saved locally'),!ok);
+    // The `ok===false` fallback text used to also claim success ("Draft
+    // saved locally") regardless — the exact same silent-failure bug as
+    // the one fixed in rcaSendToSheets/_rcaMirrorLocal, just repeated here
+    // in the toast copy. Now genuinely reports a failure, and points at the
+    // real cause (this device's storage) rather than staying silent.
+    rcaSetStatus(ok ? 'draft' : 'draft', (ok ? (isEs?'Borrador guardado — ':'Draft saved — ')+new Date().toLocaleTimeString() : (isEs?'⚠️ No se pudo guardar el borrador':'⚠️ Could not save draft')));
+    rcaShowToast(ok?(RCA_LIVE?(isEs?'💾 ¡Borrador guardado en Google Sheets!':'💾 Draft saved to Google Sheets!'):(isEs?'💾 ¡Borrador guardado localmente!':'💾 Draft saved locally!')):(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente borrar registros antiguos.':'⚠️ Could not save on this device (storage full?) — try clearing old records.'),!ok);
   });
 }
 
@@ -22054,18 +22130,32 @@ function openRecordRCA(idxKey){
     [_rvrEs?'Guardado':'Saved', r.savedAt || '—']
   ];
   var canEdit = _isDataEditAllowedUser();
+  var isDraft = r.status === 'Draft';
   var actionsHtml = '<div class="action-row" style="margin-top:12px;flex-wrap:wrap;">' +
+    // A Draft was never actually filed — continuing it just resumes the
+    // same unfinished form (no versioned copy, no permission gate; it's
+    // your own in-progress work, not a correction to something already on
+    // record). A Closed/Sent/etc. record still only offers the gated
+    // "Edit this record" (versioned-copy) path from here.
+    (isDraft ? '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\''+idxKey+'\')">▶️ ' + (_rvrEs?'Continuar Borrador':'Continue Draft') + '</button>' : '') +
     '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', false, this)">⬇️ ' + (_rvrEs?'Descargar PDF — Interno':'Download PDF — Internal') + '</button>' +
     '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', true, this)">⬇️ ' + (_rvrEs?'Descargar PDF — Cliente':'Download PDF — Customer') + '</button>' +
     '<button type="button" class="btn" onclick="rcaPrintRecordReport(\''+idxKey+'\', false)">🖨️ ' + (_rvrEs?'Imprimir':'Print') + '</button>' +
-    (canEdit ? '<button type="button" class="btn btn-warn" onclick="rcaOpenRecordForEdit(\''+idxKey+'\')">✏️ ' + (_rvrEs?'Editar este registro':'Edit this record') + '</button>' : '') +
+    (!isDraft && canEdit ? '<button type="button" class="btn btn-warn" onclick="rcaOpenRecordForEdit(\''+idxKey+'\')">✏️ ' + (_rvrEs?'Editar este registro':'Edit this record') + '</button>' : '') +
     '</div>';
-  var permNote = canEdit ? '' :
+  var permNote = (isDraft || canEdit) ? '' :
     '<div style="font-size:13px;color:var(--text-tertiary);padding:8px 4px 0;">' +
     (_rvrEs ? 'Editar registros requiere iniciar sesión como Anthony o Mathias.' : 'Editing records requires signing in as Anthony or Mathias.') + '</div>';
+  // This popup never showed the attached photos at all before — click any
+  // one to open it full size (whatever ncrCompress/_uploadPhotoToDrive
+  // actually produced/uploaded), not just a small thumbnail.
+  var photosHtml = (r.photos && r.photos.length) ?
+    '<div class="ncr-photo-grid" style="margin-top:12px;">' + r.photos.map(function(src){
+      return '<div class="ncr-thumb"><img src="'+escHtml(src)+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size"></div>';
+    }).join('') + '</div>' : '';
   document.getElementById('rv-body').innerHTML = '<div class="card">' + rows.map(function(x){
     return '<div class="ncr-sumrow"><b>'+escHtml(x[0])+'</b><span>'+_rowVal(x[1])+'</span></div>';
-  }).join('') + '</div>' + actionsHtml + permNote;
+  }).join('') + '</div>' + photosHtml + actionsHtml + permNote;
   document.getElementById('recordViewOverlay').classList.add('open');
 }
 function rcaExportRecordPDF(idxKey, customerFacing, btnEl){
@@ -22079,6 +22169,41 @@ function rcaPrintRecordReport(idxKey, customerFacing){
   var r = rcaLoadRecords()[idx];
   if (!r) return;
   rcaPrintReport(customerFacing, r);
+}
+// Resumes a saved Draft in the live, editable form — unlike
+// rcaOpenRecordForEdit (a versioned copy of an already-*closed* record,
+// gated to specific accounts), this is just continuing your own unfinished
+// work, so it's open to anyone and doesn't touch the job number or create
+// a separate version. The stale draft entry is removed from this device's
+// local list right away so finishing it doesn't leave a duplicate
+// half-filled copy sitting in Records next to the real, completed one.
+function rcaContinueDraft(idxKey){
+  var idx = parseInt(String(idxKey).replace('rca-',''), 10);
+  var list = rcaLoadRecords();
+  var r = list[idx];
+  if (!r) return;
+  closeRecordView();
+  switchView('rca');
+  rcaUnlockForm();
+  document.getElementById('rca-success-banner').classList.add('hidden');
+  document.getElementById('rca-manager-submitted-banner').classList.add('hidden');
+  _rcaVersioningFrom = null;
+  _rcaToken = r.token || '';
+  rcaSetPath(1);
+  var pathSel = document.querySelector('#view-rca .path-selector');
+  if (pathSel) pathSel.style.display = 'none';
+  _rcaFillFullRecordForEdit(r);
+  var notice = document.getElementById('rca-editing-notice');
+  if (notice){
+    var isEs = isEsLang();
+    notice.querySelector('[data-en]').textContent = 'Continuing draft for Job ' + (r.jobNumber || '—') + '.';
+    notice.querySelector('[data-es]').textContent = 'Continuando borrador del Trabajo ' + (r.jobNumber || '—') + '.';
+    notice.classList.remove('hidden');
+  }
+  list.splice(idx, 1);
+  localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+  if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
+  document.getElementById('view-rca').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 /* ── Editing an already-saved RCA record — versioned copy, never an
