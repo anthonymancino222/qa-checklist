@@ -3607,27 +3607,13 @@ try {
       </div>
     </div>
 
-    <!-- Passcode gate — used before "Clear Data" and before deleting any
-         single record, so nobody can wipe data on purpose or by accident
-         without knowing the code. This is a friction/deterrent check, not
-         real server-side security — anyone reading the page source can find
-         the code — but it stops accidental taps and casual misuse, which is
-         the actual risk this was built for. -->
-    <div class="continue-overlay" id="passcodeOverlay" onclick="if(event.target===this)_passcodeCancel()">
-      <div class="continue-modal" style="max-width:340px;width:100%;">
-        <div style="padding:24px 20px 6px;">
-          <div style="font-size:17px;font-weight:800;color:var(--text-primary);margin-bottom:10px;"><span data-en>🔑 Passcode Required</span><span data-es>🔑 Se Requiere Código</span></div>
-          <div id="passcode-message" style="font-size:14px;color:var(--text-secondary);line-height:1.55;margin-bottom:12px;"></div>
-          <input type="password" inputmode="numeric" id="passcode-input" class="input" placeholder="••••••••" data-ph-en="••••••••" data-ph-es="••••••••"
-                 style="text-align:center;font-size:22px;letter-spacing:6px;" onkeydown="if(event.key==='Enter')_passcodeCheck()">
-          <div id="passcode-error" style="display:none;color:var(--red);font-size:14px;margin-top:8px;"></div>
-        </div>
-        <div style="display:flex;gap:10px;padding:20px;">
-          <button class="btn" style="flex:1;" onclick="_passcodeCancel()"><span data-en>Cancel</span><span data-es>Cancelar</span></button>
-          <button class="btn-primary" style="flex:1;" onclick="_passcodeCheck()"><span data-en>Confirm</span><span data-es>Confirmar</span></button>
-        </div>
-      </div>
-    </div>
+    <!-- Passcode gate removed — it was a hardcoded plaintext string sitting
+         in this same publicly-served file, so it added no real protection
+         beyond the email allowlist that already gates every one of these
+         actions (DATA_EDIT_ALLOWED_EMAILS, checked via
+         _isDataEditAllowedUser()). Permission is now email-only, enforced
+         at the point of action in each function below, with a plain-language
+         confirm dialog left in place to catch accidental taps. -->
 
     <!-- Global "uploading, please wait" overlay. Every submit flow that
          captures a photo used to await its _uploadPhotoToDrive() call (a real
@@ -4943,65 +4929,23 @@ function _alertResolve(){
   if (cb) cb();
 }
 
-/* Passcode gate — required before "Clear Data" and before deleting any
-   single record. Note this is a UI-level deterrent, not real security: the
-   code lives in this file's JS, so it stops accidental taps and casual
-   misuse, not a determined person reading page source. That's the actual
-   problem this was built to solve (per the request that added it). */
-var CLEAR_DATA_PASSCODE = '05072011';
-var _passcodeCallback = null;
-function showPasscodePrompt(message, onVerified){
-  var msgEl = document.getElementById('passcode-message');
-  var inputEl = document.getElementById('passcode-input');
-  var errEl = document.getElementById('passcode-error');
-  if (msgEl) msgEl.textContent = message || '';
-  if (inputEl) inputEl.value = '';
-  if (errEl) errEl.style.display = 'none';
-  _passcodeCallback = onVerified;
-  document.getElementById('passcodeOverlay').classList.add('open');
-  setTimeout(function(){ if (inputEl) inputEl.focus(); }, 50);
-}
-function _passcodeCheck(){
-  var inputEl = document.getElementById('passcode-input');
-  var errEl = document.getElementById('passcode-error');
-  if (inputEl && inputEl.value === CLEAR_DATA_PASSCODE) {
-    document.getElementById('passcodeOverlay').classList.remove('open');
-    var cb = _passcodeCallback;
-    _passcodeCallback = null;
-    if (cb) cb(true);
-  } else {
-    if (errEl) {
-      errEl.textContent = isEsLang() ? 'Código incorrecto. Intente de nuevo.' : 'Incorrect passcode. Try again.';
-      errEl.style.display = 'block';
-    }
-    if (inputEl) { inputEl.value = ''; inputEl.focus(); }
-  }
-}
-function _passcodeCancel(){
-  document.getElementById('passcodeOverlay').classList.remove('open');
-  var cb = _passcodeCallback;
-  _passcodeCallback = null;
-  if (cb) cb(false);
-}
+// The old passcode gate (shared plaintext code, hardcoded in this same
+// public file) was removed — it added no real protection beyond the email
+// allowlist that already governs every action it used to guard. See
+// _isDataEditAllowedUser() / DATA_EDIT_ALLOWED_EMAILS below.
 
-/* Data Edit mode — passcode-gated, resets to OFF on every reload (never
-   persisted) so it can't be left on by accident. While on, the Station,
-   Operator, and CAD Style lines in a job's summary card grow an edit
-   pencil, same pattern as the existing Qty to Execute editor. Only takes
-   effect on cards rendered AFTER toggling — a card already open when you
-   toggle needs to be closed and reopened to pick up the change. */
+/* Data Edit mode — gated purely on DATA_EDIT_ALLOWED_EMAILS (the signed-in
+   Google account), resets to OFF on every reload (never persisted) so it
+   can't be left on by accident. While on, the Station, Operator, and CAD
+   Style lines in a job's summary card grow an edit pencil, same pattern as
+   the existing Qty to Execute editor. Only takes effect on cards rendered
+   AFTER toggling — a card already open when you toggle needs to be closed
+   and reopened to pick up the change. */
 var _dataEditMode = false;
 // onToggled (optional) fires right after the mode flips, so a "DATA EDIT"
 // button placed inside an already-open job summary card can re-render
 // itself immediately — without it, the pencils only show up the next time
 // that card is opened, which isn't obvious from inside the popup itself.
-//
-// Turning OFF never asks for the passcode. The passcode exists to stop
-// unauthorized entry into edit mode — it has no reason to also guard the
-// exit. Requiring it both ways meant a mis-tap on the passcode modal's
-// backdrop (easy on a tablet) silently cancelled and left edit mode, and
-// every delete button with it, stuck on with no visible feedback — that
-// was reported as "can't get out of Data Edit mode."
 function toggleDataEditMode(onToggled){
   var isEs = isEsLang();
   function apply(){
@@ -5023,11 +4967,8 @@ function toggleDataEditMode(onToggled){
     showAlert(isEs ? 'EDITAR DATOS está restringido a una cuenta específica.' : 'DATA EDIT is restricted to a specific account.');
     return;
   }
-  showPasscodePrompt(isEs ? 'Se requiere un código para editar campos del trabajo.' : 'A passcode is required to edit job fields.', function(ok){
-    if (!ok) return;
-    _dataEditMode = true;
-    apply();
-  });
+  _dataEditMode = true;
+  apply();
 }
 function _updateHeaderDataEditBtn(){
   var btn = document.getElementById('qamgr-data-edit-btn');
@@ -18316,30 +18257,34 @@ function ncrFinalize(){
   switchView('ncrprog');
 }
 
-// Passcode + confirm, same pattern as Records view's per-record delete —
-// there was previously no way to remove a mistaken/test NCR once submitted.
+// Email-gated + confirm — there was previously no way to remove a
+// mistaken/test NCR once submitted. Used to be passcode-gated with no email
+// check at all; the passcode was a hardcoded plaintext string in this same
+// public file, so it added no real protection. Restricted to
+// DATA_EDIT_ALLOWED_EMAILS now, same as every other DATA EDIT action.
 function deleteNCRInProgress(ncrId){
   var isEs = isEsLang();
-  showPasscodePrompt(isEs ? 'Se requiere un código para eliminar un RNC.' : 'A passcode is required to delete an NCR.', function(okCode){
-    if (!okCode) return;
-    showConfirm(
-      isEs ? 'Esto eliminará este RNC de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this NCR. This cannot be undone.',
-      function(ok){
-        if (!ok) return;
-        // Routed through the same audit-then-delete helper the Records
-        // screen's delete uses (see its own comment) — this button used to
-        // call _deleteRecordById directly, which left no trace of who
-        // deleted the NCR or when.
-        _logDataEditAuditThenDelete('ncr', ncrId, 'DATA EDIT — NCR Deleted from NCR In Progress').then(function(){
-          ncrState.detailId = null;
-          updateNCRBadges();
-          renderNCRProgress();
-          showToast(isEs ? 'RNC eliminado' : 'NCR deleted', 'pass');
-        });
-      },
-      { okLabel: isEs ? 'Eliminar' : 'Delete' }
-    );
-  });
+  if (!_isDataEditAllowedUser()) {
+    showAlert(isEs ? 'Eliminar RNC está restringido a una cuenta específica.' : 'Deleting an NCR is restricted to a specific account.');
+    return;
+  }
+  showConfirm(
+    isEs ? 'Esto eliminará este RNC de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this NCR. This cannot be undone.',
+    function(ok){
+      if (!ok) return;
+      // Routed through the same audit-then-delete helper the Records
+      // screen's delete uses (see its own comment) — this button used to
+      // call _deleteRecordById directly, which left no trace of who
+      // deleted the NCR or when.
+      _logDataEditAuditThenDelete('ncr', ncrId, 'DATA EDIT — NCR Deleted from NCR In Progress').then(function(){
+        ncrState.detailId = null;
+        updateNCRBadges();
+        renderNCRProgress();
+        showToast(isEs ? 'RNC eliminado' : 'NCR deleted', 'pass');
+      });
+    },
+    { okLabel: isEs ? 'Eliminar' : 'Delete' }
+  );
 }
 /* ── NCR in Progress view ── */
 function renderNCRProgress(){
@@ -21150,26 +21095,32 @@ function _recNorm(list, type){
   });
 }
 
-/* Delete ONE record — passcode-gated, then a plain-language confirm, so
-   nothing here can be triggered by an accidental tap. This is the targeted
-   alternative to a blanket "clear everything" button: pick exactly the one
-   bad/test/duplicate entry and remove only that. */
+/* Delete ONE record — email-gated (DATA_EDIT_ALLOWED_EMAILS), then a
+   plain-language confirm, so nothing here can be triggered by an accidental
+   tap. This is the targeted alternative to a blanket "clear everything"
+   button: pick exactly the one bad/test/duplicate entry and remove only
+   that. Used to be passcode-gated only — this button is only ever rendered
+   while _dataEditMode is on (itself email-gated), but the function had no
+   check of its own, so it was only ever as safe as that render condition.
+   Checking here too means the permission holds even if it's ever reachable
+   another way. */
 function deleteRecordEntry(type, id){
   var isEs = isEsLang();
-  showPasscodePrompt(isEs ? 'Se requiere un código para eliminar un registro.' : 'A passcode is required to delete a record.', function(okCode){
-    if (!okCode) return;
-    showConfirm(
-      isEs ? 'Esto eliminará este registro de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this record. This cannot be undone.',
-      function(okConfirm){
-        if (!okConfirm) return;
-        _logDataEditAuditThenDelete(type, id, 'DATA EDIT — Record Deleted from Records').then(function(){
-          renderRecords();
-          showToast(isEs ? 'Registro eliminado' : 'Record deleted', 'pass');
-        });
-      },
-      { okLabel: isEs ? 'Eliminar' : 'Delete' }
-    );
-  });
+  if (!_isDataEditAllowedUser()) {
+    showAlert(isEs ? 'Eliminar registros está restringido a una cuenta específica.' : 'Deleting records is restricted to a specific account.');
+    return;
+  }
+  showConfirm(
+    isEs ? 'Esto eliminará este registro de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete this record. This cannot be undone.',
+    function(okConfirm){
+      if (!okConfirm) return;
+      _logDataEditAuditThenDelete(type, id, 'DATA EDIT — Record Deleted from Records').then(function(){
+        renderRecords();
+        showToast(isEs ? 'Registro eliminado' : 'Record deleted', 'pass');
+      });
+    },
+    { okLabel: isEs ? 'Eliminar' : 'Delete' }
+  );
 }
 function _deleteRecordById(type, id){
   var idStr = String(id);
