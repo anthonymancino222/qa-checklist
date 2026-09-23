@@ -20102,7 +20102,14 @@ function _rcaBuildReport(customerFacing, presetData){
     verifyMethod:'Verification method', closeDate:'Close-out date', closeNotes:'Close-out notes',
     closeQATech:'QA tech (closing)', photos:'Photos'
   };
-  var h = '<div style="padding:24px;font-family:inherit;max-width:800px;margin:0 auto;">' +
+  // Georgia rather than the app's own UI font (IBM Plex Sans) — a serif
+  // designed for comfortable on-screen reading of long paragraphs, chosen
+  // directly for this report's long Why/root-cause/corrective-action text.
+  // Universally pre-installed (Windows, macOS, iOS) so this doesn't risk
+  // showing up blank or broken anywhere; the fallback chain only matters on
+  // the rare device missing Georgia, and even then degrades to another
+  // ordinary serif rather than anything broken.
+  var h = '<div style="padding:24px;font-family:Georgia,\'Times New Roman\',serif;max-width:800px;margin:0 auto;">' +
     '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #1d4ed8;padding-bottom:10px;margin-bottom:16px;">' +
     '<div><div style="font-size:20px;font-weight:700;">' + L.title + '</div>' +
     '<div style="font-size:15px;color:#666;">' + L.subtitle + '</div></div>' +
