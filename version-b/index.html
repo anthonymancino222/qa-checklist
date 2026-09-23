@@ -6451,45 +6451,77 @@ function forceUpdateApp(){
 }
 
 // Checks whether the deployed index.html has actually changed since this
-// device last checked, wired into the header Sync button per Anthony's
-// request that syncing also pick up the latest app version. Unlike Gluer
-// Shift Handoff's equivalent (which reloads silently — its Sync button
-// only ever appears at a deliberate "about to start a new job" checkpoint
-// with nothing unsaved open), THIS app's Sync button is reachable from any
-// screen at any time, including with an unsaved checklist mid-fill-out —
-// this app only persists in-progress form state when "Save Progress" is
-// explicitly tapped, so a silent reload here really could discard someone's
-// unsaved work. Asks first instead. Resolves true if it found an update
-// and is now asking (caller doesn't need to do anything else — the prompt
-// itself handles the rest), false if already current or the check failed
-// (fails soft — a broken version check should never look like a sync
-// failure).
+// device last checked. Wired into the header Sync button per Anthony's
+// request that syncing also pick up the latest app version, AND (added
+// 2026-09-23) into a recurring background timer — see below for why. Unlike
+// Gluer Shift Handoff's equivalent (which reloads silently — its Sync
+// button only ever appears at a deliberate "about to start a new job"
+// checkpoint with nothing unsaved open), THIS app's Sync button is
+// reachable from any screen at any time, including with an unsaved
+// checklist mid-fill-out — this app only persists in-progress form state
+// when "Save Progress" is explicitly tapped, so a silent reload here really
+// could discard someone's unsaved work. Asks first instead. Resolves true
+// if it found an update and is now asking (caller doesn't need to do
+// anything else — the prompt itself handles the rest), false if already
+// current or the check failed (fails soft — a broken version check should
+// never look like a sync failure).
+//
+// REVISED 2026-09-23: this used to write APP_VERSION_HASH_KEY to the fresh
+// hash on every single check, whether or not the update was actually
+// applied — so declining the prompt even once (or the periodic check simply
+// running again a few minutes later, before anyone answered) silently moved
+// the device's own "last known version" forward, and it would never be
+// asked about that same pending update again. A shop-floor tablet left
+// running for days on old, possibly buggy code would just stay that way
+// with no further reminder. Now the stored hash only advances once the
+// update is actually accepted and applied — a decline (or simply not
+// noticing the prompt) leaves it pending, so the next check, whenever it
+// runs, asks again.
+var _appUpdatePromptShowing = false;
 function _checkForAppUpdate(){
+  if (_appUpdatePromptShowing) return Promise.resolve(false); // already asking; don't stack a second prompt
   return fetch(location.pathname, { cache: 'no-store' })
     .then(function(res){ return res.text(); })
     .then(function(html){
       var freshHash = _simpleHash(html);
       var lastKnown = null;
       try { lastKnown = localStorage.getItem(APP_VERSION_HASH_KEY); } catch(e){}
-      try { localStorage.setItem(APP_VERSION_HASH_KEY, freshHash); } catch(e){}
-      // No stored hash yet (first time this check has run on this device)
-      // — just record the baseline rather than prompting; nothing
-      // meaningful to compare against yet.
-      if (lastKnown && lastKnown !== freshHash) {
-        var isEs = isEsLang();
-        showConfirm(
-          isEs
-            ? 'Hay una nueva versión de la app disponible. ¿Actualizar ahora? El progreso no guardado en un formulario abierto se perderá — toque "Guardar Progreso" primero si es necesario.'
-            : 'A new version of the app is available. Update now? Unsaved progress in an open form will be lost — tap "Save Progress" first if needed.',
-          function(ok){ if (ok) forceUpdateApp(); },
-          { title: isEs ? '🔄 Actualización Disponible' : '🔄 Update Available', okLabel: isEs ? 'Actualizar' : 'Update', danger: false }
-        );
-        return true;
+      if (!lastKnown) {
+        // First time this device has ever checked — nothing to meaningfully
+        // compare against yet, just establish the baseline silently.
+        try { localStorage.setItem(APP_VERSION_HASH_KEY, freshHash); } catch(e){}
+        return false;
       }
-      return false;
+      if (lastKnown === freshHash) return false;
+      var isEs = isEsLang();
+      _appUpdatePromptShowing = true;
+      showConfirm(
+        isEs
+          ? 'Hay una nueva versión de la app disponible. ¿Actualizar ahora? El progreso no guardado en un formulario abierto se perderá — toque "Guardar Progreso" primero si es necesario.'
+          : 'A new version of the app is available. Update now? Unsaved progress in an open form will be lost — tap "Save Progress" first if needed.',
+        function(ok){
+          _appUpdatePromptShowing = false;
+          if (!ok) return; // stays pending — asked again next check
+          try { localStorage.setItem(APP_VERSION_HASH_KEY, freshHash); } catch(e){}
+          forceUpdateApp();
+        },
+        { title: isEs ? '🔄 Actualización Disponible' : '🔄 Update Available', okLabel: isEs ? 'Actualizar' : 'Update', danger: false }
+      );
+      return true;
     })
     .catch(function(){ return false; });
 }
+// A tablet can realistically stay open — signed in, mid-shift, never
+// reloaded — for many hours or days at a stretch, which was exactly the
+// blind spot behind a 2026-09-23 incident: this app's own JavaScript
+// doesn't hot-reload just because new code was deployed, so a long-open tab
+// kept running an old, buggy version of the sync logic in memory, and a
+// background retry loop in that stale code silently undid a same-day fix
+// made directly on the server. Checking only when someone happens to tap
+// Sync isn't reliable enough on its own to catch that in a reasonable
+// window. Every 20 minutes catches it automatically either way — closer to
+// "usually within the same shift" than "whenever someone happens to sync."
+setInterval(_checkForAppUpdate, 20 * 60 * 1000);
 
 // Header "Start New" button — a hard refresh back to the landing page,
 // reachable from anywhere in the app regardless of scroll position since it
