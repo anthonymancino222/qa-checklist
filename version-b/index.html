@@ -20664,6 +20664,29 @@ function _shipAutoApproveJob(job){
 // goes unresponsive — same total work, just spread out instead of dumped
 // in one tick. _shipAutoApproveRunning guards against starting a second
 // overlapping sweep if the Shipping screen gets revisited mid-sweep.
+// A backlog of stale, pre-cutoff jobs (from the 2026-09-23 sync bug — see
+// _syncPullAndMerge's history comment) kept resurfacing in this queue no
+// matter what device or how many times it was cleared, since a job that
+// reached "finished" a long time ago could still be sitting unresolved on
+// some device's stale local copy. Anthony asked to just stop showing
+// anything from before the incident was resolved, rather than keep
+// chasing it device by device — this cutoff makes that permanent and
+// automatic everywhere, since it's a single code change every device picks
+// up the next time someone taps Sync (see the app's own update-check).
+// Only affects what shows in THIS queue — the underlying record, and its
+// real shipping-approval history if it ever gets approved, are untouched.
+var SHIPPING_APPROVAL_CUTOFF_DATE = new Date('2026-09-22T00:00:00');
+function _isJobPendingShippingApproval(j){
+  if (j.process !== 'finished' || j.shippingApproved || _jobIsGluerFirstPass(j)) return false;
+  if (SHIPPING_APPROVAL_STATIONS.indexOf(j.station) === -1) return false;
+  var finishedDate = _recordsValidDate(j.finishedAt || j.packerFinishedAt);
+  // No parseable finished date at all is itself a sign of old/legacy data
+  // (every job reaching this stage today gets a real finishedAt) — treated
+  // the same as "too old," not shown, rather than assumed current.
+  if (!finishedDate || finishedDate < SHIPPING_APPROVAL_CUTOFF_DATE) return false;
+  return true;
+}
+
 var SHIP_AUTO_APPROVE_CHUNK_SIZE = 10;
 var _shipAutoApproveRunning = false;
 function _shipAutoApproveInChunks(){
@@ -20671,10 +20694,7 @@ function _shipAutoApproveInChunks(){
   _shipAutoApproveRunning = true;
   (function step(){
     var all = ipLoad();
-    var pending = all.filter(function(j){
-      return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
-        SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
-    });
+    var pending = all.filter(_isJobPendingShippingApproval);
     if (!pending.length){ _shipAutoApproveRunning = false; return; }
     pending.slice(0, SHIP_AUTO_APPROVE_CHUNK_SIZE).forEach(_shipAutoApproveJob);
     ipSave(all);
@@ -20682,10 +20702,7 @@ function _shipAutoApproveInChunks(){
   })();
 }
 function _shippingPendingJobs(){
-  var pending = ipLoad().filter(function(j){
-    return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
-      SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
-  });
+  var pending = ipLoad().filter(_isJobPendingShippingApproval);
   if (SHIP_AUTO_APPROVE_TESTING && pending.length){
     _shipAutoApproveInChunks(); // runs in the background; doesn't block this call
     return [];

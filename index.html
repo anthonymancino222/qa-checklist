@@ -20793,6 +20793,29 @@ function _shipAutoApproveJob(job){
 // goes unresponsive — same total work, just spread out instead of dumped
 // in one tick. _shipAutoApproveRunning guards against starting a second
 // overlapping sweep if the Shipping screen gets revisited mid-sweep.
+// A backlog of stale, pre-cutoff jobs (from the 2026-09-23 sync bug — see
+// _syncPullAndMerge's history comment) kept resurfacing in this queue no
+// matter what device or how many times it was cleared, since a job that
+// reached "finished" a long time ago could still be sitting unresolved on
+// some device's stale local copy. Anthony asked to just stop showing
+// anything from before the incident was resolved, rather than keep
+// chasing it device by device — this cutoff makes that permanent and
+// automatic everywhere, since it's a single code change every device picks
+// up the next time someone taps Sync (see the app's own update-check).
+// Only affects what shows in THIS queue — the underlying record, and its
+// real shipping-approval history if it ever gets approved, are untouched.
+var SHIPPING_APPROVAL_CUTOFF_DATE = new Date('2026-09-22T00:00:00');
+function _isJobPendingShippingApproval(j){
+  if (j.process !== 'finished' || j.shippingApproved || _jobIsGluerFirstPass(j)) return false;
+  if (SHIPPING_APPROVAL_STATIONS.indexOf(j.station) === -1) return false;
+  var finishedDate = _recordsValidDate(j.finishedAt || j.packerFinishedAt);
+  // No parseable finished date at all is itself a sign of old/legacy data
+  // (every job reaching this stage today gets a real finishedAt) — treated
+  // the same as "too old," not shown, rather than assumed current.
+  if (!finishedDate || finishedDate < SHIPPING_APPROVAL_CUTOFF_DATE) return false;
+  return true;
+}
+
 var SHIP_AUTO_APPROVE_CHUNK_SIZE = 10;
 var _shipAutoApproveRunning = false;
 function _shipAutoApproveInChunks(){
@@ -20800,10 +20823,7 @@ function _shipAutoApproveInChunks(){
   _shipAutoApproveRunning = true;
   (function step(){
     var all = ipLoad();
-    var pending = all.filter(function(j){
-      return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
-        SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
-    });
+    var pending = all.filter(_isJobPendingShippingApproval);
     if (!pending.length){ _shipAutoApproveRunning = false; return; }
     pending.slice(0, SHIP_AUTO_APPROVE_CHUNK_SIZE).forEach(_shipAutoApproveJob);
     ipSave(all);
@@ -20811,10 +20831,7 @@ function _shipAutoApproveInChunks(){
   })();
 }
 function _shippingPendingJobs(){
-  var pending = ipLoad().filter(function(j){
-    return j.process === 'finished' && !j.shippingApproved && !_jobIsGluerFirstPass(j) &&
-      SHIPPING_APPROVAL_STATIONS.indexOf(j.station) !== -1;
-  });
+  var pending = ipLoad().filter(_isJobPendingShippingApproval);
   if (SHIP_AUTO_APPROVE_TESTING && pending.length){
     _shipAutoApproveInChunks(); // runs in the background; doesn't block this call
     return [];
@@ -22112,11 +22129,20 @@ function _rcaSetNameSelect(selId, value){
 // Selects the given (possibly multi-) disposition value(s) in the Path-1
 // disposition grid, matching the click-toggle behavior of rcaSetDisp but
 // driven from stored data instead of a user click.
+// Each disposition button is static HTML with an icon + separate English/
+// Spanish <span>s inside it (only one shown at a time via CSS) — el.textContent
+// concatenates the icon and BOTH language labels, so it never equals the
+// plain value string. The real value only exists in the onclick attribute
+// (rcaSetDisp(this,'…')), so pull it from there instead.
+function _rcaDispOptionValue(el){
+  var m = /rcaSetDisp\(this,\s*'([^']*)'\)/.exec(el.getAttribute('onclick') || '');
+  return m ? m[1] : el.textContent.trim();
+}
 function _rcaSetDispositionForEdit(value){
   rcaDispSelectedValues = String(value||'').split(', ').filter(Boolean);
   document.getElementById('rca-disp-value').value = rcaDispSelectedValues.join(', ');
   document.querySelectorAll('#rca-disp-grid .disp-option').forEach(function(el){
-    el.classList.toggle('selected', rcaDispSelectedValues.indexOf(el.textContent) !== -1);
+    el.classList.toggle('selected', rcaDispSelectedValues.indexOf(_rcaDispOptionValue(el)) !== -1);
   });
   _rcaSyncGridSummary('rca-disp-grid', 'rca-disp-value');
 }
@@ -22126,21 +22152,42 @@ function _rcaSetDispositionForEdit(value){
 // same section-1 prefill the manager/closeout token-load paths already use)
 // and rcaOnStationChange to rebuild the station-specific root-cause/
 // corrective-action grids before selecting values in them.
+// _rcaCompose() joins as `category + ' — ' + detail`, but several of this
+// app's own preset option strings contain an em dash in their OWN text too
+// (e.g. "Keep using leftover/inventory stock to make count — just confirm
+// its hand-written quantity note before printing a label for it") — a naive
+// split on the first ' — ' cuts those in half instead of recovering the
+// real category. Matching against the actual known option list (the exact
+// same list that composed this value in the first place) resolves the
+// ambiguity instead of guessing at the first dash. Falls back to the naive
+// split only if the record's option isn't in the list at all — e.g. the
+// category's presets changed since this record was saved.
+function _rcaSplitComposed(composed, options){
+  composed = String(composed || '');
+  var sorted = options.slice().sort(function(a,b){ return b.length - a.length; });
+  for (var i = 0; i < sorted.length; i++){
+    var opt = sorted[i];
+    if (composed === opt) return { cat: opt, detail: '' };
+    if (composed.indexOf(opt + ' — ') === 0) return { cat: opt, detail: composed.slice(opt.length + 3) };
+  }
+  var parts = composed.split(' — ');
+  return { cat: parts[0] || '', detail: parts.length > 1 ? parts.slice(1).join(' — ') : '' };
+}
 function _rcaFillFullRecordForEdit(r){
   _rcaFillIncidentInfo(r);
   rcaOnStationChange(); // builds root-cause/corrective-action grids for this station+category
   _rcaPopulateMgrSelects();
 
-  var rcParts = String(r.rootCause||'').split(' — ');
-  _rcaSetGridValue('rca-rootcause-grid', 'rca-rootcause-value', rcParts[0] || '');
-  document.getElementById('rca-rootcause-detail').value = rcParts.length > 1 ? rcParts.slice(1).join(' — ') : '';
+  var rc = _rcaSplitComposed(r.rootCause, rcaCascadeOptions('rootCauses'));
+  _rcaSetGridValue('rca-rootcause-grid', 'rca-rootcause-value', rc.cat);
+  document.getElementById('rca-rootcause-detail').value = rc.detail;
   // Re-render so the just-set selection actually shows as picked (mirrors
   // how rcaOnStationChange leaves these grids freshly built but unselected).
   _rcaRenderGrid('rca-rootcause-grid', 'rca-rootcause-value', rcaCascadeOptions('rootCauses'));
 
-  var caParts = String(r.correctiveAction||'').split(' — ');
-  _rcaSetGridValue('rca-correctiveaction-grid', 'rca-correctiveaction-value', caParts[0] || '');
-  document.getElementById('rca-future-action').value = caParts.length > 1 ? caParts.slice(1).join(' — ') : '';
+  var ca = _rcaSplitComposed(r.correctiveAction, rcaCascadeOptions('correctiveActions'));
+  _rcaSetGridValue('rca-correctiveaction-grid', 'rca-correctiveaction-value', ca.cat);
+  document.getElementById('rca-future-action').value = ca.detail;
   _rcaRenderGrid('rca-correctiveaction-grid', 'rca-correctiveaction-value', rcaCascadeOptions('correctiveActions'));
 
   document.getElementById('rca-problem-stmt').value = r.problemStmt || '';
