@@ -5613,7 +5613,6 @@ var _openedFromRecords = false;
    Gluer Shift Handoff app's sync design.
 ══════════════════════════════════ */
 var QA_BACKEND_URL = 'https://qa-checklist-backend.anthony-mancino2.workers.dev';
-var QA_BACKEND_API_KEY = 'MoquinQA2026SecureKeyAlpha7';
 var SYNC_PENDING_KEY = 'moquin-qa-sync-pending';
 
 /* ══════════════════════════════════
@@ -5758,11 +5757,14 @@ function _renderQaManagerAccess() {
   if (body) body.style.display = _isDataEditAllowedUser() ? 'flex' : 'none';
 }
 
-// Every backend call merges this in. X-API-Key stays alongside the token
-// during the transition window described in the Worker's own comments —
-// remove it once everyone's confirmed on this sign-in flow.
+// Every backend call merges this in. The legacy X-API-Key fallback (a
+// shared secret that used to sit right here in this same publicly-served
+// file — anyone who viewed source had full read/write/delete access to
+// the backend, bypassing the Google sign-in allowlists entirely) is gone
+// now that sign-in is mandatory to use the app at all — every real request
+// already carries a verified Google ID token.
 function _authHeaders() {
-  var h = { 'X-API-Key': QA_BACKEND_API_KEY };
+  var h = {};
   if (_googleIdToken) h['Authorization'] = 'Bearer ' + _googleIdToken;
   return h;
 }
