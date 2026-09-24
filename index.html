@@ -2058,11 +2058,49 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   body.rca-printing #rca-pdf-report{ display:block !important; }
   body.rca-printing #rca-pdf-report *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
 }
-.rca-pdf-section{ margin-bottom:18px; }
-.rca-pdf-section h3{ font-size:15px; margin:0 0 8px; color:#1d4ed8; border-bottom:2px solid #1d4ed8; padding-bottom:4px; text-decoration:underline; }
-.rca-pdf-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; margin-bottom:6px; }
-.rca-pdf-field b{ display:block; font-size:13px; color:#1d4ed8; text-transform:uppercase; letter-spacing:.03em; text-decoration:underline; }
-.rca-pdf-field span{ font-size:14px; }
+/* ── RCA report — redesigned for scannability. Previous version was a flat
+   column of ALL-CAPS blue-underlined labels over paragraph text, all at one
+   visual weight — reported directly as too dense to want to engage with.
+   This version: light card per section (chunks the page into scannable
+   pieces instead of one continuous scroll), a small "at a glance" strip up
+   top for the 5-second version, a numbered/connected timeline for the 5
+   Whys (mirrors the live form's own arrow-down chain instead of five
+   identical stacked labels), a colored badge for disposition, and a
+   left-accent callout treatment for the long narrative fields (problem
+   statement, root cause summary, corrective action) so they read as the
+   "important paragraph," not just another field like a date. Field labels
+   keep the blue color from direct feedback, but drop the underline —
+   section titles keep it, so there are only a handful of underlined
+   things on the page (the actual section headers) instead of every single
+   field acting like a heading. */
+.rca-pdf-page{ background:#f7f8fb; padding:24px; border-radius:14px; }
+.rca-pdf-section{ background:#ffffff; border:1px solid #e6e9f2; border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+/* display:flex here (for the emoji-icon + label) combined with
+   text-transform:uppercase corrupted html2canvas's text layout — it split
+   the first letter of the label from the rest of the word with a stray gap
+   (e.g. "D ISPOSITION"), even though the live browser rendered it fine.
+   The icon is just a plain leading character now — no flex needed for a
+   single line of text. */
+.rca-pdf-section h3{ font-size:13px; margin:0 0 12px; color:#1d4ed8; border-bottom:2px solid #1d4ed8; padding-bottom:6px; text-decoration:underline; text-transform:uppercase; letter-spacing:.05em; }
+.rca-pdf-glance{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.rca-pdf-chip{ background:#eef2fc; border-radius:9px; padding:8px 14px; min-width:110px; }
+.rca-pdf-chip b{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#5b6b8c; font-weight:700; margin-bottom:2px; }
+.rca-pdf-chip span{ font-size:14.5px; font-weight:700; color:#1c232b; }
+.rca-pdf-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; margin-bottom:4px; }
+.rca-pdf-field{ margin-bottom:10px; }
+.rca-pdf-field b{ display:block; font-size:11px; color:#4a5b7a; text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin-bottom:2px; }
+.rca-pdf-field span{ font-size:14.5px; line-height:1.55; }
+.rca-pdf-narrative{ background:#f3f6fd; border-left:3px solid #1d4ed8; border-radius:0 8px 8px 0; padding:10px 14px; margin-bottom:12px; }
+.rca-pdf-narrative b{ display:block; font-size:11px; color:#1d4ed8; text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin-bottom:3px; }
+.rca-pdf-narrative span{ font-size:14.5px; line-height:1.6; }
+.rca-why-row{ display:flex; gap:12px; }
+.rca-why-marker{ display:flex; flex-direction:column; align-items:center; width:26px; flex-shrink:0; }
+.rca-why-circle{ width:26px; height:26px; min-height:26px; border-radius:50%; background:#1d4ed8; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.rca-why-connector{ flex:1; width:2px; background:#c7d2f0; margin:2px 0; min-height:12px; }
+.rca-why-body{ flex:1; padding-bottom:14px; }
+.rca-why-body b{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4a5b7a; font-weight:700; margin-bottom:3px; }
+.rca-why-body span{ font-size:14.5px; line-height:1.6; }
+.rca-pdf-badge{ display:inline-block; padding:5px 14px; border-radius:20px; font-weight:700; font-size:13.5px; }
 .rca-pdf-photos{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 /* A plain <img> with object-fit:cover + border-radius produces a visible
    seam artifact in html2canvas's rendering (the PDF-download path) — the
@@ -20237,6 +20275,30 @@ function rcaHandoffToDept(){
 function _rcaPdfField(label, value){
   return '<div class="rca-pdf-field"><b>'+escHtml(label)+'</b><span>'+escHtml(value||'—')+'</span></div>';
 }
+// A "callout" treatment for the long narrative fields (problem statement,
+// root cause summary, approved corrective action) — these are the fields
+// someone actually reads for the story, not a quick fact like a date, so
+// they get a distinct left-accent box instead of blending in as just
+// another label+value pair.
+function _rcaPdfNarrative(label, value){
+  return '<div class="rca-pdf-narrative"><b>'+escHtml(label)+'</b><span>'+escHtml(value||'—')+'</span></div>';
+}
+function _rcaPdfChip(label, value){
+  return '<div class="rca-pdf-chip"><b>'+escHtml(label)+'</b><span>'+escHtml(value||'—')+'</span></div>';
+}
+// Maps a disposition string to a semantic badge color — greens for "keep
+// going," ambers for "hold/inspect," reds for "scrap/don't use," and a
+// neutral gray for anything else (Other, makeready-only, count-only, etc.)
+// — same color language as the disposition icons in the live form.
+function _rcaDispositionBadgeHTML(value){
+  if (!value) return '<span class="rca-pdf-badge" style="background:#eceff4;color:#4a5b7a;">—</span>';
+  var v = value.toLowerCase();
+  var bg = '#eceff4', fg = '#4a5b7a'; // neutral default
+  if (/scrap|discard|do not use/.test(v)) { bg = '#fbeaea'; fg = '#9c2c2e'; }
+  else if (/hold|inspect|sort|rework|rerun/.test(v)) { bg = '#fbf1dc'; fg = '#8a5e0e'; }
+  else if (/continue|use with approval/.test(v)) { bg = '#e7f3ec'; fg = '#1c6b42'; }
+  return '<span class="rca-pdf-badge" style="background:'+bg+';color:'+fg+';">'+escHtml(value)+'</span>';
+}
 // Builds the report HTML into #rca-pdf-report and returns { d, filenameBase }
 // for whichever output path (print or direct-download) called it — shared by
 // rcaPrintReport and rcaExportPDF so the two paths can never drift apart.
@@ -20282,46 +20344,66 @@ function _rcaBuildReport(customerFacing, presetData){
   // showing up blank or broken anywhere; the fallback chain only matters on
   // the rare device missing Georgia, and even then degrades to another
   // ordinary serif rather than anything broken.
-  var h = '<div style="padding:24px;font-family:Georgia,\'Times New Roman\',serif;max-width:800px;margin:0 auto;">' +
+  var h = '<div class="rca-pdf-page" style="font-family:Georgia,\'Times New Roman\',serif;max-width:800px;margin:0 auto;">' +
     '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #1d4ed8;padding-bottom:10px;margin-bottom:16px;">' +
     '<div><div style="font-size:20px;font-weight:700;">' + L.title + '</div>' +
     '<div style="font-size:15px;color:#666;">' + L.subtitle + '</div></div>' +
     '<div style="font-size:14px;color:#999;">'+(customerFacing?L.customerSummary:L.internal)+'<br>'+escHtml(formatTS())+'</div></div>';
 
-  h += '<div class="rca-pdf-section"><h3>' + L.incidentInfo + '</h3><div class="rca-pdf-grid">' +
+  // "At a glance" strip — the 5-second version of the record, before asking
+  // anyone to read a single paragraph. Disposition gets a colored badge
+  // instead of plain text since it's the single most load-bearing fact here.
+  h += '<div class="rca-pdf-glance">' +
+    _rcaPdfChip(L.jobNumber, d.jobNumber) + _rcaPdfChip(L.customer, d.customer) +
+    _rcaPdfChip(L.station, stationLabel(d.station)) +
+    '<div class="rca-pdf-chip"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' +
+    '</div>';
+
+  h += '<div class="rca-pdf-section"><h3>📋 ' + L.incidentInfo + '</h3><div class="rca-pdf-grid">' +
     _rcaPdfField(L.jobNumber, d.jobNumber) + _rcaPdfField(L.productId, d.productNumber) +
     _rcaPdfField(L.customer, d.customer) + _rcaPdfField(L.dateFound, d.dateFound) +
     _rcaPdfField(L.station, stationLabel(d.station)) + (customerFacing?'':_rcaPdfField(L.qaTech, d.qaTech)) +
-    '</div>' + _rcaPdfField(L.qualityIssue, d.issueDesc) + '</div>';
+    '</div>' + _rcaPdfNarrative(L.qualityIssue, d.issueDesc) + '</div>';
 
   if (!customerFacing){
-    h += '<div class="rca-pdf-section"><h3>' + L.rootCause5 + '</h3>' +
-      _rcaPdfField(L.problemStmt, d.problemStmt) +
-      _rcaPdfField(L.why1, d.why1) + _rcaPdfField(L.why2, d.why2) + _rcaPdfField(L.why3, d.why3) +
-      _rcaPdfField(L.why4, d.why4) + _rcaPdfField(L.why5, d.why5) +
-      _rcaPdfField(L.rootCause, d.rootCause) + _rcaPdfField(L.rcSummary, d.rcSummary) + '</div>';
-    if (d.handoffDept) h += '<div class="rca-pdf-section"><h3>' + L.deptHandoff + '</h3>' +
+    // The 5 Whys as a connected chain (numbered circles + a line linking
+    // them), mirroring the live form's own arrow-down flow between why
+    // boxes, instead of five identical stacked "WHY N" labels that read as
+    // just more of the same field repeated five times.
+    var whys = [[L.why1,d.why1],[L.why2,d.why2],[L.why3,d.why3],[L.why4,d.why4],[L.why5,d.why5]];
+    var whyChainHtml = whys.map(function(w, i){
+      return '<div class="rca-why-row"><div class="rca-why-marker"><div class="rca-why-circle">'+(i+1)+'</div>' +
+        (i < whys.length-1 ? '<div class="rca-why-connector"></div>' : '') + '</div>' +
+        '<div class="rca-why-body"><b>'+escHtml(w[0])+'</b><span>'+escHtml(w[1]||'—')+'</span></div></div>';
+    }).join('');
+    h += '<div class="rca-pdf-section"><h3>❓ ' + L.rootCause5 + '</h3>' +
+      _rcaPdfNarrative(L.problemStmt, d.problemStmt) +
+      whyChainHtml +
+      _rcaPdfNarrative(L.rcSummary, d.rcSummary) + '</div>';
+    if (d.handoffDept) h += '<div class="rca-pdf-section"><h3>📤 ' + L.deptHandoff + '</h3>' +
       _rcaPdfField(L.reassignedTo, d.handoffDept) + _rcaPdfField(L.notes, d.handoffNotes) + '</div>';
   } else {
-    h += '<div class="rca-pdf-section"><h3>' + L.rootCause + '</h3>' + _rcaPdfField(L.rootCause, d.rootCause) + '</div>';
+    h += '<div class="rca-pdf-section"><h3>❓ ' + L.rootCause + '</h3>' + _rcaPdfNarrative(L.rootCause, d.rootCause) + '</div>';
   }
 
-  h += '<div class="rca-pdf-section"><h3>' + L.correctiveActionSec + '</h3>' +
-    (customerFacing?'':_rcaPdfField(L.immAction, d.immAction)) +
-    _rcaPdfField(L.approvedCA, d.correctiveAction) +
-    _rcaPdfField(L.approvedBy, d.approvedBy) + _rcaPdfField(L.approvalDate, d.approvalDate) + '</div>';
+  h += '<div class="rca-pdf-section"><h3>🛠️ ' + L.correctiveActionSec + '</h3>' +
+    (customerFacing?'':_rcaPdfNarrative(L.immAction, d.immAction)) +
+    _rcaPdfNarrative(L.approvedCA, d.correctiveAction) +
+    '<div class="rca-pdf-grid">' + _rcaPdfField(L.approvedBy, d.approvedBy) + _rcaPdfField(L.approvalDate, d.approvalDate) + '</div></div>';
 
-  h += '<div class="rca-pdf-section"><h3>' + L.disposition + '</h3>' +
-    _rcaPdfField(L.disposition, d.disposition) + _rcaPdfField(L.notes, d.dispNotes) + '</div>';
+  h += '<div class="rca-pdf-section"><h3>✅ ' + L.disposition + '</h3>' +
+    '<div class="rca-pdf-field" style="margin-bottom:12px;"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' +
+    _rcaPdfField(L.notes, d.dispNotes) + '</div>';
 
   if (!customerFacing){
-    h += '<div class="rca-pdf-section"><h3>' + L.qaCloseOut + '</h3>' +
+    h += '<div class="rca-pdf-section"><h3>🔒 ' + L.qaCloseOut + '</h3><div class="rca-pdf-grid">' +
       _rcaPdfField(L.verifyMethod, d.verifyMethod) + _rcaPdfField(L.closeDate, d.closeDate) +
-      _rcaPdfField(L.closeNotes, d.closeNotes) + _rcaPdfField(L.closeQATech, d.closeQATech) + '</div>';
+      _rcaPdfField(L.closeQATech, d.closeQATech) +
+      '</div>' + _rcaPdfField(L.closeNotes, d.closeNotes) + '</div>';
   }
 
   if (d.photos && d.photos.length){
-    h += '<div class="rca-pdf-section"><h3>' + L.photos + '</h3><div class="rca-pdf-photos">' +
+    h += '<div class="rca-pdf-section"><h3>📷 ' + L.photos + '</h3><div class="rca-pdf-photos">' +
       d.photos.map(function(src){ return '<div class="rca-pdf-photo" style="background-image:url(&quot;'+escHtml(src)+'&quot;)"></div>'; }).join('') + '</div></div>';
   }
   h += '</div>';
