@@ -6670,6 +6670,16 @@ function ipSave(jobs, opts) {
   _ipMem = jobs;
   try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e) {}
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
+  // Every screen is static HTML in the DOM at all times (toggled via a CSS
+  // .active class, not created/destroyed on navigation — see .screen.active
+  // { display:block }), so this re-render happens whether or not Shipping
+  // Approval is the screen currently on-screen; it just keeps the queue and
+  // its "!" badge current in the background. Without this, a job that just
+  // became pending here (finished locally, OR pulled in from another
+  // device's push during a background sync) wouldn't show up until someone
+  // happened to navigate away from and back to this screen, or reloaded —
+  // Records already had this same live-update; Shipping Approval didn't.
+  if (typeof renderShipping === 'function' && document.getElementById('shipping-list')) renderShipping();
   // Returned (previously fire-and-forget) so a caller that needs the push to
   // actually land before doing something else — e.g. deleting the very
   // record it just audit-logged — can wait on it instead of racing it.
