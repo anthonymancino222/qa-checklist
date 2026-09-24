@@ -7570,7 +7570,7 @@ function _buildJPListRow(job, opts) {
   row.className = 'jp-list-row';
   row.onclick = (function(j){ return function(){ openContinueModal(j.id); }; })(job);
   var thumbHTML = job.mrPhoto
-    ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+    ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="">'
     : '<div class="jp-list-thumb-empty">📷</div>';
   var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
   var isGluerJob = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
@@ -7690,7 +7690,7 @@ function renderQARelease() {
       seenBatch[job.batchId] = true;
       var batchJobs = jobs.filter(function(j){ return j.batchId === job.batchId; });
       var photoHTML = batchJobs[0].mrPhoto
-        ? '<img class="jp-card-photo" src="' + batchJobs[0].mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+        ? '<img class="jp-card-photo" src="' + batchJobs[0].mrPhoto + '" alt="">'
         : '<div class="jp-card-photo-empty">📷</div>';
       var wrap = document.createElement('div');
       wrap.className = 'jp-batch-wrap';
@@ -7717,7 +7717,7 @@ function renderQARelease() {
     card.style.marginBottom = '12px';
     card.onclick = function() { openContinueModal(job.id); };
     var photoHTML = job.mrPhoto
-      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
       : '<div class="jp-card-photo-empty">📷</div>';
     var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
     var pfVal = job.formNumber || job.productNumber || job.product;
@@ -7804,7 +7804,7 @@ function openColJobsSheet(phase, label) {
         : isGluerJob
         ? stationLabel(j.station) + ' · ' + prodWord + ': ' + hlId(j.productNumber)
         : stationLabel(j.station) + ' · ' + formWord + ': ' + hlId(j.formNumber);
-      var thumbHTML = j.mrPhoto ? '<img src="' + j.mrPhoto + '" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">' : '📷';
+      var thumbHTML = j.mrPhoto ? '<img src="' + j.mrPhoto + '">' : '📷';
       var jobWordSing = isEs ? 'Trabajo' : 'Job';
       return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeColJobsSheet();">' +
         '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
@@ -7954,7 +7954,7 @@ function renderInProgress() {
         var batchJobs = entry.batchJobs;
         var first = batchJobs[0];
         var photoHTML = first.mrPhoto
-          ? '<img class="jp-card-photo" src="' + first.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+          ? '<img class="jp-card-photo" src="' + first.mrPhoto + '" alt="">'
           : '<div class="jp-card-photo-empty">📷</div>';
         // Badge reflects whether any batch member is awaiting QA approval
         var anyQaPending = batchJobs.some(function(j){ return j.process === 'qa_pending'; });
@@ -7995,7 +7995,7 @@ function renderInProgress() {
         var job = entry.job;
         var isProductionCard = (job.process === 'production');
         var photoHTML = job.mrPhoto
-          ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+          ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
           : '<div class="jp-card-photo-empty">📷</div>';
         var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
         var badge = '';
@@ -16601,7 +16601,7 @@ function openGluerBatchSheet(batchId, context) {
                     : j.process === 'qa_pending' ? 'var(--pink)'
                     : '#f59e0b';
     var thumbHTML = j.mrPhoto
-      ? '<img src="' + j.mrPhoto + '" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+      ? '<img src="' + j.mrPhoto + '">'
       : '📷';
     return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeGluerBatchSheet();">' +
       '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
@@ -21510,7 +21510,7 @@ function renderShipping(){
       row.className = 'jp-list-row';
       row.onclick = (function(j){ return function(){ openShippingModal(j.id); }; })(job);
       var thumbHTML = job.mrPhoto
-        ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+        ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="">'
         : '<div class="jp-list-thumb-empty">📷</div>';
       var pf = job.formNumber || job.productNumber || job.product || '—';
       row.innerHTML = thumbHTML +
@@ -21532,7 +21532,7 @@ function renderShipping(){
     card.style.marginBottom = '12px';
     card.onclick = function(){ openShippingModal(job.id); };
     var photoHTML = job.mrPhoto
-      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
+      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
       : '<div class="jp-card-photo-empty">📷</div>';
     var pf = job.formNumber || job.productNumber || job.product || '—';
     card.innerHTML = photoHTML +
