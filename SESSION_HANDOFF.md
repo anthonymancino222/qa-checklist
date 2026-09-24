@@ -2,80 +2,105 @@
 
 Paste this whole file as your first message in a new chat to pick up where we left off without re-establishing permissions or re-litigating workflow.
 
-## Standing permission — act, don't ask. Do not narrate pushes.
+## Standing permissions — act, don't ask
 
-I've already granted standing permission to act autonomously on this project: push to GitHub, deploy/edit the Cloudflare Worker backend, run PowerShell/Bash commands on my actual machine — all without stopping to ask "can I do this?" first, and **without telling me you're about to push or that I need to do something I don't actually need to do.** This has been explicitly called out as wasting time and tokens — stop doing the "should I push this / you'll need to push this" dance for anything you're actually capable of doing yourself. Just do it, then tell me what you did (past tense), not what you're asking permission for.
+Full standing permission to act autonomously on this project: `git push`, editing/testing code, running Bash/PowerShell — without stopping to ask first. Only real capability walls stop you (not permission):
 
-The only things that actually stop you are *capability* walls, not permission — and no amount of me saying "yes" lifts these, so don't keep retrying past them, just tell me plainly which one you hit and hand me the specific step:
+1. The built-in browser tool **cannot open local files** (`file://` URLs refused) and has no real Google sign-in. For anything requiring real signed-in backend access, hand the user copy-paste console scripts to run in their own already-authenticated Chrome tab instead — don't try to sign in yourself.
+2. `github.com` and Cloudflare/Google Cloud dashboards may be blocked domains for the browser tool directly — navigate there anyway first; if refused, fall back to giving the user manual steps.
+3. A separate safety classifier can block a specific risky-looking action (e.g., a live production bulk-mutation script, a Worker code deploy) even after explicit chat approval — don't retry past it, hand the user the exact manual step instead.
 
-1. **`github.com` is a blocked domain** for your browser tool (Cloudflare Console and Google Cloud Console too).
-2. On `script.google.com`/`docs.google.com`, screenshot and page-text-reading are blocked (privacy protection) even though clicking/navigating works fine.
-3. **A separate safety classifier** can block one specific risky-looking action even after I've said yes in chat — confirmed multiple times on a Cloudflare Worker OAuth-scope-widening edit specifically (tried via Edit tool and via PowerShell/curl, both blocked, even after chat approval). If you hit this again, stop and hand me the exact one-line diff to paste in myself, or tell me to unblock that action class in my Claude Code settings.
+**Git**: `index.html` (root) and `version-b/index.html` are both in this repo (`github.com/anthonymancino222/qa-checklist`), deployed via GitHub Pages at `https://anthonymancino222.github.io/qa-checklist/` (main app) and `.../version-b/` (fork). A push deploys automatically within ~30-60s — always confirm live via a genuinely fresh, no-cache `curl` fetch afterward (`curl -s "URL?nocache=$(date +%s)" -H "Cache-Control: no-cache, no-store" | grep ...`), and explicitly tell the user it's live, not just that the push succeeded.
 
-For **this specific project (QA Checklist Approval)**: `index.html` and `CLAUDE.md` live in a real local git repo with `origin` already pointing at `github.com/anthonymancino222/qa-checklist.git`. You have full working git access — `git add`/`commit`/`push origin main` directly, no manual upload step, ever. A push here auto-deploys to both GitHub Pages and Cloudflare Pages within ~15-30s. Just do it and report what shipped.
+The **Cloudflare Worker backend** (`cloudflare-backend/src/index.js`) has no local deploy tooling — changes there need the user to paste into the dashboard's Quick Edit themselves.
 
-The **Cloudflare Worker backend** (`cloudflare-backend/src/index.js`, gitignored, never pushed to GitHub) is a different story — no local deploy tooling, and the only two paths (direct Cloudflare API call, or the dashboard's Quick Edit) are both real capability walls: the API path needs a token that isn't saved anywhere persistent across sessions, and even when a token exists, credential/scope-related edits specifically trip the safety classifier (see #3 above). If a backend change is ever needed, expect to hand me a manual copy-paste-and-deploy step and say so plainly — that one genuinely isn't optional, unlike frontend pushes.
+**Cloudflare billing**: the user upgraded to the **Workers Paid plan ($5/month)** this session — the free-tier daily-limit concern is now much less pressing, though bulk/migration scripts should still batch sensibly rather than blast writes.
 
-Full detail also saved in cross-session memory (`feedback-standing-autonomy`, `project-moquin-press-apps-overview`) and in `CLAUDE.md` in this project folder — read both before starting if you haven't already loaded them.
+## Hard rules established this session (in addition to standing project rules already in memory)
 
-## Where things stand right now (end of a very large session)
+- **Every change verified live**, not just code-reviewed — extract the real function from the file and unit-test it in Node against multiple real scenarios before shipping anything sync/data-related. This session's sync fixes were each verified against 7-11 scenario test suites before being pushed.
+- **Every fix to `index.html` gets applied identically to `version-b/index.html`**, unless the underlying mechanism is genuinely different (version-b uses Google Apps Script/JSONP for its transport, not `fetch` — same bugs, different transport, same fix pattern).
+- **Never trust a script's own "success" report for a production data write** — always independently re-verify against a fresh server fetch afterward, from a clean/new script, not just reading back the same variables. This caught the stageHistory-cleanup-appeared-to-work-but-didn't incident below.
+- **A tablet can stay open for a full shift or more without reloading** — this is normal, not an edge case. A fix to sync/data-integrity logic is not actually "shipped" to the fleet until devices reload; the 20-minute auto-update check (already built this session) is what makes that happen without relying on someone remembering to tap Sync.
+- **Don't fabricate approval/QA records.** `SHIP_AUTO_APPROVE_TESTING` must stay `false` outside active testing. When a bulk recovery script has to write real backend records (like this session's shipping-approval recovery), tag them distinctly (e.g., `_recoveredFromSyncBug: true`) and use a stage-history label that's honest about it being a recovery action, not a real human sign-off.
+- **RCA records are device-local only**, never synced to the Cloudflare backend (a separate legacy Apps Script handles daily Drive backups) — don't assume RCA data behaves like job/NCR data.
+- **Data sync priority rule (explicit user requirement, not yet fully built — see Next Goal)**: "most recent confirmed edit wins," like Google Sheets — not "whoever created the record wins." A device with a genuinely unsynced edit must never have it silently discarded by another device's stale pull.
+- Pair any complex technical explanation with a short, plain-English version (standing user preference).
+- The user explicitly does not want to pay for a second backend platform (this is why version-b uses Apps Script instead of a second paid service) — Cloudflare's $5/mo upgrade was a considered exception, not a green light for other paid services.
 
-Everything below shipped and was pushed to `main` already — this is a record of what changed, not a to-do list, except where marked **NOT DONE**.
+## Where things stand (end of a very long, incident-heavy session — 2026-09-23)
 
-### Schedule bridge / auto-pull
-- The job-schedule pull now runs automatically at **5am and 5pm daily** (device local time), not just on manual "Pull Schedule" tap — plus an immediate catch-up pull if the app opens with nothing cached yet. Manual button still exists for a forced refresh.
-- Fixed a crash (auto-pull init read a module-level var before it was assigned, since it's all one giant top-to-bottom `<script>` — killed the rest of script init when it happened, which is why unrelated things broke too the first time this shipped). Fixed by making the var local + deferring init to next tick.
-- Fixed a race: two near-simultaneous schedule-pull calls (auto-pull + a manual tap) used to fire two real requests and one could transiently fail — now coalesced into one shared in-flight promise.
-- **Pull now merges every matching file among the newest 10 in the bridge folder**, instead of using only the single newest file per shape — a second/test file dropped in no longer silently replaces the real schedule data.
-- NCR's "Pull from QC job" search now also searches the schedule bridge (not just locally-recorded QC jobs), tagged "(from schedule)" in the dropdown.
+### 1. THE MAIN INCIDENT — now fully resolved
+User reported jobs already approved for shipping kept reappearing as pending, on every device, no matter how many times cleared/synced.
 
-### Gluer sequential multi-product batches
-- Fixed: toggling "same CAD?"/product count used to wipe out an already-typed Product ID or attached photo (a real regression from an earlier fix in this same session that didn't distinguish "toggle mid-entry" from "genuine reset").
-- Fixed: starting product 2/3 no longer carries over product 1's leftover photo (`startNewJob()`'s own reset now correctly passes `preserve=false`).
-- Fixed: "More than 1 product AND same CAD?" no longer re-shows as tappable Yes/No when continuing a batch — it used to show BOTH answers highlighted at once (a real bug) and risked an accidental tap corrupting the batch. Hidden entirely for continuations now.
-- CAD Style now carries over from product 1 to product 2/3 automatically (since "same CAD" was already confirmed) instead of sitting blank.
-- **"Start Next Product" moved from QA Release to Job in Progress → Make Ready** (a dashed-border prompt card), since production staff work from there and don't check QA Release. Deduped to one prompt per batch (was showing one per already-finished product when 2+ were done).
+- **Root cause #1**: `_syncPullAndMerge` unconditionally kept the LOCAL copy of any record it already had locally — a genuine change made elsewhere could never land, ever, no matter how many syncs ran.
+- Fixed this once (added last-write-wins via a "confirmed sync snapshot" comparison) — **this fix itself caused a second, worse incident**: it reverted ~110 already-approved shipping jobs back to "pending," because...
+- **Root cause #2 (the real one)**: `_syncPushDelta`'s one-time migration path seeded that "confirmed" snapshot from LOCAL data alone whenever `SYNC_PENDING_KEY` looked clean, with **zero network confirmation**. A device whose earlier push had silently failed (expired Google sign-in token — tokens expire hourly, the background silent-refresh via `google.accounts.id.prompt()` is unreliable) could carry a snapshot dishonestly claiming the server was caught up.
+- **Real fix (now live, both files)**: the migration path always asks the server directly first (one GET) and only marks an id "confirmed" when the server's copy byte-for-byte matches local. Last-write-wins in `_syncPullAndMerge` was then safely restored on top of this now-honest snapshot. A separate migration marker (not the snapshot's own emptiness) gates the one-time reconciliation, since a legitimate zero-match result must not be mistaken for "never ran" and loop forever. Verified with an 11-scenario test suite reproducing the exact incident — all passing on both `index.html` and `version-b/index.html`.
+- Also fixed: `_syncPullAndMerge` didn't check `res.ok` before parsing JSON, so a 401 (expired token) silently looked like "server has zero records" instead of a real failure.
+- **The 110 reverted jobs were restored** via direct per-record `PUT` to the server (bypassing local storage, which was hitting its quota — see #3), tagged `_recoveredFromSyncBug: true`, Freight transport, generic signature. Confirmed via independent fresh server fetch: 0 pending, 110 tagged recovered.
+- **Follow-up feature added (explicit user request)**: Shipping Approval queue now has a hard cutoff — `SHIPPING_APPROVAL_CUTOFF_DATE = new Date('2026-09-22T00:00:00')` in both files. Any job that reached "finished" before that date never shows in the queue again, on any device, regardless of local cache staleness. This was requested because the user can't practically track every shop-floor tablet's individual cache state — it's a single code change every device picks up automatically.
 
-### Shipping Approval
-- **Paginated** (30 per page, real Prev/Next + "Page X of Y", pagers at both top and bottom) — was rendering every pending job (each with a full embedded photo) at once, which got genuinely slow once a backlog built up. Search still runs across the whole pending queue, not just the current page.
-- Cutter Picture is now **read-only** (no Take Photo/Upload) — it's always carried over from make-ready, no need to recapture. Markup pencil still works for annotating it.
+### 2. Long-open-tablet blind spot — fixed
+Found because a browser tab open through several deploys that same night was still silently running OLD buggy JS in memory (JS doesn't hot-reload just because new code is deployed).
 
-### NCR
-- **"🚩 Report NCR" button** on job-detail popups (Job in Progress / QA Release / Shipping Approval) — allowed emails only: anthony.mancino, norma, mariah.gomez, mathias, jayro @moquinpress.com. Opens a path chooser (Regular Documentation vs Approval NCR), auto-populates job #/station/customer/product.
-- **"⚠️ NCR" badge** on the same popups once an NCR exists for that job — opens the existing read-only NCR summary (Records' own view-only display, reused as-is — genuinely can't be edited from there).
-- Customer field is now a type-to-search combo (same pattern as the QC setup screen), not a plain `<select>`.
+- `_checkForAppUpdate()` only ran when someone tapped Sync, AND had a real separate bug: it wrote its "last known version" to storage on every check regardless of whether the update was actually applied — so declining the prompt even once meant it would **never ask again** for that version, silently running stale code indefinitely.
+- **Fixed**: the version marker only advances once an update is actually accepted and applied; added a 20-minute background auto-check (`setInterval(_checkForAppUpdate, 20*60*1000)`) so a long-open tablet gets prompted within roughly a shift, not only whenever someone happens to tap Sync. Guarded against stacking a duplicate prompt. 11-scenario test suite passing on both files.
 
-### Pallet Tag
-- **New "🏷️ Pallet Tag" button** on the same job-detail popups, opens the embedded Pallet Tag pre-filled with job #/station (mapped to the tag's own station names)/customer/product.
-- **Brought to parity with the standalone app** (`Desktop\Anthony\A3 and Kaizen projects\Moquin Pallet Tag\index.html`): added the 3 missing stations (Shipping, CSR/Sales, Prepress) with their own categories + disposition lists, fixed a real bug where the disposition grid only ever built once and would've "stuck" to whichever station was picked first, added the missing "Use For Make Ready" disposition option (shared list — also affects NCR/RCA), ~75 missing Spanish translations, live numeric-only filtering on Job #/Product ID.
-- **Deliberately NOT done**: the standalone app's "email tag as PDF" feature (needs two new external libraries — html2canvas, jsPDF). Skipped per explicit choice, not forgotten.
+### 3. localStorage quota — partially fixed, ONE STEP LEFT UNVERIFIED
+A device hit `QuotaExceededError` (~9.93MB total, over the ~5-10MB browser limit) trying to save the shipping-approval recovery mutation.
 
-### Veritiv Packing
-- "1st 25 pieces have issue?" answering Yes now **requires** documenting why — tap a common-issue tag (reused from the same list NCR already uses for Packing) or type a description, no longer optional.
-- New required follow-up when Yes: **"Have you notified QA or a Manager?"** — answering No requires a reason.
+- Diagnosed precisely via a real device: NOT embedded photos (~205KB only) — it was `stageHistory` (2.8MB total), of which **~2.4MB was duplicate signature images re-embedded at every single stage transition** (`_stageSnapshot()` stored whatever `data` object it was handed verbatim, including raw base64 signature images, forever, on top of the job's own current signature field holding the same image).
+- **Fixed going forward (live, both files)**: `_stageSnapshot()` now recursively strips any embedded `data:image...` string out of what it's given, replacing it with `true` (keeps the audit fact "a signature was captured here," drops the weight). Verified no display feature reads an image back out of stageHistory, and the async Drive-upload-then-patch flow for signatures/photos still works correctly on top of this.
+- **Historical cleanup attempted but NOT confirmed working — needs to be redone.** A one-time server-side script stripped existing embedded images from all 121 affected job records' `stageHistory`. It reported "Succeeded: 121, Failed: 0," but an independent re-verification immediately after showed the data **unchanged** (~2804KB still, 144 embedded images still found). Strong suspicion: the exact stale-tab problem from #2 above — an old, buggy background sync loop running in that same browser tab silently pushed the pre-cleanup data right back over the fix within the following ~30 seconds to a few minutes.
+  - **Next step**: confirm the browser tab that will run this has been fully reloaded (hard refresh) so it's on current code — this alone may have been the entire problem, given #2 was only fixed and deployed partway through that session.
+  - Re-run the dry-run script first (logs what WOULD change + sizes, writes nothing), confirm the numbers still show ~121 records / ~2.4MB, THEN run the real write script (both scripts are straightforward to reconstruct: fetch `/records?type=job`, recursively replace `data:image...` strings inside each `data.stageHistory[].data` with `true`, PUT only records that actually changed).
+  - **Independently re-verify after** with a fresh server fetch (total stageHistory size across all jobs, count of remaining embedded images, and a spot-check that `qaSignature`/current signature fields on the jobs themselves are unchanged) — do not trust the write script's own success count alone, per the hard rule above.
 
-### Misc fixes
-- 3rd-person-palletizing question colors inverted (No=green, Yes=red — matches the rest of the app's "Yes to a bad thing = red" convention).
-- Stay-signed-in window extended from 12h to 72h of inactivity.
-- Back-to-top button now works on every scrollable overlay/modal in the app, not just the main page — and no longer gets stuck pointed at a hidden page behind a freshly-opened modal.
-- Markup (photo annotation) was silently failing on any Drive-hosted photo (tainted canvas — missing `crossOrigin` on the `<img>`) — fixed.
-- Mobile header: Sync/Start New now show right after the title instead of after text-size/name/language (which could itself wrap to 2 lines and bury the actions row far enough down to look missing).
-- **Two rounds of visual/spacing fixes** on the shared job-detail popup header and body (`.continue-modal-head`/`.continue-modal-body` and the 3 panels inside it) — buttons were overlapping text at certain widths (flex item collapsing to near-zero width instead of wrapping), and internal spacing was inconsistent (some gaps 0px, some 8px, some 12px) because cards assumed a gap-based parent that didn't exist. Both fixed at the root/shared-class level, so it applies everywhere that pattern is used, not just the one screen it was first reported on.
+### 4. Cloudflare D1 daily write-quota alert — root cause understood, resolved by user's own action
+- The account hit Cloudflare's D1 free-tier 100k-writes/day cap and got a "service paused" email — bad timing, right after the user had presented this app.
+- **Likely root cause**: a stale tablet running OLD sync code (from before fix #1's proper version) had a bug where, if it believed a record wasn't confirmed synced, it would re-push the ENTIRE ~339-record job store every 5-minute cooldown window — this session's direct-server-PUT recovery scripts (which deliberately bypassed local storage/snapshots to dodge the quota crash) likely left various records looking "unconfirmed" from that stale device's old-code perspective, potentially triggering repeated full-store re-pushes for hours.
+- This class of bug is now fixed by #1 and #2 above (no more blind full-store resends; devices get nudged to update within ~20 minutes).
+- **User has already upgraded to Workers Paid ($5/mo)** — their own decision after discussion; not something to revisit unless they raise it.
 
-## Known outstanding items (from before this session, still not done)
+## NEXT GOAL — build a proper field-level (three-way) merge for job/NCR sync
 
-- **Bridge-folder auto-cleanup Drive OAuth scope fix** — root cause confirmed (needs `drive.file`+`drive.readonly` widened to plain `drive` scope in `getDriveAccessToken()`), blocked by the safety classifier every time it's been attempted. Needs the user to apply the one-line diff by hand, or to allow-list that action type.
-- **Label-station (Bindery/Pressroom Cutter) equivalent of the Gluer sequential multi-product batch feature** — not started.
-- **`TESTING_ALL_TO_ANTHONY = true`** in the RCA Apps Script backend — still routes every manager email to Anthony only. Flip to `false` + redeploy once satisfied with RCA testing.
-- Check whether `gluer-test-schedule.xlsx` (a test file created mid-session, briefly overrode real schedule data) is still sitting in the bridge folder — if so, safe to delete now that the "merge every matching file" fix means it won't override anything, but still worth cleaning up.
+**Explicit user requirement**: "whatever device started an entry will have priority" was the opening ask, refined through discussion to: **most recent CONFIRMED edit wins, at the field level** — like a shared Google Sheet, where two people editing different fields of the same row never stomp on each other. User was explicit: build this properly the first time, with the same test rigor as tonight's fixes — not a quick version to revisit later. Also explicit: build with future heavy-traffic/scale in mind, not just today's usage level.
 
-## What to actually verify next (can't be fully tested via automated browser preview — no real Google sign-in)
+### Design already agreed with the user (not yet implemented)
 
-Everything above was verified as thoroughly as possible via a local static-file preview with sign-in bypassed and fake data — logic, validation, and rendering all confirmed working. What's genuinely untested is the real-device experience: actual touch interactions, real Drive-hosted photos in Markup, real multi-day schedule files, and the NCR/Pallet-Tag buttons' permission gating against real signed-in accounts. Worth a real walkthrough on an actual floor tablet before calling this session's work fully done.
+Three versions of any record are already available at sync time:
+- **base** — the last version this device confirmed the server actually had (already tracked today via the sync snapshot, and now honest per fix #1 above)
+- **local** — this device's current copy
+- **remote** — the server's current copy
 
-## Deploy mechanics (unchanged, for reference)
+**Per top-level field:**
+- Only local changed it from base → keep local's value
+- Only remote changed it from base → take remote's value
+- Neither changed it → no-op
+- **Both changed it to different values → genuine conflict**, needs a tie-break rule (see below)
 
-- **Frontend** (`index.html`, `CLAUDE.md`): `git add`, `git commit`, `git push origin main` — auto-deploys to both GitHub Pages and Cloudflare Pages. GitHub Pages' CDN can lag ~15-30s on propagation.
-- **Backend** (`cloudflare-backend/src/index.js`): see the capability-wall note above — this is the one thing that's genuinely not self-service most of the time.
+**Fields needing special handling, not plain overwrite:**
+- `stageHistory` — must be **unioned**, never overwritten. It's an append-only audit log; both devices' entries are equally valid and neither side should ever lose entries. (Dedup by matching stage+ts+label, most likely.)
+- `checklist` — already has a merge-by-item-id helper (`_mergeChecklist`, line ~6612 in `index.html` as of tonight) built for a similar problem (QA stages losing earlier stages' fields). Extend that same by-id merge logic into the sync path instead of a raw field overwrite.
 
-Ask what to pick up next, or just keep going on the outstanding items above if nothing new has come in.
+**For genuine same-field conflicts** (rare — jobs normally move through one device at a time sequentially, make-ready → production → QA → shipping — so true simultaneous conflicting edits to the *same field* should be uncommon, but must still be handled correctly, not just assumed away):
+- Proposed: add a lightweight per-record "last touched" timestamp, stamped automatically at the one true choke point every save already goes through (`ipSave()`, called by literally every job mutation path including `ipUpdate()`) — avoids needing to touch dozens of scattered call sites individually.
+- Let the more recently-touched side win for that specific conflicting field.
+- **Log the conflict itself into `stageHistory`** so it's visible later for audit purposes, never silently dropped/hidden.
+
+### Before writing code
+1. Confirm `ipSave()` is genuinely the single universal choke point for every job mutation (spot-checked tonight, looked correct, but verify thoroughly — grep for any place that writes directly to `localStorage.getItem(IN_PROGRESS_KEY)`/`setItem` bypassing `ipSave`/`ipLoad`).
+2. Design the exact conflict-log shape for `stageHistory` before implementing (what fields, what the label says, whether it needs a dedicated `stage: 'merge_conflict'` type).
+3. Decide whether this applies to `job` only, or also `ncr`/`ncr_draft` (NCR doesn't have `stageHistory`/`checklist` in the same shape — check its actual field list before assuming the same special-cases apply).
+4. Build a standalone Node test harness (same pattern as tonight — extract the real function via `node -e`, mock `fetch`/`localStorage`) covering at minimum: non-overlapping field edits merge cleanly both ways, a genuine same-field conflict resolves via the tie-break and gets logged, `stageHistory` entries from both sides survive a merge with no duplicates and no loss, `checklist` merges by id correctly when both sides touched different items vs. the same item, and repeated/idempotent merges are stable.
+5. Apply identically to `version-b/index.html` once proven, same as every other fix this session.
+6. Ship, confirm live via fresh no-cache fetch, tell the user explicitly.
+
+## Deploy mechanics (reference)
+
+- **Frontend** (`index.html`, `version-b/index.html`): `git add`, `git commit`, `git push` — auto-deploys to GitHub Pages. Confirm live via a fresh no-cache `curl` fetch of a distinctive string from the change (a comment, a new function name), not just that the push succeeded.
+- **Backend** (`cloudflare-backend/src/index.js`): no self-service deploy — hand the user the exact code to paste into the Cloudflare dashboard's Quick Edit.
+- **Testing sync/data logic**: extract the real function(s) from the live file via a small Node script (`html.indexOf('function name')` + brace-matching), stub `fetch`/`localStorage`/whatever else is needed, run realistic scenarios, confirm pass/fail explicitly before shipping.
+
+Ask what to pick up next, or just start on the field-level merge design above if nothing new has come in.
