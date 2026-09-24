@@ -6237,11 +6237,63 @@ function _syncPushDelta(type, list){
     _syncSnapshotSet(type, snap);
   }
   if (!dirty.length) return Promise.resolve();
-  return _syncPushAll(type, dirty.map(function(d){ return d.data; })).then(function(ok){
-    if (!ok) return; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
-    dirty.forEach(function(d){ snap[d.id] = d.json; });
-    _syncSnapshotSet(type, snap);
+
+  // Job pushes get reconciled against the server first — see
+  // _syncReconcileBeforePush's own comment for why. Every other type keeps
+  // the plain blind push, since NCR/drafts don't carry the stageHistory/
+  // checklist/lastTouchedAt shape _mergeJobRecord relies on.
+  var pushReady = type === 'job' ? _syncReconcileBeforePush(dirty, snap) : Promise.resolve(dirty);
+  return pushReady.then(function(toPush){
+    return _syncPushAll(type, toPush.map(function(d){ return d.data; })).then(function(ok){
+      if (!ok) return; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
+      toPush.forEach(function(d){ snap[d.id] = d.json; });
+      _syncSnapshotSet(type, snap);
+    });
   });
+}
+// _syncPushDelta decides what's "dirty" purely from THIS device's own
+// bookkeeping (its local copy vs. the last snapshot it confirmed) — it
+// never asked the server "is this actually still safe to overwrite?"
+// before firing a blind bulk PUT. That's a real gap: if the server's
+// current copy has moved on to something this device doesn't know about —
+// another device's genuine edit, or (what actually surfaced this) an
+// out-of-band admin fix applied directly against the backend — a normal
+// push would silently clobber it right back, even though nothing about
+// THIS device's own dirty-check was wrong. Confirmed live 2026-09-24: a
+// stageHistory image-cleanup write was immediately verified clean, then
+// measurably reverted within 15 seconds by ordinary background sync
+// traffic elsewhere — the exact bug class behind the original shipping-
+// approval incident, just triggered by a different kind of write instead
+// of a stale snapshot.
+//
+// Fetches the CURRENT server copy of every job in one shot — this backend
+// is Apps Script/JSONP, not the Cloudflare REST API, so there's no
+// per-record GET endpoint to check dirty records one at a time (see
+// _qaJsonpGet's own listRecords usage elsewhere); one listRecords call is
+// also just cheaper than one round trip per dirty id. For each dirty
+// record: if the server still matches either this device's last-confirmed
+// base, or already matches what this device is about to push anyway,
+// there's no conflict — push as-is. Otherwise the server has moved on to
+// something real: run it through the same three-way merge the pull side
+// already uses (_mergeJobRecord) and push the reconciled result instead of
+// blindly overwriting. A record the server doesn't have yet, or a failed
+// check, falls back to pushing as-is rather than blocking the save entirely.
+function _syncReconcileBeforePush(dirty, snap){
+  if (!dirty.length) return Promise.resolve(dirty);
+  return _qaJsonpGet({ action: 'listRecords', type: 'job' }).then(function(json){
+    var remoteById = {};
+    (json.records || []).forEach(function(r){ if (!r.deleted) remoteById[String(r.id)] = r.data; });
+    return dirty.map(function(d){
+      var remote = remoteById[d.id];
+      if (!remote) return d;
+      var remoteJson = JSON.stringify(remote);
+      if (remoteJson === d.json) return d; // server already matches what we're about to send
+      var base = snap[d.id] ? JSON.parse(snap[d.id]) : null;
+      if (base && remoteJson === JSON.stringify(base)) return d; // server unchanged since we last confirmed — safe as-is
+      var merged = _mergeJobRecord(base, d.data, remote);
+      return { id: d.id, json: JSON.stringify(merged), data: merged };
+    });
+  }).catch(function(){ return dirty; });
 }
 
 function _syncRetryPending() {
@@ -6685,7 +6737,16 @@ function _mergeStageHistory(local, remote) {
     var k = _stageHistoryEntryKey(e);
     if (seen[k]) return;
     seen[k] = true;
-    out.push(e);
+    // Strip embedded images regardless of which side's copy of this
+    // duplicate-keyed entry happened to win — otherwise a device whose
+    // local copy still has the old embedded-image entry (e.g. one that
+    // hasn't synced since before a historical cleanup) can silently
+    // reintroduce exactly the bloat _stageSnapshot already refuses to
+    // write going forward, purely because it appeared first in this
+    // concat. Confirmed live 2026-09-24: without this, a cleaned
+    // stageHistory entry got its embedded image put right back the very
+    // next time a device with a stale local copy synced.
+    out.push(e && e.data ? Object.assign({}, e, { data: _stripEmbeddedImagesForHistory(e.data) }) : e);
   });
   out.sort(function(a, b){
     if ((a.ts||'') < (b.ts||'')) return -1;
