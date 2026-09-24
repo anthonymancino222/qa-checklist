@@ -2081,7 +2081,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    (e.g. "D ISPOSITION"), even though the live browser rendered it fine.
    The icon is just a plain leading character now — no flex needed for a
    single line of text. */
-.rca-pdf-section h3{ font-size:13px; margin:0 0 12px; color:#1d4ed8; border-bottom:2px solid #1d4ed8; padding-bottom:6px; text-decoration:underline; text-transform:uppercase; letter-spacing:.05em; }
+.rca-pdf-section h3{ font-size:13px; margin:0 0 12px; color:#1d4ed8; border-bottom:2px solid #1d4ed8; padding-bottom:6px; text-transform:uppercase; letter-spacing:.05em; }
 .rca-pdf-glance{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
 .rca-pdf-chip{ background:#eef2fc; border-radius:9px; padding:8px 14px; min-width:110px; }
 .rca-pdf-chip b{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#5b6b8c; font-weight:700; margin-bottom:2px; }
@@ -4527,12 +4527,8 @@ try {
         <button class="btn" onclick="rcaSaveDraft()">💾 <span data-en>Save draft</span><span data-es>Guardar borrador</span></button>
       </div>
       <div class="action-row" style="margin-top:8px">
-        <button type="button" class="btn" onclick="rcaExportPDF(false)">⬇️ <span data-en>Download PDF — Internal (full detail)</span><span data-es>Descargar PDF — Interno (detalle completo)</span></button>
-        <button type="button" class="btn" onclick="rcaExportPDF(true)">⬇️ <span data-en>Download PDF — Customer-facing (summary)</span><span data-es>Descargar PDF — Para cliente (resumen)</span></button>
-      </div>
-      <div class="action-row" style="margin-top:4px">
-        <button type="button" class="btn" onclick="rcaPrintReport(false)">🖨️ <span data-en>Print — Internal (full detail)</span><span data-es>Imprimir — Interno (detalle completo)</span></button>
-        <button type="button" class="btn" onclick="rcaPrintReport(true)">🖨️ <span data-en>Print — Customer-facing (summary)</span><span data-es>Imprimir — Para cliente (resumen)</span></button>
+        <button type="button" class="btn" onclick="rcaExportPDF()">⬇️ <span data-en>Download PDF</span><span data-es>Descargar PDF</span></button>
+        <button type="button" class="btn" onclick="rcaPrintReport()">🖨️ <span data-en>Print</span><span data-es>Imprimir</span></button>
       </div>
     </div>
 
@@ -20272,8 +20268,13 @@ function rcaHandoffToDept(){
    disposition, corrective action summary, dates only — no internal notes).
    Reuses the pallet-tag print-isolation pattern: a body class hides
    everything except #rca-pdf-report only while window.print() runs. ── */
+// Every field/narrative/chip renderer below returns '' for an empty value
+// instead of a "—" placeholder — per direct feedback, an optional field
+// that was never filled in (or a preset option never selected) shouldn't
+// show up in the exported report at all, not even as a blank placeholder.
 function _rcaPdfField(label, value){
-  return '<div class="rca-pdf-field"><b>'+escHtml(label)+'</b><span>'+escHtml(value||'—')+'</span></div>';
+  if (!value) return '';
+  return '<div class="rca-pdf-field"><b>'+escHtml(label)+'</b><span>'+escHtml(value)+'</span></div>';
 }
 // A "callout" treatment for the long narrative fields (problem statement,
 // root cause summary, approved corrective action) — these are the fields
@@ -20281,17 +20282,38 @@ function _rcaPdfField(label, value){
 // they get a distinct left-accent box instead of blending in as just
 // another label+value pair.
 function _rcaPdfNarrative(label, value){
-  return '<div class="rca-pdf-narrative"><b>'+escHtml(label)+'</b><span>'+escHtml(value||'—')+'</span></div>';
+  if (!value) return '';
+  return '<div class="rca-pdf-narrative"><b>'+escHtml(label)+'</b><span>'+escHtml(value)+'</span></div>';
 }
 function _rcaPdfChip(label, value){
-  return '<div class="rca-pdf-chip"><b>'+escHtml(label)+'</b><span>'+escHtml(value||'—')+'</span></div>';
+  if (!value) return '';
+  return '<div class="rca-pdf-chip"><b>'+escHtml(label)+'</b><span>'+escHtml(value)+'</span></div>';
+}
+// Wraps section content in its card+header — but only if there's actually
+// something inside once the empty fields above have dropped out. An
+// all-optional section (e.g. a hand-off with nothing filled in) simply
+// doesn't appear, rather than showing an empty card with just a heading.
+function _rcaPdfSection(icon, title, innerHtml){
+  if (!innerHtml || !innerHtml.trim()) return '';
+  return '<div class="rca-pdf-section"><h3>'+icon+' '+escHtml(title)+'</h3>'+innerHtml+'</div>';
+}
+// A 2-column grid of fields — like _rcaPdfSection, this drops itself
+// entirely (not just an empty wrapper div) when every field inside it
+// turned out empty. Without this, a section whose only content was a grid
+// of all-optional, all-blank fields would still render an empty grid,
+// which _rcaPdfSection's own emptiness check can't catch — an empty
+// `<div class="rca-pdf-grid"></div>` still counts as non-empty HTML.
+function _rcaPdfGrid(fields){
+  var rendered = fields.filter(function(f){ return !!f; });
+  if (!rendered.length) return '';
+  return '<div class="rca-pdf-grid">' + rendered.join('') + '</div>';
 }
 // Maps a disposition string to a semantic badge color — greens for "keep
 // going," ambers for "hold/inspect," reds for "scrap/don't use," and a
 // neutral gray for anything else (Other, makeready-only, count-only, etc.)
 // — same color language as the disposition icons in the live form.
 function _rcaDispositionBadgeHTML(value){
-  if (!value) return '<span class="rca-pdf-badge" style="background:#eceff4;color:#4a5b7a;">—</span>';
+  if (!value) return '';
   var v = value.toLowerCase();
   var bg = '#eceff4', fg = '#4a5b7a'; // neutral default
   if (/scrap|discard|do not use/.test(v)) { bg = '#fbeaea'; fg = '#9c2c2e'; }
@@ -20306,13 +20328,16 @@ function _rcaDispositionBadgeHTML(value){
 // this is what lets the Records-list popup regenerate a PDF straight from a
 // previously-saved record (its own stored data), without touching or even
 // requiring the live #view-rca form to be open on that field data at all.
-function _rcaBuildReport(customerFacing, presetData){
+// There is only ever one report version now — an earlier internal/
+// customer-facing split was removed per direct feedback; empty optional
+// fields are simply omitted (see the renderers above) rather than needing a
+// separate lighter-weight version to hide them.
+function _rcaBuildReport(presetData){
   var isEs = isEsLang();
   var d = presetData || rcaCollectData(rcaCurrentPath===1 ? (rcaGetVal('close-date')?'Closed':'Draft') : 'Draft', 'export_pdf');
   var report = document.getElementById('rca-pdf-report');
   var L = isEs ? {
     title:'Análisis de Causa Raíz y Acción Correctiva', subtitle:'Moquin Press — Gestión de Calidad',
-    customerSummary:'Resumen para cliente', internal:'Registro interno',
     incidentInfo:'Información del Incidente', jobNumber:'Número de trabajo', productId:'ID de Producto',
     customer:'Cliente', dateFound:'Fecha de detección', station:'Estación', qaTech:'Técnico de calidad',
     qualityIssue:'Problema de calidad', rootCause5:'Causa raíz — 5 Por qués', problemStmt:'Declaración del problema',
@@ -20325,7 +20350,6 @@ function _rcaBuildReport(customerFacing, presetData){
     closeQATech:'Técnico de calidad (cierre)', photos:'Fotos'
   } : {
     title:'Root Cause Analysis &amp; Corrective Action', subtitle:'Moquin Press — Quality Management',
-    customerSummary:'Customer-facing summary', internal:'Internal record',
     incidentInfo:'Incident information', jobNumber:'Job number', productId:'Product ID',
     customer:'Customer', dateFound:'Date found', station:'Station', qaTech:'QA tech',
     qualityIssue:'Quality issue', rootCause5:"Root cause — 5 Why's", problemStmt:'Problem statement',
@@ -20348,59 +20372,55 @@ function _rcaBuildReport(customerFacing, presetData){
     '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #1d4ed8;padding-bottom:10px;margin-bottom:16px;">' +
     '<div><div style="font-size:20px;font-weight:700;">' + L.title + '</div>' +
     '<div style="font-size:15px;color:#666;">' + L.subtitle + '</div></div>' +
-    '<div style="font-size:14px;color:#999;">'+(customerFacing?L.customerSummary:L.internal)+'<br>'+escHtml(formatTS())+'</div></div>';
+    '<div style="font-size:14px;color:#999;">'+escHtml(formatTS())+'</div></div>';
 
   // "At a glance" strip — the 5-second version of the record, before asking
   // anyone to read a single paragraph. Disposition gets a colored badge
   // instead of plain text since it's the single most load-bearing fact here.
-  h += '<div class="rca-pdf-glance">' +
-    _rcaPdfChip(L.jobNumber, d.jobNumber) + _rcaPdfChip(L.customer, d.customer) +
-    _rcaPdfChip(L.station, stationLabel(d.station)) +
-    '<div class="rca-pdf-chip"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' +
-    '</div>';
+  var glanceChips = [
+    _rcaPdfChip(L.jobNumber, d.jobNumber), _rcaPdfChip(L.customer, d.customer),
+    _rcaPdfChip(L.station, stationLabel(d.station)),
+    d.disposition ? '<div class="rca-pdf-chip"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' : ''
+  ].filter(function(c){ return !!c; });
+  if (glanceChips.length) h += '<div class="rca-pdf-glance">' + glanceChips.join('') + '</div>';
 
-  h += '<div class="rca-pdf-section"><h3>📋 ' + L.incidentInfo + '</h3><div class="rca-pdf-grid">' +
-    _rcaPdfField(L.jobNumber, d.jobNumber) + _rcaPdfField(L.productId, d.productNumber) +
-    _rcaPdfField(L.customer, d.customer) + _rcaPdfField(L.dateFound, d.dateFound) +
-    _rcaPdfField(L.station, stationLabel(d.station)) + (customerFacing?'':_rcaPdfField(L.qaTech, d.qaTech)) +
-    '</div>' + _rcaPdfNarrative(L.qualityIssue, d.issueDesc) + '</div>';
+  h += _rcaPdfSection('📋', L.incidentInfo, _rcaPdfGrid([
+    _rcaPdfField(L.jobNumber, d.jobNumber), _rcaPdfField(L.productId, d.productNumber),
+    _rcaPdfField(L.customer, d.customer), _rcaPdfField(L.dateFound, d.dateFound),
+    _rcaPdfField(L.station, stationLabel(d.station)), _rcaPdfField(L.qaTech, d.qaTech)
+  ]) + _rcaPdfNarrative(L.qualityIssue, d.issueDesc));
 
-  if (!customerFacing){
-    // The 5 Whys as a connected chain (numbered circles + a line linking
-    // them), mirroring the live form's own arrow-down flow between why
-    // boxes, instead of five identical stacked "WHY N" labels that read as
-    // just more of the same field repeated five times.
-    var whys = [[L.why1,d.why1],[L.why2,d.why2],[L.why3,d.why3],[L.why4,d.why4],[L.why5,d.why5]];
-    var whyChainHtml = whys.map(function(w, i){
-      return '<div class="rca-why-row"><div class="rca-why-marker"><div class="rca-why-circle">'+(i+1)+'</div>' +
-        (i < whys.length-1 ? '<div class="rca-why-connector"></div>' : '') + '</div>' +
-        '<div class="rca-why-body"><b>'+escHtml(w[0])+'</b><span>'+escHtml(w[1]||'—')+'</span></div></div>';
-    }).join('');
-    h += '<div class="rca-pdf-section"><h3>❓ ' + L.rootCause5 + '</h3>' +
-      _rcaPdfNarrative(L.problemStmt, d.problemStmt) +
-      whyChainHtml +
-      _rcaPdfNarrative(L.rcSummary, d.rcSummary) + '</div>';
-    if (d.handoffDept) h += '<div class="rca-pdf-section"><h3>📤 ' + L.deptHandoff + '</h3>' +
-      _rcaPdfField(L.reassignedTo, d.handoffDept) + _rcaPdfField(L.notes, d.handoffNotes) + '</div>';
-  } else {
-    h += '<div class="rca-pdf-section"><h3>❓ ' + L.rootCause + '</h3>' + _rcaPdfNarrative(L.rootCause, d.rootCause) + '</div>';
-  }
+  // The 5 Whys as a connected chain (numbered circles + a line linking
+  // them), mirroring the live form's own arrow-down flow between why
+  // boxes — skipped entirely for any Why left blank (they aren't required
+  // to submit a record), and renumbered so the shown steps are always
+  // consecutive (1, 2, 3…) instead of leaving gaps like "1, 3, 5".
+  var whys = [[L.why1,d.why1],[L.why2,d.why2],[L.why3,d.why3],[L.why4,d.why4],[L.why5,d.why5]].filter(function(w){ return !!w[1]; });
+  var whyChainHtml = whys.map(function(w, i){
+    return '<div class="rca-why-row"><div class="rca-why-marker"><div class="rca-why-circle">'+(i+1)+'</div>' +
+      (i < whys.length-1 ? '<div class="rca-why-connector"></div>' : '') + '</div>' +
+      '<div class="rca-why-body"><b>'+escHtml(w[0])+'</b><span>'+escHtml(w[1])+'</span></div></div>';
+  }).join('');
+  h += _rcaPdfSection('❓', L.rootCause5,
+    _rcaPdfNarrative(L.problemStmt, d.problemStmt) +
+    whyChainHtml +
+    _rcaPdfNarrative(L.rcSummary, d.rcSummary));
 
-  h += '<div class="rca-pdf-section"><h3>🛠️ ' + L.correctiveActionSec + '</h3>' +
-    (customerFacing?'':_rcaPdfNarrative(L.immAction, d.immAction)) +
+  h += _rcaPdfSection('📤', L.deptHandoff, _rcaPdfField(L.reassignedTo, d.handoffDept) + _rcaPdfField(L.notes, d.handoffNotes));
+
+  h += _rcaPdfSection('🛠️', L.correctiveActionSec,
+    _rcaPdfNarrative(L.immAction, d.immAction) +
     _rcaPdfNarrative(L.approvedCA, d.correctiveAction) +
-    '<div class="rca-pdf-grid">' + _rcaPdfField(L.approvedBy, d.approvedBy) + _rcaPdfField(L.approvalDate, d.approvalDate) + '</div></div>';
+    _rcaPdfGrid([_rcaPdfField(L.approvedBy, d.approvedBy), _rcaPdfField(L.approvalDate, d.approvalDate)]));
 
-  h += '<div class="rca-pdf-section"><h3>✅ ' + L.disposition + '</h3>' +
-    '<div class="rca-pdf-field" style="margin-bottom:12px;"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' +
-    _rcaPdfField(L.notes, d.dispNotes) + '</div>';
+  h += _rcaPdfSection('✅', L.disposition,
+    (d.disposition ? '<div class="rca-pdf-field" style="margin-bottom:12px;"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' : '') +
+    _rcaPdfField(L.notes, d.dispNotes));
 
-  if (!customerFacing){
-    h += '<div class="rca-pdf-section"><h3>🔒 ' + L.qaCloseOut + '</h3><div class="rca-pdf-grid">' +
-      _rcaPdfField(L.verifyMethod, d.verifyMethod) + _rcaPdfField(L.closeDate, d.closeDate) +
-      _rcaPdfField(L.closeQATech, d.closeQATech) +
-      '</div>' + _rcaPdfField(L.closeNotes, d.closeNotes) + '</div>';
-  }
+  h += _rcaPdfSection('🔒', L.qaCloseOut, _rcaPdfGrid([
+    _rcaPdfField(L.verifyMethod, d.verifyMethod), _rcaPdfField(L.closeDate, d.closeDate),
+    _rcaPdfField(L.closeQATech, d.closeQATech)
+  ]) + _rcaPdfField(L.closeNotes, d.closeNotes));
 
   if (d.photos && d.photos.length){
     h += '<div class="rca-pdf-section"><h3>📷 ' + L.photos + '</h3><div class="rca-pdf-photos">' +
@@ -20410,7 +20430,7 @@ function _rcaBuildReport(customerFacing, presetData){
   report.innerHTML = h;
 
   var filenameBase = 'RCA_' + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
-    '_' + (customerFacing ? 'Customer' : 'Internal') + '_' + (d.dateFound || formatTS().slice(0,10));
+    '_' + (d.dateFound || formatTS().slice(0,10));
   return { d: d, report: report, filenameBase: filenameBase };
 }
 
@@ -20418,8 +20438,8 @@ function _rcaBuildReport(customerFacing, presetData){
 // who actually wants to print at a shop printer rather than save a file).
 // `presetData`, when given (e.g. from the Records-list popup for a
 // previously-saved record), is passed straight through to _rcaBuildReport.
-function rcaPrintReport(customerFacing, presetData){
-  _rcaBuildReport(customerFacing, presetData);
+function rcaPrintReport(presetData){
+  _rcaBuildReport(presetData);
   document.body.classList.add('rca-printing');
   setTimeout(function(){
     window.print();
@@ -20454,11 +20474,11 @@ var _RCA_LIGHT_VARS = {
 // Records-list popup's buttons have a different onclick signature entirely
 // and pass themselves in this way to still get the same disabled/spinner
 // treatment while the PDF renders.
-function rcaExportPDF(customerFacing, presetData, btnEl){
+function rcaExportPDF(presetData, btnEl){
   var isEs = isEsLang();
-  var built = _rcaBuildReport(customerFacing, presetData);
+  var built = _rcaBuildReport(presetData);
   var report = built.report;
-  var btn = btnEl || document.querySelector('button[onclick="rcaExportPDF('+customerFacing+')"]');
+  var btn = btnEl || document.querySelector('button[onclick="rcaExportPDF()"]');
   var btnOrigHTML = btn ? btn.innerHTML : null;
   if (btn){ btn.disabled = true; btn.innerHTML = isEs ? '⏳ Generando…' : '⏳ Generating…'; }
 
@@ -22377,9 +22397,8 @@ function openRecordRCA(idxKey){
     // record). A Closed/Sent/etc. record still only offers the gated
     // "Edit this record" (versioned-copy) path from here.
     (isDraft ? '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\''+idxKey+'\')">▶️ ' + (_rvrEs?'Continuar Borrador':'Continue Draft') + '</button>' : '') +
-    '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', false, this)">⬇️ ' + (_rvrEs?'Descargar PDF — Interno':'Download PDF — Internal') + '</button>' +
-    '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', true, this)">⬇️ ' + (_rvrEs?'Descargar PDF — Cliente':'Download PDF — Customer') + '</button>' +
-    '<button type="button" class="btn" onclick="rcaPrintRecordReport(\''+idxKey+'\', false)">🖨️ ' + (_rvrEs?'Imprimir':'Print') + '</button>' +
+    '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', this)">⬇️ ' + (_rvrEs?'Descargar PDF':'Download PDF') + '</button>' +
+    '<button type="button" class="btn" onclick="rcaPrintRecordReport(\''+idxKey+'\')">🖨️ ' + (_rvrEs?'Imprimir':'Print') + '</button>' +
     (!isDraft && canEdit ? '<button type="button" class="btn btn-warn" onclick="rcaOpenRecordForEdit(\''+idxKey+'\')">✏️ ' + (_rvrEs?'Editar este registro':'Edit this record') + '</button>' : '') +
     '</div>';
   var permNote = (isDraft || canEdit) ? '' :
@@ -22397,17 +22416,17 @@ function openRecordRCA(idxKey){
   }).join('') + '</div>' + photosHtml + actionsHtml + permNote;
   document.getElementById('recordViewOverlay').classList.add('open');
 }
-function rcaExportRecordPDF(idxKey, customerFacing, btnEl){
+function rcaExportRecordPDF(idxKey, btnEl){
   var idx = parseInt(String(idxKey).replace('rca-',''), 10);
   var r = rcaLoadRecords()[idx];
   if (!r) return;
-  rcaExportPDF(customerFacing, r, btnEl);
+  rcaExportPDF(r, btnEl);
 }
-function rcaPrintRecordReport(idxKey, customerFacing){
+function rcaPrintRecordReport(idxKey){
   var idx = parseInt(String(idxKey).replace('rca-',''), 10);
   var r = rcaLoadRecords()[idx];
   if (!r) return;
-  rcaPrintReport(customerFacing, r);
+  rcaPrintReport(r);
 }
 // Resumes a saved Draft in the live, editable form — unlike
 // rcaOpenRecordForEdit (a versioned copy of an already-*closed* record,
