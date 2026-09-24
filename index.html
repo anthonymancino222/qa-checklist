@@ -2073,7 +2073,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    section titles keep it, so there are only a handful of underlined
    things on the page (the actual section headers) instead of every single
    field acting like a heading. */
-.rca-pdf-page{ background:#f7f8fb; padding:24px; border-radius:14px; }
+/* This padding only matters for the Print path and the hidden live-DOM
+   render — the Download-PDF path (rcaExportPDF) ignores it entirely and
+   synthesizes its own uniform margin frame around every page instead (see
+   there for why): baking a fixed CSS padding into the source content only
+   gives page 1 a top margin (since that's the only page whose crop starts
+   at the true top of the document) — every later page's crop starts mid-
+   content with no padding at all, so its content sat flush against the
+   physical page edge ("white bleeding out of the page border," reported
+   directly). Kept small here since it's cosmetic-only for Print now. */
+.rca-pdf-page{ background:#f7f8fb; padding:8px; border-radius:14px; }
 /* break-inside:avoid only helps the real Print path (window.print() uses
    actual browser pagination, which respects it) — the Download-PDF path
    rasterizes then slices the image manually and needs its own break-point
@@ -20566,8 +20575,21 @@ function rcaExportPDF(presetData, btnEl){
       var jsPDF = window.jspdf.jsPDF;
       var pageW = 8.5, pageH = 11; // inches, US Letter
       var pdf = new jsPDF({ unit: 'in', format: 'letter' });
-      var imgW = pageW;
-      var pageCanvasH = (pageH * canvas.width) / imgW; // canvas px per page
+      // A uniform margin, identical on every page (including the first),
+      // filled with the same light page background — the actual fix for
+      // "white bleeding out of the page border." Before this, page 1 only
+      // looked properly framed because .rca-pdf-page's own CSS padding
+      // happened to be baked into that one crop (the only one starting at
+      // the true top of the document); every later page's crop starts and
+      // ends at arbitrary mid-content boundaries with no padding baked in
+      // at all, so its content sat flush against the raw page edge —
+      // uneven page-to-page instead of consistently framed. Reserving this
+      // margin in the page-layout math itself (not relying on whatever
+      // padding a particular crop happens to include) makes every page's
+      // frame identical.
+      var pageMargin = 0.35; // inches
+      var imgW = pageW - pageMargin * 2;
+      var pageCanvasH = ((pageH - pageMargin * 2) * canvas.width) / imgW; // canvas px of CONTENT per page
       var canvasScale = canvas.width / 800; // matches html2canvas's `scale` option above
       var blocksCanvasPx = breakBlocks.map(function(b){ return { top: b.top * canvasScale, bottom: b.bottom * canvasScale }; });
 
@@ -20603,17 +20625,17 @@ function rcaExportPDF(presetData, btnEl){
         var sliceImgH = (sliceH * imgW) / canvas.width;
         if (!first) pdf.addPage();
         // A page whose break got backed up to avoid cutting through a block
-        // (see above) ends up shorter than the full 11in page height — the
-        // image only covers the top portion, and jsPDF's default blank page
-        // underneath is white, not this report's light page background
-        // (#f7f8fb). Without painting that background first, every such
-        // page showed a stark white gap below its actual content instead of
-        // continuing the page-tinted look, as if the design just stopped
-        // partway down. Filling the whole page first, then placing the
-        // image on top, closes that gap.
+        // (see above) — or that simply has less content than a full page —
+        // ends up shorter than the content area's full height; the image
+        // only covers part of it, and jsPDF's default blank page underneath
+        // is white, not this report's light page background (#f7f8fb).
+        // Painting the ENTIRE physical page with that color first (under
+        // the margin fix above too) means both the reserved margin and any
+        // leftover space below a short page's content read as the same
+        // consistent light frame, never blank white.
         pdf.setFillColor(247, 248, 251);
         pdf.rect(0, 0, pageW, pageH, 'F');
-        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, sliceImgH);
+        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', pageMargin, pageMargin, imgW, sliceImgH);
         renderedH += sliceH;
         first = false;
       }
