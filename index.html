@@ -2074,7 +2074,12 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    things on the page (the actual section headers) instead of every single
    field acting like a heading. */
 .rca-pdf-page{ background:#f7f8fb; padding:24px; border-radius:14px; }
-.rca-pdf-section{ background:#ffffff; border:1px solid #e6e9f2; border-radius:12px; padding:16px 20px; margin-bottom:14px; }
+/* break-inside:avoid only helps the real Print path (window.print() uses
+   actual browser pagination, which respects it) — the Download-PDF path
+   rasterizes then slices the image manually and needs its own break-point
+   logic in JS (see rcaExportPDF), since a slice cut has no concept of CSS
+   page-break rules at all. */
+.rca-pdf-section{ background:#ffffff; border:1px solid #e6e9f2; border-radius:12px; padding:16px 20px; margin-bottom:14px; break-inside:avoid; }
 /* display:flex here (for the emoji-icon + label) combined with
    text-transform:uppercase corrupted html2canvas's text layout — it split
    the first letter of the label from the rest of the word with a stray gap
@@ -2104,7 +2109,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    for the answer text below it, and a hairline border between steps
    instead of a connecting line. Table/block layout is far more reliably
    supported by html2canvas than flex-stretch-to-sibling-height. */
-.rca-why-item{ padding:9px 0; border-bottom:1px solid #eef1f8; }
+.rca-why-item{ padding:9px 0; border-bottom:1px solid #eef1f8; break-inside:avoid; }
 .rca-why-item:last-child{ border-bottom:none; }
 .rca-why-num{ display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; border-radius:50%; background:#1d4ed8; color:#fff; font-size:11px; font-weight:700; margin-right:8px; vertical-align:middle; }
 .rca-why-item b{ font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4a5b7a; font-weight:700; vertical-align:middle; }
@@ -20533,16 +20538,61 @@ function rcaExportPDF(presetData, btnEl){
     report.style.top = '0';
     report.style.width = '800px';
 
+    // Where page breaks are allowed to fall — every direct child of the
+    // report (header, "at a glance" strip, each section card) is one
+    // candidate boundary, except the 5-Whys section, which is broken down
+    // into ITS OWN children (each Why, plus the problem-statement/root-
+    // cause-summary callouts) since that section is the one most likely to
+    // run long enough to need a break partway through it. Measured while
+    // the report is laid out exactly as html2canvas will capture it (same
+    // forced width), in CSS px, then scaled to canvas px below.
+    var pageWrap = report.querySelector('.rca-pdf-page');
+    var reportTop = report.getBoundingClientRect().top;
+    var breakBlocks = [];
+    Array.prototype.forEach.call(pageWrap.children, function(child){
+      var h3 = child.querySelector ? child.querySelector('h3') : null;
+      if (h3 && h3.textContent.indexOf('❓') !== -1){
+        Array.prototype.forEach.call(child.children, function(sub){
+          var r = sub.getBoundingClientRect();
+          breakBlocks.push({ top: r.top - reportTop, bottom: r.bottom - reportTop });
+        });
+      } else {
+        var r = child.getBoundingClientRect();
+        breakBlocks.push({ top: r.top - reportTop, bottom: r.bottom - reportTop });
+      }
+    });
+
     return html2canvas(report, { scale: 2, backgroundColor: '#ffffff', useCORS: true }).then(function(canvas){
       var jsPDF = window.jspdf.jsPDF;
       var pageW = 8.5, pageH = 11; // inches, US Letter
       var pdf = new jsPDF({ unit: 'in', format: 'letter' });
       var imgW = pageW;
-      var imgH = (canvas.height * imgW) / canvas.width;
       var pageCanvasH = (pageH * canvas.width) / imgW; // canvas px per page
+      var canvasScale = canvas.width / 800; // matches html2canvas's `scale` option above
+      var blocksCanvasPx = breakBlocks.map(function(b){ return { top: b.top * canvasScale, bottom: b.bottom * canvasScale }; });
+
+      // Greedily packs whole blocks onto each page; a block straddling the
+      // naive page-height boundary pushes the break back to just before it
+      // (onto the next page) instead of slicing through its middle — this
+      // is the fix for a Why step (or any section) getting visibly cut in
+      // half across a page break, with the bottom half's content bleeding
+      // into whatever sits below it on the next page.
       var renderedH = 0, first = true;
       while (renderedH < canvas.height){
-        var sliceH = Math.min(pageCanvasH, canvas.height - renderedH);
+        var naiveEnd = renderedH + pageCanvasH;
+        var cut = Math.min(naiveEnd, canvas.height);
+        for (var i = 0; i < blocksCanvasPx.length; i++){
+          var b = blocksCanvasPx[i];
+          if (b.top < naiveEnd && b.bottom > naiveEnd){
+            // This block straddles the naive cut. Back up to its top,
+            // unless that leaves this page with (near) nothing on it, in
+            // which case the block is simply taller than a full page and
+            // there's no safe break — fall back to the naive hard cut.
+            cut = (b.top - renderedH > pageCanvasH * 0.15) ? b.top : naiveEnd;
+            break;
+          }
+        }
+        var sliceH = cut - renderedH;
         var pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
         pageCanvas.height = sliceH;
