@@ -6301,6 +6301,33 @@ function _syncRetryPending() {
   _syncPushDelta('ncr', ncrLoad());
   _syncPushDelta('ncr_draft', ncrDraftLoad());
 }
+// _syncRetryPending (above) only ever pushes THIS device's own pending
+// changes — nothing previously pulled in what another device created or
+// changed except at page load or an explicit "Sync Now" tap. Reported
+// directly: jobs entered at one station didn't show up on another
+// device sitting idle nearby for several minutes, only after that device's
+// own manual Sync tap — which defeats the point of calling any of this
+// "background" sync. Mirrors _syncNowAll's own pull scope (including
+// qc_draft, pull-only by design — see that function's comment).
+//
+// Only re-renders the screen actually on-screen when something genuinely
+// changed (_syncPullAndMerge now reports this back), not on every tick —
+// an unconditional re-render every 30s would reset scroll position/collapse
+// state/etc. on a board someone is actively using, even when nothing new
+// actually arrived.
+function _syncAutoPull() {
+  Promise.all([
+    _syncPullAndMerge('job', ipLoad(), ipSave),
+    _syncPullAndMerge('ncr', ncrLoad(), ncrSave),
+    _syncPullAndMerge('ncr_draft', ncrDraftLoad(), ncrDraftSave),
+    _syncPullAndMerge('qc_draft', loadDrafts(), saveDrafts)
+  ].map(function(p){ return Promise.resolve(p).catch(function(){ return false; }); }))
+    .then(function(results){
+      if (results.some(Boolean) && typeof _refreshCurrentView === 'function') _refreshCurrentView();
+    });
+}
+window.addEventListener('online', _syncAutoPull);
+setInterval(_syncAutoPull, 30000);
 window.addEventListener('resize', function(){
   if (typeof _syncKanbanScrollWidth === 'function') _syncKanbanScrollWidth();
 });
@@ -6418,8 +6445,9 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // remote-driven change look local and let this device wrongly win
       // every future real conflict on that record.
       if (changed) saveFn(merged.concat(additions), type === 'job' ? {preserveTouch:true} : undefined);
+      return changed;
     })
-    .catch(function(){ /* offline at startup — just use what's local */ });
+    .catch(function(){ /* offline at startup — just use what's local */ return false; });
 }
 function _syncInitialPull() {
   _syncPullAndMerge('job', ipLoad(), ipSave);
