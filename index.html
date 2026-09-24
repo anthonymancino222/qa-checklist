@@ -6316,14 +6316,24 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // still match the last-confirmed snapshot" a meaningful dirty check,
       // not a comparison against the value this same pull is about to set.
       var snap = _syncSnapshotGet(type);
-      var updates = {}; // id -> remote data this device should adopt
+      var updates = {}; // id -> data this device should adopt
       remote.forEach(function(r){
         var idStr = String(r.id);
         var local = localById[idStr];
         if (!local) return; // handled by `additions` above
         var localJson = JSON.stringify(local);
         var remoteJson = JSON.stringify(r.data);
-        if (localJson !== remoteJson && snap[idStr] === localJson) updates[idStr] = r.data;
+        if (localJson === remoteJson) return;
+        if (snap[idStr] === localJson) { updates[idStr] = r.data; return; } // no local edit — plain adopt remote
+        // Local has diverged from the last-confirmed snapshot too: a plain
+        // remote overwrite would silently discard whatever changed here.
+        // Jobs get a real field-level three-way merge instead (see
+        // _mergeJobRecord); every other type keeps the old "local wins until
+        // it's confirmed clean" behavior, since NCR/drafts don't carry the
+        // stageHistory/checklist/lastTouchedAt shape that merge relies on.
+        if (type === 'job') {
+          updates[idStr] = _mergeJobRecord(snap[idStr] ? JSON.parse(snap[idStr]) : null, local, r.data);
+        }
       });
 
       // A record deleted on ANOTHER device never used to disappear here —
@@ -6351,7 +6361,14 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       _syncSnapshotSet(type, snap);
 
       var changed = additions.length || Object.keys(updates).length || pruned.length !== currentList.length;
-      if (changed) saveFn(merged.concat(additions));
+      // preserveTouch: nothing landing here from a sync pull is a fresh
+      // local edit — it's either adopted verbatim from another device
+      // (which already carries that device's own honest lastTouchedAt) or
+      // the output of _mergeJobRecord (which already computed the correct
+      // one). Letting ipSave restamp it as "just touched now" would make a
+      // remote-driven change look local and let this device wrongly win
+      // every future real conflict on that record.
+      if (changed) saveFn(merged.concat(additions), type === 'job' ? {preserveTouch:true} : undefined);
     })
     .catch(function(){ /* offline, or a genuine auth failure — either way, leave local as-is; retried on the normal cycle */ });
 }
@@ -6571,7 +6588,42 @@ function ipLoad() {
   }
   return _ipMem;
 }
-function ipSave(jobs) {
+// Drops lastTouchedAt before comparing two copies of a job, so the stamp
+// itself never counts as "content that changed."
+function _omitTouchStamp(job) {
+  if (job.lastTouchedAt === undefined) return job;
+  var copy = Object.assign({}, job);
+  delete copy.lastTouchedAt;
+  return copy;
+}
+// ipSave is the single choke point every job mutation already runs through
+// (ipAdd/ipUpdate/ipRemove, plus every call site that hand-builds a `jobs`
+// array and saves it directly) — so it's also the one place that can stamp
+// "when was this record actually touched" without editing dozens of
+// scattered call sites individually. That stamp is what the field-level
+// sync merge (_mergeJobRecord) uses to tie-break a genuine same-field
+// conflict between two devices.
+//
+// opts.preserveTouch skips the stamping pass entirely. Only the sync-merge
+// path (_syncPullAndMerge) passes it, because a save coming from there was
+// never a fresh local edit — it's either a record adopted verbatim from the
+// server (which already carries the OTHER device's own honest stamp) or the
+// output of _mergeJobRecord (which already computed the correct stamp
+// itself). Stamping it again with "now" here would make a remote-driven
+// change look like it just happened on THIS device, which would then let
+// this device wrongly win every future real conflict on that record.
+function ipSave(jobs, opts) {
+  if (!(opts && opts.preserveTouch)) {
+    var prevById = {};
+    _ipMem.forEach(function(j){ prevById[j.id] = j; });
+    var now = formatTS();
+    jobs.forEach(function(j){
+      var prev = prevById[j.id];
+      if (!prev || JSON.stringify(_omitTouchStamp(prev)) !== JSON.stringify(_omitTouchStamp(j))) {
+        j.lastTouchedAt = now;
+      }
+    });
+  }
   _ipMem = jobs;
   try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e) {}
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
@@ -6614,6 +6666,79 @@ function _mergeChecklist(oldChecklist, newChecklist) {
   (oldChecklist || []).forEach(function(item){ if (!(item.id in merged)) order.push(item.id); merged[item.id] = item; });
   (newChecklist || []).forEach(function(item){ if (!(item.id in merged)) order.push(item.id); merged[item.id] = item; });
   return order.map(function(id){ return merged[id]; });
+}
+// stageHistory is an append-only audit log — both devices' entries are
+// equally valid, so a sync merge unions them instead of picking a side.
+// Deduped by stage+ts+label (formatTS() timestamps are second-resolution,
+// but two entries sharing all three of stage/ts/label on both devices are,
+// in practice, the same entry synced twice, not two different events).
+function _stageHistoryEntryKey(e) { return (e.stage||'') + '|' + (e.ts||'') + '|' + (e.label||''); }
+function _mergeStageHistory(local, remote) {
+  var seen = {}, out = [];
+  (local || []).concat(remote || []).forEach(function(e){
+    var k = _stageHistoryEntryKey(e);
+    if (seen[k]) return;
+    seen[k] = true;
+    out.push(e);
+  });
+  out.sort(function(a, b){
+    if ((a.ts||'') < (b.ts||'')) return -1;
+    if ((a.ts||'') > (b.ts||'')) return 1;
+    return 0;
+  });
+  return out;
+}
+// Field-level three-way merge for a single job record, used by
+// _syncPullAndMerge when a device's local copy has diverged from BOTH the
+// last-confirmed sync snapshot ("base") and the server's current copy
+// ("remote") — i.e. a genuine "two devices both edited this job before
+// either saw the other's change" situation, not just a stale local read.
+//
+// Per top-level field: only local changed it from base -> keep local; only
+// remote changed it -> take remote; neither changed it -> no-op; BOTH
+// changed it to different values -> genuine conflict, tie-broken by whichever
+// side has the more recent lastTouchedAt (see ipSave), and logged into the
+// merged stageHistory so it's never silently dropped.
+//
+// stageHistory and checklist are excluded from the plain field loop and
+// merged with their own by-id/union logic instead of a raw overwrite.
+function _mergeJobRecord(base, local, remote) {
+  base = base || {};
+  var keys = {};
+  Object.keys(base).forEach(function(k){ keys[k] = true; });
+  Object.keys(local).forEach(function(k){ keys[k] = true; });
+  Object.keys(remote).forEach(function(k){ keys[k] = true; });
+  delete keys.stageHistory;
+  delete keys.checklist;
+  delete keys.lastTouchedAt;
+
+  var merged = {};
+  var conflicts = [];
+  Object.keys(keys).forEach(function(k){
+    var b = JSON.stringify(base[k]), l = JSON.stringify(local[k]), r = JSON.stringify(remote[k]);
+    if (l === r) { merged[k] = local[k]; return; } // both sides agree (incl. neither ever changed it)
+    if (b === l) { merged[k] = remote[k]; return; } // only remote changed it
+    if (b === r) { merged[k] = local[k]; return; } // only local changed it
+    // both changed it, to different values — genuine conflict
+    conflicts.push({ field: k, localValue: local[k], remoteValue: remote[k] });
+  });
+
+  var localTouch = local.lastTouchedAt || '';
+  var remoteTouch = remote.lastTouchedAt || '';
+  var localWins = localTouch >= remoteTouch; // more-recently-touched side wins ties too, same as "local" being the device running this merge
+  conflicts.forEach(function(c){ merged[c.field] = localWins ? c.localValue : c.remoteValue; });
+
+  merged.checklist = _mergeChecklist(local.checklist, remote.checklist);
+  merged.stageHistory = _mergeStageHistory(local.stageHistory, remote.stageHistory);
+  merged.lastTouchedAt = localWins ? localTouch : remoteTouch;
+
+  if (conflicts.length) {
+    merged.stageHistory = _stageSnapshot(merged.stageHistory, 'merge_conflict',
+      'Sync Conflict — ' + conflicts.map(function(c){ return c.field; }).join(', ') +
+        ' — kept ' + (localWins ? 'this device\'s' : 'the other device\'s') + ' value (more recently edited)',
+      { conflicts: conflicts, keptFrom: localWins ? 'local' : 'remote' });
+  }
+  return merged;
 }
 // Recursively replaces any embedded base64 image (a string starting with
 // "data:image") with `true` — same recognition rule as the Drive photo-
