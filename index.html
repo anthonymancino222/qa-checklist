@@ -20602,6 +20602,17 @@ function rcaExportPDF(presetData, btnEl){
         ctx.drawImage(canvas, 0, renderedH, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
         var sliceImgH = (sliceH * imgW) / canvas.width;
         if (!first) pdf.addPage();
+        // A page whose break got backed up to avoid cutting through a block
+        // (see above) ends up shorter than the full 11in page height — the
+        // image only covers the top portion, and jsPDF's default blank page
+        // underneath is white, not this report's light page background
+        // (#f7f8fb). Without painting that background first, every such
+        // page showed a stark white gap below its actual content instead of
+        // continuing the page-tinted look, as if the design just stopped
+        // partway down. Filling the whole page first, then placing the
+        // image on top, closes that gap.
+        pdf.setFillColor(247, 248, 251);
+        pdf.rect(0, 0, pageW, pageH, 'F');
         pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, sliceImgH);
         renderedH += sliceH;
         first = false;
