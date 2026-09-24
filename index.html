@@ -5973,6 +5973,35 @@ function _initGoogleSignIn(attempt) {
     }
   }, 45 * 60 * 1000);
 }
+// The 45-minute silent re-prompt above is a SCHEDULE, not a guarantee — it
+// assumes that attempt actually lands. Confirmed live 2026-09-24: a sync
+// silently failed with a stale token for a stretch, and the device just
+// kept quietly failing until someone manually signed out and back in,
+// because nothing re-tried the silent refresh in between scheduled
+// checks. google.accounts.id.prompt()'s own silent resume already has no
+// success guarantee from Google's side (rate-limited "One Tap" cooldowns,
+// browser third-party-cookie/FedCM restrictions — see _initGoogleSignIn's
+// own comment) — waiting up to 45 more minutes after a KNOWN failure to
+// try again just compounds that unreliability with unnecessary delay.
+//
+// Reacts immediately instead: the moment ANY sync call actually proves
+// the token is dead (a real 401 from the backend, not a network blip),
+// fire an extra silent-resume attempt right away. Cooldown-gated so a
+// burst of several failing requests in the same few seconds doesn't fire
+// prompt() repeatedly — Google's own cooldown penalizes calling it too
+// often, which would make this actively worse, not better. If the resume
+// succeeds, the very next 30s push/pull retry (already running
+// regardless) picks it up with no further action needed — this never
+// needs to itself retry anything.
+var _lastReactiveAuthRefresh = 0;
+function _reactiveAuthRefresh(){
+  var now = Date.now();
+  if (now - _lastReactiveAuthRefresh < 2 * 60 * 1000) return;
+  _lastReactiveAuthRefresh = now;
+  if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+    google.accounts.id.prompt();
+  }
+}
 // Restore this device's local session FIRST (skips the sign-in screen
 // immediately if one's still valid, with no dependency on Google at all),
 // then kick off Google's own init/silent-resume — which still runs either
@@ -6125,6 +6154,7 @@ function _syncPushAll(type, list) {
     body: JSON.stringify({ records: records })
   }).then(function(res){
     if (res.ok) _syncMarkPending(type, false);
+    else if (res.status === 401) _reactiveAuthRefresh();
     return res.ok;
   }).catch(function(){ return false; /* offline — stays pending, retried below */ });
 }
@@ -6318,7 +6348,10 @@ function _syncPushDelta(type, list){
 function _syncReconcileBeforePush(dirty, snap){
   return Promise.all(dirty.map(function(d){
     return fetch(QA_BACKEND_URL + '/records/' + d.id + '?type=job', { headers: _authHeaders() })
-      .then(function(res){ return res.ok ? res.json() : null; })
+      .then(function(res){
+        if (!res.ok) { if (res.status === 401) _reactiveAuthRefresh(); return null; }
+        return res.json();
+      })
       .then(function(json){
         var remote = json && json.record && json.record.data;
         if (!remote) return d;
@@ -6430,7 +6463,10 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // || []` below would silently read that as "server has zero
       // records," making a stale-token pull look like a harmless
       // successful no-op instead of the failure it actually is.
-      if (!res.ok) return res.json().then(function(e){ throw new Error((e && e.error) || ('HTTP ' + res.status)); });
+      if (!res.ok) {
+        if (res.status === 401) _reactiveAuthRefresh();
+        return res.json().then(function(e){ throw new Error((e && e.error) || ('HTTP ' + res.status)); });
+      }
       return res.json();
     })
     .then(function(json){
