@@ -2093,13 +2093,22 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .rca-pdf-narrative{ background:#f3f6fd; border-left:3px solid #1d4ed8; border-radius:0 8px 8px 0; padding:10px 14px; margin-bottom:12px; }
 .rca-pdf-narrative b{ display:block; font-size:11px; color:#1d4ed8; text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin-bottom:3px; }
 .rca-pdf-narrative span{ font-size:14.5px; line-height:1.6; }
-.rca-why-row{ display:flex; gap:12px; }
-.rca-why-marker{ display:flex; flex-direction:column; align-items:center; width:26px; flex-shrink:0; }
-.rca-why-circle{ width:26px; height:26px; min-height:26px; border-radius:50%; background:#1d4ed8; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
-.rca-why-connector{ flex:1; width:2px; background:#c7d2f0; margin:2px 0; min-height:12px; }
-.rca-why-body{ flex:1; padding-bottom:14px; }
-.rca-why-body b{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4a5b7a; font-weight:700; margin-bottom:3px; }
-.rca-why-body span{ font-size:14.5px; line-height:1.6; }
+/* The 5-Why chain was originally a flex row per step (numbered circle +
+   flex:1 connector line stretched to match the answer text's height) —
+   html2canvas mis-computed that stretch height in the exported version
+   (not the live browser render), causing the connector to run past its own
+   row and visually overlap the next box below it. This is the SECOND
+   flex-related html2canvas layout bug found in this report (the section
+   header icon+flex was the first) — rebuilt without flexbox at all: a
+   plain inline-block numbered badge before the label, normal block flow
+   for the answer text below it, and a hairline border between steps
+   instead of a connecting line. Table/block layout is far more reliably
+   supported by html2canvas than flex-stretch-to-sibling-height. */
+.rca-why-item{ padding:9px 0; border-bottom:1px solid #eef1f8; }
+.rca-why-item:last-child{ border-bottom:none; }
+.rca-why-num{ display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; border-radius:50%; background:#1d4ed8; color:#fff; font-size:11px; font-weight:700; margin-right:8px; vertical-align:middle; }
+.rca-why-item b{ font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4a5b7a; font-weight:700; vertical-align:middle; }
+.rca-why-text{ display:block; margin-top:4px; margin-left:28px; font-size:14.5px; line-height:1.6; }
 .rca-pdf-badge{ display:inline-block; padding:5px 14px; border-radius:20px; font-weight:700; font-size:13.5px; }
 .rca-pdf-photos{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 /* A plain <img> with object-fit:cover + border-radius produces a visible
@@ -7452,7 +7461,7 @@ function _buildJPListRow(job, opts) {
   row.className = 'jp-list-row';
   row.onclick = (function(j){ return function(){ openContinueModal(j.id); }; })(job);
   var thumbHTML = job.mrPhoto
-    ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="">'
+    ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
     : '<div class="jp-list-thumb-empty">📷</div>';
   var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
   var isGluerJob = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
@@ -7572,7 +7581,7 @@ function renderQARelease() {
       seenBatch[job.batchId] = true;
       var batchJobs = jobs.filter(function(j){ return j.batchId === job.batchId; });
       var photoHTML = batchJobs[0].mrPhoto
-        ? '<img class="jp-card-photo" src="' + batchJobs[0].mrPhoto + '" alt="">'
+        ? '<img class="jp-card-photo" src="' + batchJobs[0].mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
         : '<div class="jp-card-photo-empty">📷</div>';
       var wrap = document.createElement('div');
       wrap.className = 'jp-batch-wrap';
@@ -7599,7 +7608,7 @@ function renderQARelease() {
     card.style.marginBottom = '12px';
     card.onclick = function() { openContinueModal(job.id); };
     var photoHTML = job.mrPhoto
-      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
+      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
       : '<div class="jp-card-photo-empty">📷</div>';
     var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
     var pfVal = job.formNumber || job.productNumber || job.product;
@@ -7686,7 +7695,7 @@ function openColJobsSheet(phase, label) {
         : isGluerJob
         ? stationLabel(j.station) + ' · ' + prodWord + ': ' + hlId(j.productNumber)
         : stationLabel(j.station) + ' · ' + formWord + ': ' + hlId(j.formNumber);
-      var thumbHTML = j.mrPhoto ? '<img src="' + j.mrPhoto + '">' : '📷';
+      var thumbHTML = j.mrPhoto ? '<img src="' + j.mrPhoto + '" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">' : '📷';
       var jobWordSing = isEs ? 'Trabajo' : 'Job';
       return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeColJobsSheet();">' +
         '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
@@ -7836,7 +7845,7 @@ function renderInProgress() {
         var batchJobs = entry.batchJobs;
         var first = batchJobs[0];
         var photoHTML = first.mrPhoto
-          ? '<img class="jp-card-photo" src="' + first.mrPhoto + '" alt="">'
+          ? '<img class="jp-card-photo" src="' + first.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
           : '<div class="jp-card-photo-empty">📷</div>';
         // Badge reflects whether any batch member is awaiting QA approval
         var anyQaPending = batchJobs.some(function(j){ return j.process === 'qa_pending'; });
@@ -7877,7 +7886,7 @@ function renderInProgress() {
         var job = entry.job;
         var isProductionCard = (job.process === 'production');
         var photoHTML = job.mrPhoto
-          ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
+          ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
           : '<div class="jp-card-photo-empty">📷</div>';
         var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
         var badge = '';
@@ -8068,7 +8077,11 @@ function openContinueModal(id) {
 
     // Show Make Ready photo
     var opPhoto = document.getElementById('cm-op-photo');
-    if (job.mrPhoto) { opPhoto.src = job.mrPhoto; opPhoto.style.display = 'block'; }
+    if (job.mrPhoto) {
+      opPhoto.src = job.mrPhoto; opPhoto.style.display = 'block';
+      opPhoto.style.cursor = 'zoom-in'; opPhoto.title = 'Click to view full size';
+      opPhoto.onclick = function(){ window.open(this.src, '_blank'); };
+    }
     else { opPhoto.style.display = 'none'; }
     // cm-op-photo-new is shared across every job opened in this session —
     // without clearing it here, a photo captured while looking at one job
@@ -8172,7 +8185,11 @@ function openContinueModal(id) {
     document.getElementById('cm-panel-qa').style.display = 'flex';
 
     var qaPhoto = document.getElementById('cm-qa-photo');
-    if (job.mrPhoto) { qaPhoto.src = job.mrPhoto; qaPhoto.style.display = 'block'; }
+    if (job.mrPhoto) {
+      qaPhoto.src = job.mrPhoto; qaPhoto.style.display = 'block';
+      qaPhoto.style.cursor = 'zoom-in'; qaPhoto.title = 'Click to view full size';
+      qaPhoto.onclick = function(){ window.open(this.src, '_blank'); };
+    }
     else { qaPhoto.style.display = 'none'; }
 
     document.getElementById('cm-qa-job-summary-card').style.display = 'none';
@@ -12038,7 +12055,7 @@ function _renderProdSummary(job) {
   };
   if (job.station === 'Packing' && job.customer === 'Veritiv') {
     var _pkQtyLines = _jobQtySummaryLines(job);
-    var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
+    var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="window.open(this.src,\'_blank\')" title="Click to view full size">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '         + hlId(job.jobNumber)           + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> Veritiv</div>' +
@@ -12075,7 +12092,7 @@ function _renderProdSummary(job) {
     // (the actual order changing after the job started running).
     var _qtyExecEditable = _dataEditMode && cmIsGluer && !_jobIsGluerFirstPass(job);
     var _prodSumHtml =
-      (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
+      (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="window.open(this.src,\'_blank\')" title="Click to view full size">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + hlId(job.jobNumber)        + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer||'—')     + '</div>' +
@@ -16475,7 +16492,7 @@ function openGluerBatchSheet(batchId, context) {
                     : j.process === 'qa_pending' ? 'var(--pink)'
                     : '#f59e0b';
     var thumbHTML = j.mrPhoto
-      ? '<img src="' + j.mrPhoto + '">'
+      ? '<img src="' + j.mrPhoto + '" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
       : '📷';
     return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeGluerBatchSheet();">' +
       '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
@@ -18366,9 +18383,17 @@ function ncrWireForm(){
 // legible while still landing well under any realistic upload limit
 // (roughly 300KB–1.5MB per photo at these settings, vs. multi-tens-of-MB
 // for an uncompressed phone photo).
-function ncrCompress(file, cb){
+//
+// opts.skipResize bypasses the canvas resize entirely, handing back the
+// original file exactly as make-ready photos already do (see handlePhoto/
+// handleSetupPhoto — plain reader.readAsDataURL, no compression at all).
+// RCA photos pass this so their stored quality matches make-ready's —
+// there's no size-driven reason left to compress either one now that both
+// go straight to Drive.
+function ncrCompress(file, cb, opts){
   var reader = new FileReader();
   reader.onload = function(e){
+    if (opts && opts.skipResize) { cb(e.target.result); return; }
     var img = new Image();
     img.onload = function(){
       var maxDim = 2200, w = img.width, h = img.height;
@@ -20190,9 +20215,12 @@ function _rcaApplyManagerName(){
   });
 }
 
-/* ── Photos — reuses the NCR module's own compression pipeline
-   (ncrCompress/_ncrPhotoSeq) so there's one canvas-resize implementation
-   in the file, not two. ── */
+/* ── Photos — reuses the NCR module's own upload pipeline
+   (ncrCompress/_ncrPhotoSeq) so there's one implementation in the file,
+   not two. Passes skipResize so RCA photos keep full original quality,
+   matching make-ready photos (which were never compressed at all) —
+   requested directly, since RCA's own resize was throwing away detail
+   make-ready never lost in the first place. ── */
 var rcaPhotos = [];
 function rcaWirePhotoInput(){
   var input = document.getElementById('rca-photo-input');
@@ -20209,7 +20237,7 @@ function rcaWirePhotoInput(){
           remaining--;
           if (!remaining) rcaRenderPhotoGrid();
         });
-      });
+      }, {skipResize:true});
     });
   });
 }
@@ -20390,16 +20418,14 @@ function _rcaBuildReport(presetData){
     _rcaPdfField(L.station, stationLabel(d.station)), _rcaPdfField(L.qaTech, d.qaTech)
   ]) + _rcaPdfNarrative(L.qualityIssue, d.issueDesc));
 
-  // The 5 Whys as a connected chain (numbered circles + a line linking
-  // them), mirroring the live form's own arrow-down flow between why
-  // boxes — skipped entirely for any Why left blank (they aren't required
-  // to submit a record), and renumbered so the shown steps are always
-  // consecutive (1, 2, 3…) instead of leaving gaps like "1, 3, 5".
+  // The 5 Whys as a numbered sequence — skipped entirely for any Why left
+  // blank (they aren't required to submit a record), and renumbered so the
+  // shown steps are always consecutive (1, 2, 3…) instead of leaving gaps
+  // like "1, 3, 5".
   var whys = [[L.why1,d.why1],[L.why2,d.why2],[L.why3,d.why3],[L.why4,d.why4],[L.why5,d.why5]].filter(function(w){ return !!w[1]; });
   var whyChainHtml = whys.map(function(w, i){
-    return '<div class="rca-why-row"><div class="rca-why-marker"><div class="rca-why-circle">'+(i+1)+'</div>' +
-      (i < whys.length-1 ? '<div class="rca-why-connector"></div>' : '') + '</div>' +
-      '<div class="rca-why-body"><b>'+escHtml(w[0])+'</b><span>'+escHtml(w[1])+'</span></div></div>';
+    return '<div class="rca-why-item"><span class="rca-why-num">'+(i+1)+'</span><b>'+escHtml(w[0])+'</b>' +
+      '<span class="rca-why-text">'+escHtml(w[1])+'</span></div>';
   }).join('');
   h += _rcaPdfSection('❓', L.rootCause5,
     _rcaPdfNarrative(L.problemStmt, d.problemStmt) +
@@ -21306,7 +21332,7 @@ function renderShipping(){
       row.className = 'jp-list-row';
       row.onclick = (function(j){ return function(){ openShippingModal(j.id); }; })(job);
       var thumbHTML = job.mrPhoto
-        ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="">'
+        ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
         : '<div class="jp-list-thumb-empty">📷</div>';
       var pf = job.formNumber || job.productNumber || job.product || '—';
       row.innerHTML = thumbHTML +
@@ -21328,7 +21354,7 @@ function renderShipping(){
     card.style.marginBottom = '12px';
     card.onclick = function(){ openShippingModal(job.id); };
     var photoHTML = job.mrPhoto
-      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
+      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
       : '<div class="jp-card-photo-empty">📷</div>';
     var pf = job.formNumber || job.productNumber || job.product || '—';
     card.innerHTML = photoHTML +
@@ -21434,6 +21460,10 @@ function openShippingModal(jobId){
   // to annotate.
   var _shipEs = isEsLang();
   var _shipMarkupRow = document.getElementById('ship-photo-markup-row');
+  var _shipPhotoPreview = document.getElementById('ship-photo-preview');
+  _shipPhotoPreview.style.cursor = 'zoom-in';
+  _shipPhotoPreview.title = 'Click to view full size';
+  _shipPhotoPreview.onclick = function(){ window.open(this.src, '_blank'); };
   if (existing && existing.cutterPicture){
     document.getElementById('ship-photo-preview').style.display = 'block';
     document.getElementById('ship-photo-preview').src = existing.cutterPicture;
@@ -22205,7 +22235,7 @@ function openRecordJob(jobId){
     '</div>';
   }
   if (job.mrPhoto && !(job.stageHistory && job.stageHistory.length)){
-    h += '<div class="card"><div class="card-label">' + (_rvjEs?'Foto':'Photo') + '</div><img src="'+job.mrPhoto+'" style="width:100%;border-radius:10px;"></div>';
+    h += '<div class="card"><div class="card-label">' + (_rvjEs?'Foto':'Photo') + '</div><img src="'+job.mrPhoto+'" style="width:100%;border-radius:10px;cursor:zoom-in" onclick="window.open(this.src,\'_blank\')" title="Click to view full size"></div>';
   }
   if (job.qaSignature){
     h += '<div class="card"><div class="card-label">' + (_rvjEs?'Firma de Calidad':'QA Signature') + '</div><img src="'+job.qaSignature+'" style="width:100%;border-radius:10px;background:#fff;border:1px solid var(--border);"></div>';

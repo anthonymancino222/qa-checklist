@@ -7410,7 +7410,7 @@ function _buildJPListRow(job, opts) {
   row.className = 'jp-list-row';
   row.onclick = (function(j){ return function(){ openContinueModal(j.id); }; })(job);
   var thumbHTML = job.mrPhoto
-    ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="">'
+    ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
     : '<div class="jp-list-thumb-empty">📷</div>';
   var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
   var isGluerJob = (job.station === 'Long Gluer' || job.station === 'Short Gluer');
@@ -7530,7 +7530,7 @@ function renderQARelease() {
       seenBatch[job.batchId] = true;
       var batchJobs = jobs.filter(function(j){ return j.batchId === job.batchId; });
       var photoHTML = batchJobs[0].mrPhoto
-        ? '<img class="jp-card-photo" src="' + batchJobs[0].mrPhoto + '" alt="">'
+        ? '<img class="jp-card-photo" src="' + batchJobs[0].mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
         : '<div class="jp-card-photo-empty">📷</div>';
       var wrap = document.createElement('div');
       wrap.className = 'jp-batch-wrap';
@@ -7557,7 +7557,7 @@ function renderQARelease() {
     card.style.marginBottom = '12px';
     card.onclick = function() { openContinueModal(job.id); };
     var photoHTML = job.mrPhoto
-      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
+      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
       : '<div class="jp-card-photo-empty">📷</div>';
     var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
     var pfVal = job.formNumber || job.productNumber || job.product;
@@ -7638,7 +7638,7 @@ function openColJobsSheet(phase, label) {
         : isGluerJob
         ? stationLabel(j.station) + ' · ' + prodWord + ': ' + hlId(j.productNumber)
         : stationLabel(j.station) + ' · ' + formWord + ': ' + hlId(j.formNumber);
-      var thumbHTML = j.mrPhoto ? '<img src="' + j.mrPhoto + '">' : '📷';
+      var thumbHTML = j.mrPhoto ? '<img src="' + j.mrPhoto + '" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">' : '📷';
       var jobWordSing = isEs ? 'Trabajo' : 'Job';
       return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeColJobsSheet();">' +
         '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
@@ -7788,7 +7788,7 @@ function renderInProgress() {
         var batchJobs = entry.batchJobs;
         var first = batchJobs[0];
         var photoHTML = first.mrPhoto
-          ? '<img class="jp-card-photo" src="' + first.mrPhoto + '" alt="">'
+          ? '<img class="jp-card-photo" src="' + first.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
           : '<div class="jp-card-photo-empty">📷</div>';
         // Badge reflects whether any batch member is awaiting QA approval
         var anyQaPending = batchJobs.some(function(j){ return j.process === 'qa_pending'; });
@@ -7829,7 +7829,7 @@ function renderInProgress() {
         var job = entry.job;
         var isProductionCard = (job.process === 'production');
         var photoHTML = job.mrPhoto
-          ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
+          ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
           : '<div class="jp-card-photo-empty">📷</div>';
         var isVeritivJob = (job.station === 'Packing' && job.customer === 'Veritiv');
         var badge = '';
@@ -8020,7 +8020,11 @@ function openContinueModal(id) {
 
     // Show Make Ready photo
     var opPhoto = document.getElementById('cm-op-photo');
-    if (job.mrPhoto) { opPhoto.src = job.mrPhoto; opPhoto.style.display = 'block'; }
+    if (job.mrPhoto) {
+      opPhoto.src = job.mrPhoto; opPhoto.style.display = 'block';
+      opPhoto.style.cursor = 'zoom-in'; opPhoto.title = 'Click to view full size';
+      opPhoto.onclick = function(){ window.open(this.src, '_blank'); };
+    }
     else { opPhoto.style.display = 'none'; }
     // cm-op-photo-new is shared across every job opened in this session —
     // without clearing it here, a photo captured while looking at one job
@@ -8124,7 +8128,11 @@ function openContinueModal(id) {
     document.getElementById('cm-panel-qa').style.display = 'flex';
 
     var qaPhoto = document.getElementById('cm-qa-photo');
-    if (job.mrPhoto) { qaPhoto.src = job.mrPhoto; qaPhoto.style.display = 'block'; }
+    if (job.mrPhoto) {
+      qaPhoto.src = job.mrPhoto; qaPhoto.style.display = 'block';
+      qaPhoto.style.cursor = 'zoom-in'; qaPhoto.title = 'Click to view full size';
+      qaPhoto.onclick = function(){ window.open(this.src, '_blank'); };
+    }
     else { qaPhoto.style.display = 'none'; }
 
     document.getElementById('cm-qa-job-summary-card').style.display = 'none';
@@ -11997,7 +12005,7 @@ function _renderProdSummary(job) {
   };
   if (job.station === 'Packing' && job.customer === 'Veritiv') {
     var _pkQtyLines = _jobQtySummaryLines(job);
-    var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
+    var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="window.open(this.src,\'_blank\')" title="Click to view full size">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '         + hlId(job.jobNumber)           + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> Veritiv</div>' +
@@ -12034,7 +12042,7 @@ function _renderProdSummary(job) {
     // (the actual order changing after the job started running).
     var _qtyExecEditable = _dataEditMode && cmIsGluer && !_jobIsGluerFirstPass(job);
     var _prodSumHtml =
-      (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;" alt="">' : '') +
+      (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="window.open(this.src,\'_blank\')" title="Click to view full size">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + hlId(job.jobNumber)        + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer||'—')     + '</div>' +
@@ -16488,7 +16496,7 @@ function openGluerBatchSheet(batchId, context) {
                     : j.process === 'qa_pending' ? 'var(--pink)'
                     : '#f59e0b';
     var thumbHTML = j.mrPhoto
-      ? '<img src="' + j.mrPhoto + '">'
+      ? '<img src="' + j.mrPhoto + '" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
       : '📷';
     return '<div class="batch-sheet-row" onclick="openContinueModal(\'' + j.id + '\');closeGluerBatchSheet();">' +
       '<div class="batch-sheet-thumb">' + thumbHTML + '</div>' +
@@ -18357,9 +18365,14 @@ function ncrWireForm(){
     });
   });
 }
-function ncrCompress(file, cb){
+// opts.skipResize bypasses the canvas resize entirely, handing back the
+// original file exactly as make-ready photos already do (see handlePhoto/
+// handleSetupPhoto — plain reader.readAsDataURL, no compression at all).
+// RCA photos pass this so their stored quality matches make-ready's.
+function ncrCompress(file, cb, opts){
   var reader = new FileReader();
   reader.onload = function(e){
+    if (opts && opts.skipResize) { cb(e.target.result); return; }
     var img = new Image();
     img.onload = function(){
       var maxDim = 1000, w = img.width, h = img.height;
@@ -20181,9 +20194,10 @@ function _rcaApplyManagerName(){
   });
 }
 
-/* ── Photos — reuses the NCR module's own compression pipeline
-   (ncrCompress/_ncrPhotoSeq) so there's one canvas-resize implementation
-   in the file, not two. ── */
+/* ── Photos — reuses the NCR module's own upload pipeline
+   (ncrCompress/_ncrPhotoSeq) so there's one implementation in the file,
+   not two. Passes skipResize so RCA photos keep full original quality,
+   matching make-ready photos (which were never compressed at all). ── */
 var rcaPhotos = [];
 function rcaWirePhotoInput(){
   var input = document.getElementById('rca-photo-input');
@@ -20200,7 +20214,7 @@ function rcaWirePhotoInput(){
           remaining--;
           if (!remaining) rcaRenderPhotoGrid();
         });
-      });
+      }, {skipResize:true});
     });
   });
 }
@@ -20208,7 +20222,7 @@ function rcaRenderPhotoGrid(){
   var grid = document.getElementById('rca-photo-grid');
   if (!grid) return;
   grid.innerHTML = rcaPhotos.map(function(p){
-    return '<div class="ncr-thumb"><img src="'+p.src+'"><button type="button" onclick="rcaRemovePhoto('+p.id+')">✕</button></div>';
+    return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size"><button type="button" onclick="rcaRemovePhoto('+p.id+')">✕</button></div>';
   }).join('');
 }
 function rcaRemovePhoto(id){
@@ -20986,7 +21000,7 @@ function renderShipping(){
       row.className = 'jp-list-row';
       row.onclick = (function(j){ return function(){ openShippingModal(j.id); }; })(job);
       var thumbHTML = job.mrPhoto
-        ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="">'
+        ? '<img class="jp-list-thumb" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
         : '<div class="jp-list-thumb-empty">📷</div>';
       var pf = job.formNumber || job.productNumber || job.product || '—';
       row.innerHTML = thumbHTML +
@@ -21008,7 +21022,7 @@ function renderShipping(){
     card.style.marginBottom = '12px';
     card.onclick = function(){ openShippingModal(job.id); };
     var photoHTML = job.mrPhoto
-      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="">'
+      ? '<img class="jp-card-photo" src="' + job.mrPhoto + '" alt="" onclick="event.stopPropagation();window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">'
       : '<div class="jp-card-photo-empty">📷</div>';
     var pf = job.formNumber || job.productNumber || job.product || '—';
     card.innerHTML = photoHTML +
@@ -21114,6 +21128,10 @@ function openShippingModal(jobId){
   // to annotate.
   var _shipEs = isEsLang();
   var _shipMarkupRow = document.getElementById('ship-photo-markup-row');
+  var _shipPhotoPreview = document.getElementById('ship-photo-preview');
+  _shipPhotoPreview.style.cursor = 'zoom-in';
+  _shipPhotoPreview.title = 'Click to view full size';
+  _shipPhotoPreview.onclick = function(){ window.open(this.src, '_blank'); };
   if (existing && existing.cutterPicture){
     document.getElementById('ship-photo-preview').style.display = 'block';
     document.getElementById('ship-photo-preview').src = existing.cutterPicture;
@@ -21885,7 +21903,7 @@ function openRecordJob(jobId){
     '</div>';
   }
   if (job.mrPhoto && !(job.stageHistory && job.stageHistory.length)){
-    h += '<div class="card"><div class="card-label">' + (_rvjEs?'Foto':'Photo') + '</div><img src="'+job.mrPhoto+'" style="width:100%;border-radius:10px;"></div>';
+    h += '<div class="card"><div class="card-label">' + (_rvjEs?'Foto':'Photo') + '</div><img src="'+job.mrPhoto+'" style="width:100%;border-radius:10px;cursor:zoom-in" onclick="window.open(this.src,\'_blank\')" title="Click to view full size"></div>';
   }
   if (job.qaSignature){
     h += '<div class="card"><div class="card-label">' + (_rvjEs?'Firma de Calidad':'QA Signature') + '</div><img src="'+job.qaSignature+'" style="width:100%;border-radius:10px;background:#fff;border:1px solid var(--border);"></div>';
