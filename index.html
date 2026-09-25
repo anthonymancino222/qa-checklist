@@ -6385,11 +6385,33 @@ function _syncRetryPending() {
 // "background" sync. Mirrors _syncNowAll's own pull scope (including
 // qc_draft, pull-only by design — see that function's comment).
 //
+// A background pull only ever touches the underlying data store — it never
+// touches whatever's currently on-screen in an unsubmitted form, so it's
+// always safe to run regardless of what someone's doing. Re-rendering the
+// CURRENT screen afterward is the one part that isn't automatically safe:
+// mid-NCR (a multi-step flow with no autosave until the final submit) or
+// mid-typing a note, a re-render could visually disrupt what's in front of
+// them even though nothing was actually lost underneath. Skips just that
+// one step — the pull/merge itself still always runs — when either the NCR
+// flow is mid-draft (ncrState.mode past 'home'), a multi-product QC entry
+// is in progress (jobState.entries populated), or the browser's own focus
+// says someone is actively typing into a text field right now.
+function _isUserMidTask(){
+  if (typeof ncrState !== 'undefined' && ncrState && ncrState.mode && ncrState.mode !== 'home') return true;
+  if (typeof jobState !== 'undefined' && jobState && jobState.entries && jobState.entries.length) return true;
+  var active = document.activeElement;
+  if (active && (active.tagName === 'TEXTAREA' ||
+      (active.tagName === 'INPUT' && /^(text|search|tel|email|number|url)$/i.test(active.type || 'text')))) return true;
+  return false;
+}
 // Only re-renders the screen actually on-screen when something genuinely
 // changed (_syncPullAndMerge now reports this back), not on every tick —
 // an unconditional re-render every 30s would reset scroll position/collapse
 // state/etc. on a board someone is actively using, even when nothing new
-// actually arrived.
+// actually arrived. Also skipped outright while _isUserMidTask() — the data
+// still gets pulled in either way, it just doesn't repaint the screen until
+// whatever they're doing wraps up (the next natural re-render, or the next
+// tick once they're no longer mid-task, picks it up).
 function _syncAutoPull() {
   Promise.all([
     _syncPullAndMerge('job', ipLoad(), ipSave),
@@ -6398,7 +6420,7 @@ function _syncAutoPull() {
     _syncPullAndMerge('qc_draft', loadDrafts(), saveDrafts)
   ].map(function(p){ return Promise.resolve(p).catch(function(){ return {ok:false, changed:false}; }); }))
     .then(function(results){
-      if (results.some(function(r){ return r && r.changed; }) && typeof _refreshCurrentView === 'function') _refreshCurrentView();
+      if (results.some(function(r){ return r && r.changed; }) && typeof _refreshCurrentView === 'function' && !_isUserMidTask()) _refreshCurrentView();
     });
 }
 window.addEventListener('online', _syncAutoPull);
@@ -6802,6 +6824,31 @@ function _idleBackgroundCheckTick(){
 // network cost at all for the (overwhelmingly common) tick where the
 // device isn't actually idle yet.
 setInterval(_idleBackgroundCheckTick, 60000);
+
+// A small named list of accounts (managers/QA leads who watch live boards
+// rather than doing floor data entry) get a much tighter background sync
+// than everyone else — every 60s while they're actively using the app, not
+// just once idle. Deliberately NOT the default for every device: the whole
+// point of _idleBackgroundCheckTick above is that a blanket poll while
+// active is exactly what caused the Cloudflare overnight surge this
+// replaced, so this stays opt-in to a handful of specific people who
+// explicitly asked for tighter freshness, not a change to the app's normal
+// behavior. Comparison is lower-cased on both sides since a signed-in
+// email's exact casing isn't guaranteed to match how it's written here.
+var AUTO_SYNC_ACTIVE_USERS = [
+  'anthony.mancino@moquinpress.com', 'mathias@moquinpress.com', 'norma@moquinpress.com',
+  'mariah.gomez@moquinpress.com', 'jayro@moquinpress.com', 'kyle.ennis@moquinpress.com',
+  'marcio@moquinpress.com'
+];
+function _activeUserAutoSyncTick(){
+  if (!_signedInUser || !_signedInUser.email) return;
+  if (AUTO_SYNC_ACTIVE_USERS.indexOf(_signedInUser.email.toLowerCase()) === -1) return;
+  // Already idle long enough that _idleBackgroundCheckTick owns this device
+  // for the moment — no need to double up.
+  if (Date.now() - _lastActivityTouch >= IDLE_BACKGROUND_THRESHOLD_MS) return;
+  _syncAutoPull();
+}
+setInterval(_activeUserAutoSyncTick, 60000);
 
 // Header "Start New" button — a hard refresh back to the landing page,
 // reachable from anywhere in the app regardless of scroll position since it
