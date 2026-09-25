@@ -5759,7 +5759,11 @@ function _clearLocalSession() {
 }
 // Refreshes lastActivityAt so the 72h window is "since last use," not "since
 // login" — throttled to once/minute so real interactions don't spam writes.
-var _lastActivityTouch = 0;
+// Initialized to page-load time, not 0 — this same timestamp doubles as the
+// idle-detection clock for _idleBackgroundCheckTick below, and starting it
+// at 0 would make a freshly-loaded, not-yet-clicked page look like it had
+// been idle since 1970.
+var _lastActivityTouch = Date.now();
 function _touchLocalSessionActivity() {
   if (!_signedInUser) return;
   var now = Date.now();
@@ -6328,7 +6332,25 @@ function _syncAutoPull() {
     });
 }
 window.addEventListener('online', _syncAutoPull);
-setInterval(_syncAutoPull, 30000);
+// The unconditional setInterval(_syncAutoPull, 30000) this replaced ran
+// forever regardless of whether anyone was actually there — confirmed live
+// 2026-09-24/25: idle tablets sitting untouched overnight kept polling
+// every 30 seconds all night, the actual cause of a sustained ~11 req/s
+// Cloudflare load with zero real activity behind it. Replaced with two
+// event-driven triggers instead of a blanket poll: immediately on
+// returning to the foreground (below), and every 30 minutes ONLY once
+// genuinely idle (_idleBackgroundCheckTick) — an actively-used device
+// relies on normal navigation-triggered pulls + this foreground trigger
+// for freshness, never a standing timer.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible') {
+    _syncAutoPull();
+    // Someone just looked at the screen — ask before reloading, same as
+    // any other active-use update check (unlike the idle-triggered one
+    // below, which auto-applies since nobody's there to lose work).
+    _checkForAppUpdate();
+  }
+});
 window.addEventListener('resize', function(){
   if (typeof _syncKanbanScrollWidth === 'function') _syncKanbanScrollWidth();
 });
@@ -6601,7 +6623,18 @@ function forceUpdateApp(){
 // noticing the prompt) leaves it pending, so the next check, whenever it
 // runs, asks again.
 var _appUpdatePromptShowing = false;
-function _checkForAppUpdate(){
+// opts.autoApply — used only by the idle-triggered background check (see
+// _idleBackgroundCheckTick) — reloads immediately instead of asking first.
+// Confirmed live 2026-09-25: a device sat for hours running stale code
+// because nobody was there to answer the "Update available?" prompt this
+// function already asks in the normal (active-use) case — no amount of
+// tapping Sync or signing out/in fixes a bug in code that's already loaded
+// and running; only an actual reload picks up the current version. Asking
+// first is still the right call while someone might be mid-form (see the
+// prompt copy below) — but after 30 minutes with zero interaction, there's
+// nothing left to protect by waiting for an answer nobody's there to give.
+function _checkForAppUpdate(opts){
+  var autoApply = opts && opts.autoApply;
   if (_appUpdatePromptShowing) return Promise.resolve(false); // already asking; don't stack a second prompt
   return fetch(location.pathname, { cache: 'no-store' })
     .then(function(res){ return res.text(); })
@@ -6616,6 +6649,11 @@ function _checkForAppUpdate(){
         return false;
       }
       if (lastKnown === freshHash) return false;
+      if (autoApply) {
+        try { localStorage.setItem(APP_VERSION_HASH_KEY, freshHash); } catch(e){}
+        forceUpdateApp();
+        return true;
+      }
       var isEs = isEsLang();
       _appUpdatePromptShowing = true;
       showConfirm(
@@ -6642,9 +6680,36 @@ function _checkForAppUpdate(){
 // background retry loop in that stale code silently undid a same-day fix
 // made directly on the server. Checking only when someone happens to tap
 // Sync isn't reliable enough on its own to catch that in a reasonable
-// window. Every 20 minutes catches it automatically either way — closer to
-// "usually within the same shift" than "whenever someone happens to sync."
-setInterval(_checkForAppUpdate, 20 * 60 * 1000);
+// window — confirmed again 2026-09-25: a device ran stale code all
+// morning, invisible to 10 Sync taps and 5 sign-out/sign-ins, because none
+// of those touch the already-loaded JS itself, only a genuine reload does,
+// and nothing was prompting for one on a tablet nobody was interacting with.
+//
+// The unconditional every-20-minutes timer this replaced always just
+// asked, though — on a device sitting idle with nobody there to answer,
+// the prompt could sit unanswered indefinitely, which is exactly how that
+// device ended up stale all morning. _idleBackgroundCheckTick below covers
+// that gap: once a device has gone a genuine 30 minutes with zero
+// interaction, there's nothing left to protect by waiting for an answer
+// nobody's there to give, so it applies a real update immediately instead
+// of prompting. An actively-used device still gets asked normally, via
+// this same _checkForAppUpdate — on the header Sync button (already
+// wired) and on returning to the foreground (see the visibilitychange
+// listener above) — never a standing poll while someone might be mid-form.
+var _lastIdleBackgroundRun = 0;
+var IDLE_BACKGROUND_THRESHOLD_MS = 30 * 60 * 1000;
+function _idleBackgroundCheckTick(){
+  var idleMs = Date.now() - _lastActivityTouch;
+  if (idleMs < IDLE_BACKGROUND_THRESHOLD_MS) return; // still within a normal active-use gap, not genuinely idle
+  if (Date.now() - _lastIdleBackgroundRun < IDLE_BACKGROUND_THRESHOLD_MS) return; // already ran this idle stretch
+  _lastIdleBackgroundRun = Date.now();
+  _syncAutoPull();
+  _checkForAppUpdate({autoApply:true});
+}
+// Checked every 60s — cheap, purely local Date.now() comparisons, no
+// network cost at all for the (overwhelmingly common) tick where the
+// device isn't actually idle yet.
+setInterval(_idleBackgroundCheckTick, 60000);
 
 // Header "Start New" button — a hard refresh back to the landing page,
 // reachable from anywhere in the app regardless of scroll position since it
