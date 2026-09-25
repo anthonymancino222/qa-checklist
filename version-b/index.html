@@ -16847,7 +16847,7 @@ function ncrNextId() {
   return 'NCR-' + String(max+1).padStart(3,'0');
 }
 
-var NCR_STATIONS = ['Bindery Cutter','Pressroom Cutter','Kama Foil Press','New Die Cutter','Old Die Cutter','Long Gluer','Short Gluer','Packing','Samples','Vendor'];
+var NCR_STATIONS = ['Bindery Cutter','Pressroom Cutter','Kama Foil Press','New Die Cutter','Old Die Cutter','Long Gluer','Short Gluer','Label Press','Packaging Press','Packing','Samples','Vendor'];
 var NCR_PATHS = {
   finding: { title:['Quality Issue Pallet Tag','Etiqueta de Pallet — Problema de Calidad'], sub:['Tag and hold flagged product — no NCR record needed.','Etiquete y retenga el producto marcado — no se necesita registro de RNC.'] },
   ncr:     { title:['Document an NCR','Documentar un RNC'],    sub:['Full record: issue, root cause, corrective action, disposition.','Registro completo: problema, causa raíz, acción correctiva, disposición.'] },
@@ -16909,11 +16909,21 @@ var NCR_ISSUE_CATEGORIES = (function(){
   var vendor = {
     "Material Defect": [], "Wrong Material Received": [], "Damaged in Transit": [], "Short Shipment": [], "Other": []
   };
+  var labelPress = {
+    "Wrong Label Applied": [], "Label Missing": [], "Label Misaligned / Crooked": [],
+    "Registration": [], "Color Variation": [], "Adhesive / Label Lifting": [],
+    "Barcode Not Scannable": [], "Other": []
+  };
+  var packagingPress = {
+    "Wrong Carton / Box Size": [], "Case Seal Issue": [], "Short / Quantity": [],
+    "Damaged": [], "Wrong Label on Case": [], "Mixed Product": [], "Other": []
+  };
   return {
     'New Die Cutter': dieCutter, 'Old Die Cutter': dieCutter,
     'Long Gluer': gluer, 'Short Gluer': gluer,
     'Kama Foil Press': kama,
     'Bindery Cutter': cutter, 'Pressroom Cutter': cutter,
+    'Label Press': labelPress, 'Packaging Press': packagingPress,
     'Packing': packing, 'Samples': samples, 'Vendor': vendor
   };
 })();
@@ -17737,6 +17747,60 @@ var STATION_RC_OVERRIDES = {
     rootCauses: ["Blade pulling/dragging material during the cut instead of shearing cleanly","Clamp not holding stack firmly enough, letting sheets shift mid-cut","Blade dull, increasing drag instead of a clean shear","Cutting speed too high for stock weight/caliper"],
     correctiveActions: ["Inspect and replace blade before run","Increase clamp pressure and verify stack doesn't shift on a test cut","Reduce cutting speed for heavier stock","Run and check a test cut before full production"]
   },
+
+  // ── Label Press: Wrong Label Applied ────────────────────────────────────
+  "Label Press|Wrong Label Applied": {
+    rootCauses: ["Wrong label roll staged at the press","Similar labels for different SKUs mixed up in staging","Job ticket/label version not verified before run start","Leftover roll from a prior job run without checking version"],
+    correctiveActions: ["Match label roll to job ticket/approved sample before starting run","Physically segregate and mark unused or partial rolls after each job","Pull and verify first label off press against approved sample","Add label version check to makeready sign-off"]
+  },
+
+  // ── Label Press: Label Missing ──────────────────────────────────────────
+  "Label Press|Label Missing": {
+    rootCauses: ["Applicator misfire or skipped cycle","Missing-label sensor not catching gaps","Web break not detected mid-run","Line speed too high for applicator cycle time"],
+    correctiveActions: ["Inspect applicator and missing-label sensor before run","Reduce line speed to match applicator cycle time","Add or verify reject station for unlabeled product","Increase in-process inspection frequency during run"]
+  },
+
+  // ── Label Press: Label Misaligned / Crooked ─────────────────────────────
+  "Label Press|Label Misaligned / Crooked": {
+    rootCauses: ["Product not seated squarely before label applied","Guide rails/star wheel misaligned","Applicator timing off","Container shape or fill-line variance"],
+    correctiveActions: ["Re-align guide rails/star wheel and verify on test run","Adjust applicator timing and confirm on test pieces","Inspect and secure product guides before run","Run and approve first-article check before full production"]
+  },
+
+  // ── Label Press: Adhesive / Label Lifting ───────────────────────────────
+  "Label Press|Adhesive / Label Lifting": {
+    rootCauses: ["Adhesive not compatible with container material","Cold or wet container surface at application","Insufficient wipe-down pressure after application","Label stock not rated for cold/refrigerated storage"],
+    correctiveActions: ["Verify adhesive/label stock is approved for this container material and storage condition","Confirm container surface is dry before labeling","Adjust wipe-down roller pressure and re-test","Run a cold-storage adhesion test before full production for chilled product"]
+  },
+
+  // ── Label Press: Barcode Not Scannable ──────────────────────────────────
+  "Label Press|Barcode Not Scannable": {
+    rootCauses: ["Print resolution/contrast too low for barcode grade","Barcode scaled or stretched out of spec","Label smearing or ribbon issue during print","Wrong barcode data encoded"],
+    correctiveActions: ["Verify barcode grade with a scanner/verifier before run","Confirm barcode artwork is unscaled and matches spec","Clean print head/replace ribbon and re-test","Scan and confirm barcode data matches job ticket before full run"]
+  },
+
+  // ── Packaging Press: Wrong Carton / Box Size ────────────────────────────
+  "Packaging Press|Wrong Carton / Box Size": {
+    rootCauses: ["Wrong carton size staged at line","Job ticket carton spec not verified before run","Carton size changed for job without updating line setup"],
+    correctiveActions: ["Verify carton size against job ticket before staging","Physically test-fit product in carton before run start","Flag and update line setup whenever carton spec changes"]
+  },
+
+  // ── Packaging Press: Case Seal Issue ────────────────────────────────────
+  "Packaging Press|Case Seal Issue": {
+    rootCauses: ["Tape/glue temperature or pressure out of spec","Flaps not fully closing before sealer","Case seal head worn or misaligned","Line speed too high for sealer cycle"],
+    correctiveActions: ["Verify sealer temperature/pressure before run","Inspect and adjust flap folders before run","Inspect and replace worn seal head components","Reduce line speed to match sealer cycle time"]
+  },
+
+  // ── Packaging Press: Wrong Label on Case ────────────────────────────────
+  "Packaging Press|Wrong Label on Case": {
+    rootCauses: ["Wrong case label staged at line","Case label not verified against packing slip/job ticket","Leftover case labels from a prior job used by mistake"],
+    correctiveActions: ["Verify case label against job ticket/packing slip before run","Segregate and clearly mark leftover case labels after each job","Scan/check first case label off line against approved sample"]
+  },
+
+  // ── Packaging Press: Mixed Product ──────────────────────────────────────
+  "Packaging Press|Mixed Product": {
+    rootCauses: ["Two SKUs staged at the line at the same time","Line not fully cleared/changed over between jobs","Product from a prior run left in feed/hopper"],
+    correctiveActions: ["Fully clear feed/hopper and line before changeover","Verify only one SKU is staged and confirmed against job ticket before run","Add changeover checklist requiring line clear-down sign-off"]
+  },
 };
 
 // Pressroom Cutter runs the exact same cutting process as Bindery Cutter
@@ -17786,6 +17850,16 @@ var STATION_ISSUES = {
   "Bindery Cutter": [
     "Short / quantity","Damaged","Scuffing","Bad Cut","Cutter Draw","Process not followed",
     "Documentation / job ticket","Equipment issue","5S","Safety","Other"
+  ],
+  "Label Press": [
+    "Wrong Label Applied","Label Missing","Label Misaligned / Crooked","Registration",
+    "Color variation","Adhesive / Label Lifting","Barcode Not Scannable",
+    "Documentation / job ticket","Process not followed","Equipment issue","5S","Safety","Other"
+  ],
+  "Packaging Press": [
+    "Wrong Carton / Box Size","Case Seal Issue","Short / quantity","Damaged",
+    "Wrong Label on Case","Mixed Product","Documentation / job ticket",
+    "Process not followed","Equipment issue","5S","Safety","Other"
   ],
   "Packing": [
     "Packing / shipping issue","Damaged","Short / quantity","Scuffing","Inventory",
@@ -17990,6 +18064,12 @@ var PT_CATEGORY_TO_QUALITY_KEY = {
   'Other':'Other'
 };
 function ncrIssueCategoriesFor(station){
+  // Label Press / Packaging Press have no bucket in the pallet-tag app's own
+  // taxonomy (PT_DATA) — they're new to this app, not the tag — so route them
+  // straight to STATION_ISSUES (curated per-station list) instead of falling
+  // through to the "no mapped bucket" branch below, which would otherwise
+  // dump every category from every other station on them.
+  if (station === 'Label Press' || station === 'Packaging Press') return STATION_ISSUES[station] || [];
   if (typeof PT_DATA === 'undefined') return qualityIssueCategoriesFor(station);
   var ptStation = NCR_TO_PT_STATION[station];
   if (ptStation && PT_DATA[ptStation]) return Object.keys(PT_DATA[ptStation].categories);
