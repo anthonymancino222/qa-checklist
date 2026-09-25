@@ -17849,6 +17849,30 @@ var STATION_RC_OVERRIDES = {
     rootCauses: ["Two SKUs staged at the line at the same time","Line not fully cleared/changed over between jobs","Product from a prior run left in feed/hopper"],
     correctiveActions: ["Fully clear feed/hopper and line before changeover","Verify only one SKU is staged and confirmed against job ticket before run","Add changeover checklist requiring line clear-down sign-off"]
   },
+
+  // ── Label Press: Marking from Press ─────────────────────────────────────
+  "Label Press|Marking from Press": {
+    rootCauses: ["Nip/pressure roller leaving an impression on the label or liner","Roller pressure set too high for the stock","Debris or adhesive buildup on a press roller transferring marks","Guide rail or idler roller misaligned, dragging material"],
+    correctiveActions: ["Reduce nip/roller pressure to the lowest setting that still applies cleanly","Clean rollers and guides before run","Inspect and replace worn or damaged rollers","Re-align guide rails/idler rollers and verify on a test run"]
+  },
+
+  // ── Label Press: Water Issue ─────────────────────────────────────────────
+  "Label Press|Water Issue": {
+    rootCauses: ["Condensation on stock from a cold-to-warm environment change","Water-based adhesive not fully cured before stacking","Humidity in the storage area affecting label stock","Coolant or cleaning water contacting the label roll"],
+    correctiveActions: ["Let stock acclimate to room temperature before running","Allow adequate cure/dry time before stacking or boxing","Store label stock in a controlled-humidity area","Keep water/coolant sources away from label rolls and finished product"]
+  },
+
+  // ── Packaging Press: Marking from Press ─────────────────────────────────
+  "Packaging Press|Marking from Press": {
+    rootCauses: ["Forming/pressing tooling leaving an impression on the carton or case","Press pressure set too high for the board weight","Worn or damaged pressing surface transferring marks","Debris caught between the press and product"],
+    correctiveActions: ["Adjust press pressure to the lowest setting that still forms cleanly","Inspect and clean pressing surfaces before run","Replace worn or damaged tooling","Clear debris from the press area before each run"]
+  },
+
+  // ── Packaging Press: Water Issue ─────────────────────────────────────────
+  "Packaging Press|Water Issue": {
+    rootCauses: ["Condensation on cartons from a cold-to-warm environment change","Water-based glue not fully cured before stacking/palletizing","Humidity in the storage area softening carton board","Leak or spill near the packaging line"],
+    correctiveActions: ["Let cartons acclimate to room temperature before running","Allow adequate glue cure time before stacking or palletizing","Store carton stock in a controlled-humidity area","Inspect and address any nearby leaks or spill sources"]
+  },
 };
 
 // Pressroom Cutter runs the exact same cutting process as Bindery Cutter
@@ -17902,12 +17926,13 @@ var STATION_ISSUES = {
   "Label Press": [
     "Wrong Label Applied","Label Missing","Label Misaligned / Crooked","Registration",
     "Color variation","Adhesive / Label Lifting","Barcode Not Scannable",
+    "Marking from Press","Water Issue",
     "Documentation / job ticket","Process not followed","Equipment issue","5S","Safety","Other"
   ],
   "Packaging Press": [
     "Wrong Carton / Box Size","Case Seal Issue","Short / quantity","Damaged",
-    "Wrong Label on Case","Mixed Product","Documentation / job ticket",
-    "Process not followed","Equipment issue","5S","Safety","Other"
+    "Wrong Label on Case","Mixed Product","Marking from Press","Water Issue",
+    "Documentation / job ticket","Process not followed","Equipment issue","5S","Safety","Other"
   ],
   "Packing": [
     "Packing / shipping issue","Damaged","Short / quantity","Scuffing","Inventory",
