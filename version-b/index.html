@@ -6137,7 +6137,7 @@ function _syncSnapshotSet(type, snap){
 // anything gets diffed against it.
 function _syncMigrationKey(type){ return 'vb_qa_sync_migrated_v2_' + type; }
 function _syncPushDelta(type, list){
-  if (!QA_BACKEND_URL) return Promise.resolve();
+  if (!QA_BACKEND_URL) return Promise.resolve(true);
   var idField = _syncIdField(type);
 
   var migrationKey = _syncMigrationKey(type);
@@ -6183,7 +6183,7 @@ function _syncPushDelta(type, list){
     var cooldownKey = 'vb_qa_sync_migration_cooldown_' + type;
     var lastAttempt = parseInt(localStorage.getItem(cooldownKey) || '0', 10) || 0;
     if (Date.now() - lastAttempt < 5 * 60 * 1000) {
-      return Promise.resolve();
+      return Promise.resolve(false); // genuinely didn't push this cycle — honest "not done", not a lie
     }
     try { localStorage.setItem(cooldownKey, String(Date.now())); } catch(e) {}
 
@@ -6236,7 +6236,7 @@ function _syncPushDelta(type, list){
     removedIds.forEach(function(id){ _syncDeleteRecord(type, id); delete snap[id]; });
     _syncSnapshotSet(type, snap);
   }
-  if (!dirty.length) return Promise.resolve();
+  if (!dirty.length) return Promise.resolve(true);
 
   // Job pushes get reconciled against the server first — see
   // _syncReconcileBeforePush's own comment for why. Every other type keeps
@@ -6245,9 +6245,10 @@ function _syncPushDelta(type, list){
   var pushReady = type === 'job' ? _syncReconcileBeforePush(dirty, snap) : Promise.resolve(dirty);
   return pushReady.then(function(toPush){
     return _syncPushAll(type, toPush.map(function(d){ return d.data; })).then(function(ok){
-      if (!ok) return; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
+      if (!ok) return false; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
       toPush.forEach(function(d){ snap[d.id] = d.json; });
       _syncSnapshotSet(type, snap);
+      return true;
     });
   });
 }
@@ -6321,9 +6322,9 @@ function _syncAutoPull() {
     _syncPullAndMerge('ncr', ncrLoad(), ncrSave),
     _syncPullAndMerge('ncr_draft', ncrDraftLoad(), ncrDraftSave),
     _syncPullAndMerge('qc_draft', loadDrafts(), saveDrafts)
-  ].map(function(p){ return Promise.resolve(p).catch(function(){ return false; }); }))
+  ].map(function(p){ return Promise.resolve(p).catch(function(){ return {ok:false, changed:false}; }); }))
     .then(function(results){
-      if (results.some(Boolean) && typeof _refreshCurrentView === 'function') _refreshCurrentView();
+      if (results.some(function(r){ return r && r.changed; }) && typeof _refreshCurrentView === 'function') _refreshCurrentView();
     });
 }
 window.addEventListener('online', _syncAutoPull);
@@ -6374,7 +6375,7 @@ function _syncDeleteRecord(type, id){
 // actually diverged from what this device last genuinely confirmed the
 // server held.
 function _syncPullAndMerge(type, currentList, saveFn) {
-  if (!QA_BACKEND_URL) return;
+  if (!QA_BACKEND_URL) return Promise.resolve({ok:true, changed:false});
   var idField = _syncIdField(type);
   return _qaJsonpGet({ action: 'listRecords', type: type })
     .then(function(json){
@@ -6445,9 +6446,9 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // remote-driven change look local and let this device wrongly win
       // every future real conflict on that record.
       if (changed) saveFn(merged.concat(additions), type === 'job' ? {preserveTouch:true} : undefined);
-      return changed;
+      return {ok:true, changed:changed};
     })
-    .catch(function(){ /* offline at startup — just use what's local */ return false; });
+    .catch(function(){ /* offline at startup — just use what's local */ return {ok:false, changed:false}; });
 }
 function _syncInitialPull() {
   _syncPullAndMerge('job', ipLoad(), ipSave);
@@ -6461,6 +6462,22 @@ function _syncInitialPull() {
 // operator on the sync screen indefinitely — after the cap, whatever
 // finished, finished; anything still pending is picked up by the normal
 // online/30s retry loop.
+// Resolves { ok, changed } honestly — REVISED 2026-09-25: this used to just
+// resolve once every task settled (success or failure — each wrapped in its
+// own .catch(function(){}) that silently swallowed the actual outcome), so
+// the Sync button always reported "✓ Synced" even when every single
+// request inside it had failed. Confirmed live: a device tapped Sync 10
+// times and got "✓ Synced" every time, while genuinely never receiving
+// data that was already sitting on the server the whole time — the button
+// was lying, not maliciously, just because it never checked its own work.
+// Now every task's real ok/fail is kept (push resolves a plain boolean;
+// pull resolves {ok, changed} — _normalizeSyncTaskOk reads either shape),
+// and the aggregate is only "ok" when every task genuinely succeeded.
+function _normalizeSyncTaskOk(result){
+  if (result && typeof result === 'object' && 'ok' in result) return !!result.ok;
+  if (typeof result === 'boolean') return result;
+  return true; // defensive fallback for a task shape that doesn't report ok/fail at all
+}
 function _syncNowAll() {
   var jobs = ipLoad(), ncrs = ncrLoad(), drafts = ncrDraftLoad(), qcDrafts = loadDrafts();
   var tasks = [
@@ -6472,9 +6489,11 @@ function _syncNowAll() {
     // receive the ones that WERE handed off, and to prune the ones another
     // station has since picked up.
     _syncPullAndMerge('qc_draft', qcDrafts, saveDrafts)
-  ].map(function(p){ return Promise.resolve(p).catch(function(){}); });
-  var allDone = Promise.all(tasks);
-  var timeout = new Promise(function(resolve){ setTimeout(resolve, 8000); });
+  ].map(function(p){
+    return Promise.resolve(p).then(_normalizeSyncTaskOk).catch(function(){ return false; });
+  });
+  var allDone = Promise.all(tasks).then(function(results){ return { ok: results.every(Boolean) }; });
+  var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve({ ok: false }); }, 8000); });
   return Promise.race([allDone, timeout]);
 }
 // Re-renders whichever screen is currently on-screen — used after a manual
@@ -6506,18 +6525,25 @@ function headerSyncNowClick() {
     btn.style.opacity = '.6';
     btn.innerHTML = '⏳ ' + (isEs ? 'Sincronizando…' : 'Syncing…');
   }
-  _syncNowAll().then(function(){
+  _syncNowAll().then(function(result){
     _refreshCurrentView();
     if (btn) {
       btn.disabled = false;
       btn.style.opacity = '1';
       btn.innerHTML = '🔄 ' + (isEs ? 'Sincronizar' : 'Sync');
     }
-    showToast(isEs ? '✓ Sincronizado' : '✓ Synced', 'pass');
+    if (result && result.ok) {
+      showToast(isEs ? '✓ Sincronizado' : '✓ Synced', 'pass');
+    } else {
+      // Honest failure instead of the "✓ Synced" it used to show
+      // regardless — see _syncNowAll's own comment for the incident this
+      // was built to stop repeating.
+      showToast(isEs ? '⚠ Sincronización incompleta — intente de nuevo' : '⚠ Sync incomplete — try again', 'fail');
+    }
     // Fire-and-forget — shows its own prompt if a real update is found (see
     // _checkForAppUpdate's own comment for why this asks instead of
     // reloading silently), does nothing otherwise. Never blocks or delays
-    // the "✓ Synced" toast above.
+    // the toast above.
     _checkForAppUpdate();
   });
 }
@@ -14781,7 +14807,20 @@ function qcSyncNowClick() {
     btn.style.opacity = '.6';
     btn.innerHTML = '⏳ ' + (isEs ? 'Sincronizando…' : 'Syncing…');
   }
-  _syncNowAll().then(function(){
+  _syncNowAll().then(function(result){
+    if (!(result && result.ok)) {
+      // Don't silently let them proceed on a failed sync — the whole point
+      // of this gate is starting the next job on genuinely current data.
+      // Leave the overlay open so they can retry (or cancel) instead of
+      // reporting a false "✓ Synced" and moving on anyway.
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.innerHTML = '🔄 ' + (isEs ? 'Sincronizar Ahora' : 'Sync Now');
+      }
+      showToast(isEs ? '⚠ Sincronización incompleta — intente de nuevo' : '⚠ Sync incomplete — try again', 'fail');
+      return;
+    }
     document.getElementById('qcSyncOverlay').classList.remove('open');
     _qcRevealForm();
     startNewJob();
