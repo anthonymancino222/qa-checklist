@@ -18747,13 +18747,19 @@ function ncrWireForm(){
     var remaining = files.length;
     if (!remaining) return;
     files.forEach(function(file){
+      // Full original quality, same as RCA (see rcaWirePhotoInput) — an NCR
+      // photo IS the visual reference for the defect being reported, so
+      // resizing/recompressing it can hide exactly the detail (a hairline
+      // scratch, a small misregistration) it's there to document. Uploads
+      // to Drive either way, so this doesn't touch backend storage size —
+      // only the thumbnail display stays small (see ncrThumbsHTML).
       ncrCompress(file, function(dataUrl){
         _uploadPhotoToDrive(dataUrl).then(function(url){
           ncrState.d.photos.push({ id:_ncrPhotoSeq++, src:url });
           remaining--;
           if (!remaining) renderNCRView();
         });
-      });
+      }, {skipResize:true});
     });
   });
 }
