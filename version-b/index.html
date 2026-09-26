@@ -193,6 +193,23 @@ body {
 }
 .header-pill-btn:hover, .header-pill-btn:active { background: var(--brand); color: #fff; }
 .header-pill-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+/* Hidden whenever there's nothing to review (see updateConflictBadge) — the
+   one header pill that's deliberately NOT green/brand, since it means
+   "something needs your attention," not routine navigation. */
+.header-pill-btn-warn { border-color: var(--amber); color: var(--amber); }
+.header-pill-btn-warn:hover, .header-pill-btn-warn:active { background: var(--amber); color: var(--black); }
+/* Sync Conflict review modal (see openConflictReview) */
+.conflict-job-block { border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; }
+.conflict-job-head { font-size: 14.5px; font-weight: 800; color: var(--text-primary); margin-bottom: 8px; }
+.conflict-field-row { border-top: 1px solid var(--border); padding: 10px 0; }
+.conflict-field-row:first-of-type { border-top: none; padding-top: 0; }
+.conflict-field-label { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--amber-ink); margin-bottom: 4px; }
+.conflict-field-values { font-size: 14px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.conflict-field-values b { color: var(--text-primary); font-weight: 700; }
+.conflict-field-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.conflict-field-actions button { flex: 1; min-width: 90px; padding: 8px 10px; font-size: 13px; font-weight: 700;
+  border: 1.5px solid var(--brand); color: var(--brand); background: transparent; border-radius: 8px; cursor: pointer; }
+.conflict-field-actions button:hover, .conflict-field-actions button:active { background: var(--brand); color: #fff; }
 
 /* "Pull Schedule" — deliberately larger/bolder than a normal secondary
    button so it can't be missed now that it's the only way to open the job
@@ -2150,6 +2167,7 @@ try {
       <button id="theme-toggle-btn" class="header-pill-btn" onclick="toggleTheme()" title="Switch between light and dark screen — dark is easier to look at under bright shop-floor lighting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Dark Mode</button>
       <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span data-en>Sync</span><span data-es>Sincronizar</span></button>
       <button id="header-pull-schedule-btn" class="header-pill-btn" onclick="headerPullScheduleClick()" title="Pull the newest job schedule from Drive — takes up to 2 minutes. Only needed if you want the very latest file right now; the app also pulls it automatically at 5am, 6am, and 10am on weekdays."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span></button>
+      <button id="header-conflict-btn" class="header-pill-btn header-pill-btn-warn" style="display:none;" onclick="openConflictReview()" title="A job was edited on two devices before they synced — review which value to keep for each field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span data-en>Conflicts</span><span data-es>Conflictos</span> (<span id="conflict-count-label">0</span>)</button>
       <button id="header-home-btn" class="header-pill-btn" onclick="switchView('home')" title="Go to the home dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg><span data-en>Home</span><span data-es>Inicio</span></button>
     </div>
   </div>
@@ -2162,6 +2180,25 @@ try {
      button per item — the practical "undo a delete" this app was missing;
      until now the only way to actually flip deleted back off was someone
      hand-running a database query in the Cloudflare console. -->
+<!-- Sync Conflict review — reachable from the header's ⚠ Conflicts button on
+     every screen (see updateConflictBadge/openConflictReview), not tied to
+     any one job's own list/detail view. A genuine two-device field conflict
+     is always auto-resolved immediately by _mergeJobRecord; this just lets
+     someone come back later and pick the other side's value instead, or
+     combine both, for any job still carrying one. -->
+<div class="continue-overlay" id="conflictReviewOverlay" onclick="if(event.target===this)closeConflictReview()">
+  <div class="continue-modal" style="max-width:640px;">
+    <div class="continue-modal-head">
+      <div style="font-size:17px;font-weight:800;">⚠ <span data-en>Sync Conflicts</span><span data-es>Conflictos de Sincronización</span></div>
+      <button class="continue-modal-close" onclick="closeConflictReview()">✕</button>
+    </div>
+    <div class="continue-modal-body">
+      <div style="font-size:13.5px;color:var(--text-secondary);margin-bottom:10px;"><span data-en>These fields were edited on two devices before they synced. The value shown was already kept automatically — pick a different one below if you'd rather keep the other side's.</span><span data-es>Estos campos se editaron en dos dispositivos antes de sincronizar. El valor mostrado ya se guardó automáticamente — elija uno diferente abajo si prefiere el del otro dispositivo.</span></div>
+      <div id="conflict-review-list"></div>
+    </div>
+  </div>
+</div>
+
 <div class="continue-overlay" id="deletedItemsOverlay" onclick="if(event.target===this)closeDeletedItemsView()">
   <div class="continue-modal" style="max-width:640px;">
     <div class="continue-modal-head">
@@ -6585,6 +6622,7 @@ function _refreshCurrentView() {
   if (id === 'qc' && typeof checkDraftBanner === 'function') checkDraftBanner();
   updateQCBadge();
   updateQAReleaseBadge();
+  updateConflictBadge();
 }
 var _syncIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 function headerSyncNowClick() {
@@ -6980,6 +7018,7 @@ function _mergeJobRecord(base, local, remote) {
   delete keys.stageHistory;
   delete keys.checklist;
   delete keys.lastTouchedAt;
+  delete keys._conflictReview;
 
   var merged = {};
   var conflicts = [];
@@ -7001,13 +7040,128 @@ function _mergeJobRecord(base, local, remote) {
   merged.stageHistory = _mergeStageHistory(local.stageHistory, remote.stageHistory);
   merged.lastTouchedAt = localWins ? localTouch : remoteTouch;
 
+  // _conflictReview tracks conflicts a person hasn't reviewed yet (see
+  // openConflictReview()) — separate from the automatic tie-break above,
+  // which already applied and is never blocked on this. A field key present
+  // on only ONE side here means someone already resolved it there (see
+  // resolveConflict()) and pushed that; absence wins, so the other device's
+  // still-pending copy of that same field doesn't linger forever. Anything
+  // in BOTH sides is still genuinely unreviewed.
+  var mergedReview = {};
+  var localReview = local._conflictReview || {}, remoteReview = remote._conflictReview || {};
+  Object.keys(Object.assign({}, localReview, remoteReview)).forEach(function(k){
+    if (localReview[k] && remoteReview[k]) mergedReview[k] = localReview[k];
+  });
+  conflicts.forEach(function(c){
+    mergedReview[c.field] = { localValue: c.localValue, remoteValue: c.remoteValue, at: formatTS() };
+  });
+  merged._conflictReview = mergedReview;
+
   if (conflicts.length) {
     merged.stageHistory = _stageSnapshot(merged.stageHistory, 'merge_conflict',
       'Sync Conflict — ' + conflicts.map(function(c){ return c.field; }).join(', ') +
-        ' — kept ' + (localWins ? 'this device\'s' : 'the other device\'s') + ' value (more recently edited)',
+        ' — kept ' + (localWins ? 'this device\'s' : 'the other device\'s') + ' value (more recently edited, can be changed under the ⚠ Conflicts button)',
       { conflicts: conflicts, keptFrom: localWins ? 'local' : 'remote' });
   }
   return merged;
+}
+
+/* ══════════════════════════════════
+   SYNC CONFLICT REVIEW
+   _mergeJobRecord above ALWAYS auto-resolves a genuine field conflict
+   immediately — nothing here ever blocks or delays a sync. This is a
+   second, optional layer on top: every conflict also gets stashed on the
+   job itself (job._conflictReview, keyed by field) so it can be reviewed
+   later from anywhere in the app — via the header's ⚠ Conflicts button,
+   reachable from every screen — and the other side's value picked
+   instead, or both combined, without anyone having needed to be looking
+   at that exact job at the moment it happened.
+══════════════════════════════════ */
+function _conflictReviewJobs(){
+  return ipLoad().filter(function(j){ return j._conflictReview && Object.keys(j._conflictReview).length; });
+}
+function updateConflictBadge(){
+  var btn = document.getElementById('header-conflict-btn');
+  if (!btn) return;
+  var count = _conflictReviewJobs().reduce(function(n, j){ return n + Object.keys(j._conflictReview).length; }, 0);
+  btn.style.display = count ? '' : 'none';
+  var label = document.getElementById('conflict-count-label');
+  if (label) label.textContent = count;
+}
+function _conflictValueText(v){
+  if (v === null || v === undefined || v === '') return '—';
+  if (typeof v === 'boolean') return v ? (isEsLang() ? 'Sí' : 'Yes') : 'No';
+  return String(v);
+}
+function openConflictReview(){
+  _renderConflictReviewList();
+  document.getElementById('conflictReviewOverlay').classList.add('open');
+}
+function closeConflictReview(){
+  document.getElementById('conflictReviewOverlay').classList.remove('open');
+}
+function _renderConflictReviewList(){
+  var isEs = isEsLang();
+  var jobs = _conflictReviewJobs();
+  var body = document.getElementById('conflict-review-list');
+  if (!body) return;
+  if (!jobs.length){
+    body.innerHTML = '<div style="font-size:14px;color:var(--text-secondary);text-align:center;padding:20px 0;">' +
+      (isEs ? 'No hay conflictos pendientes.' : 'No pending conflicts.') + '</div>';
+    return;
+  }
+  body.innerHTML = jobs.map(function(job){
+    var rows = Object.keys(job._conflictReview).map(function(field){
+      var c = job._conflictReview[field];
+      var label = _stageFieldLabel(field);
+      // "Keep both" only makes sense when there are two actual non-empty
+      // strings to combine (e.g. a free-typed note) — not for a toggle,
+      // quantity, or date, where "both" isn't a meaningful value.
+      var bothEligible = typeof c.localValue === 'string' && typeof c.remoteValue === 'string' && c.localValue && c.remoteValue;
+      return '<div class="conflict-field-row">' +
+        '<div class="conflict-field-label">' + escHtml(label) + '</div>' +
+        '<div class="conflict-field-values">' +
+          '<div><b>' + (isEs ? 'Este dispositivo:' : 'This device:') + '</b> ' + escHtml(_conflictValueText(c.localValue)) + '</div>' +
+          '<div><b>' + (isEs ? 'Otro dispositivo:' : 'Other device:') + '</b> ' + escHtml(_conflictValueText(c.remoteValue)) + '</div>' +
+        '</div>' +
+        '<div class="conflict-field-actions">' +
+          '<button type="button" onclick="resolveConflict(\'' + job.id + '\',\'' + field + '\',\'local\')">' + (isEs ? 'Usar este' : 'Keep mine') + '</button>' +
+          '<button type="button" onclick="resolveConflict(\'' + job.id + '\',\'' + field + '\',\'remote\')">' + (isEs ? 'Usar el otro' : 'Keep theirs') + '</button>' +
+          (bothEligible ? '<button type="button" onclick="resolveConflict(\'' + job.id + '\',\'' + field + '\',\'both\')">' + (isEs ? 'Usar ambos' : 'Keep both') + '</button>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="conflict-job-block">' +
+      '<div class="conflict-job-head">' + (isEs ? 'Trabajo' : 'Job') + ' ' + escHtml(job.jobNumber || '—') +
+        (job.product ? ' · ' + escHtml(job.product) : '') + '</div>' + rows +
+      '</div>';
+  }).join('');
+}
+function resolveConflict(jobId, field, choice){
+  var jobs = ipLoad();
+  var job = null;
+  for (var i = 0; i < jobs.length; i++){ if (String(jobs[i].id) === String(jobId)){ job = jobs[i]; break; } }
+  if (!job || !job._conflictReview || !job._conflictReview[field]) return;
+  var c = job._conflictReview[field];
+  var chosen;
+  if (choice === 'local') chosen = c.localValue;
+  else if (choice === 'remote') chosen = c.remoteValue;
+  else chosen = c.localValue + ' / ' + c.remoteValue; // 'both' — only ever offered for two non-empty strings
+  job[field] = chosen;
+  delete job._conflictReview[field];
+  var isEs = isEsLang();
+  var label = _stageFieldLabel(field);
+  job.stageHistory = _stageSnapshot(job.stageHistory, 'conflict_reviewed',
+    (isEs ? 'Conflicto revisado — ' : 'Conflict reviewed — ') + label + ' — ' +
+      (choice === 'both'
+        ? (isEs ? 'se usaron ambos valores' : 'kept both values')
+        : (isEs ? 'se usó el valor de ' + (choice === 'local' ? 'este dispositivo' : 'el otro dispositivo')
+                : 'kept the ' + (choice === 'local' ? 'local' : 'other device\'s') + ' value')),
+    { field: field, choice: choice });
+  ipSave(jobs);
+  _renderConflictReviewList();
+  updateConflictBadge();
+  if (!_conflictReviewJobs().length) closeConflictReview();
 }
 // Recursively replaces any embedded base64 image (a string starting with
 // "data:image") with `true` — same recognition rule as the Drive photo-
@@ -16824,6 +16978,7 @@ checkDraftBanner();
 // only shows up once you've already visited Job in Progress or QA Release,
 // since it's normally refreshed by those views' own render functions.
 updateQAReleaseBadge();
+updateConflictBadge();
 
 // Pull in anything created on another device since this one last loaded —
 // now runs from _onGoogleSignIn() once someone's actually signed in, not
