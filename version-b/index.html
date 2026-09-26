@@ -308,7 +308,14 @@ body.sidebar-expanded .nav-item { justify-content: flex-start; padding: 10px 12p
 .nav-item.active { background: var(--black); color: #fff; }
 .nav-icon { width: 19px; height: 19px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .nav-icon svg { width: 100%; height: 100%; stroke: var(--brand); transition: stroke .12s; }
+/* Matches the pink home-dashboard cards for the same 4 sections; QA and
+   Help/FAQ keep the default green above. */
+#nav-qc .nav-icon svg, #nav-inprogress .nav-icon svg, #nav-qarelease .nav-icon svg, #nav-shipping .nav-icon svg { stroke: var(--pink); }
 .nav-item.active .nav-icon svg { stroke: #fff; }
+/* The ID selectors above outrank the .active rule on specificity alone, so
+   without this the 4 pink icons would stay pink even while selected —
+   this restores the same white-on-black active state as every other item. */
+#nav-qc.active .nav-icon svg, #nav-inprogress.active .nav-icon svg, #nav-qarelease.active .nav-icon svg, #nav-shipping.active .nav-icon svg { stroke: #fff; }
 .nav-label { display: none; white-space: nowrap; }
 body.sidebar-expanded .nav-label { display: inline; }
 .nav-status {
