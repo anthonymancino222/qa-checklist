@@ -179,17 +179,20 @@ body {
   font-size: 12px; font-weight: 800; letter-spacing: .04em; white-space: nowrap;
   color: #fff; background: #16a34a; border-radius: 20px; padding: 4px 10px 4px 8px;
 }
-/* Header utility pills (Light Mode / Sync / Home) are the deliberately rare
-   spot that keeps the original hot pink — same bordered/outline treatment
-   for all three, no solid-fill variant, so Home doesn't stand out as a
-   different kind of button from its neighbors. */
+/* Header utility pills (Dark/Light Mode, Sync, Home) — same bordered/outline
+   treatment for all three, no solid-fill variant, so Home doesn't stand out
+   as a different kind of button from its neighbors. Icons are inline SVG
+   (see the buttons themselves) matching the left nav's line-icon style,
+   not emoji. */
 .header-pill-btn {
   font-size: 13.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
-  border: 1px solid var(--pink); color: var(--pink); background: transparent;
+  border: 1px solid var(--brand); color: var(--brand); background: transparent;
   cursor: pointer; letter-spacing: .04em; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
   -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
 }
-.header-pill-btn:hover, .header-pill-btn:active { background: var(--pink); color: #fff; }
+.header-pill-btn:hover, .header-pill-btn:active { background: var(--brand); color: #fff; }
+.header-pill-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
 
 /* "Pull Schedule" — deliberately larger/bolder than a normal secondary
    button so it can't be missed now that it's the only way to open the job
@@ -1375,7 +1378,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 }
 .home-card-start-badge {
   display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
-  color: #fff; background: var(--brand); padding: 3px 10px; border-radius: 999px; margin-bottom: 6px;
+  color: #fff; background: var(--pink); padding: 3px 10px; border-radius: 999px; margin-bottom: 6px;
 }
 .bnav-alert-dot { position: absolute; top: -3px; right: -5px; background: #ef4444; color: #fff; font-size: 9px; font-weight: 800; min-width: 14px; height: 14px; border-radius: 7px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; display: none; }
 
@@ -2224,9 +2227,9 @@ try {
       <button class="lang-toggle-btn" onclick="toggleAppLang()">🌐 <span id="appLangLabel">Español</span></button>
     </div>
     <div class="header-group header-group-actions">
-      <button id="theme-toggle-btn" class="header-pill-btn" onclick="toggleTheme()" title="Switch between light and dark screen — dark is easier to look at under bright shop-floor lighting">🌙 Dark Mode</button>
-      <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
-      <button id="header-home-btn" class="header-pill-btn" onclick="switchView('home')" title="Go to the home dashboard">🏠 <span data-en>Home</span><span data-es>Inicio</span></button>
+      <button id="theme-toggle-btn" class="header-pill-btn" onclick="toggleTheme()" title="Switch between light and dark screen — dark is easier to look at under bright shop-floor lighting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Dark Mode</button>
+      <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span data-en>Sync</span><span data-es>Sincronizar</span></button>
+      <button id="header-home-btn" class="header-pill-btn" onclick="switchView('home')" title="Go to the home dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg><span data-en>Home</span><span data-es>Inicio</span></button>
     </div>
   </div>
 </header>
@@ -2383,37 +2386,37 @@ try {
         <div class="home-hero-sub"><span data-en>Where would you like to go?</span><span data-es>¿A dónde le gustaría ir?</span></div>
       </div>
       <div class="home-card-list">
-        <div class="home-card home-card-start" style="border-left-color:var(--brand);" onclick="switchView('qc')" title="QC Approval — start here for a new job or product">
-          <div class="home-card-icon" style="color:var(--brand);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
+        <div class="home-card home-card-start" style="border-left-color:var(--pink);" onclick="switchView('qc')" title="QC Approval — start here for a new job or product">
+          <div class="home-card-icon" style="color:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
           <div class="home-card-text">
             <div class="home-card-start-badge">👉 <span data-en>Start Here</span><span data-es>Empiece Aquí</span></div>
             <div class="home-card-title"><span data-en>QC Approval</span><span data-es>Aprobación de QC</span></div>
             <div class="home-card-sub"><span data-en>New job or new product? Enter job details, then inspect each product.</span><span data-es>¿Trabajo o producto nuevo? Ingrese los detalles del trabajo y luego inspeccione cada producto.</span></div>
           </div>
         </div>
-        <div class="home-card" style="border-left-color:var(--amber);" onclick="switchView('inprogress')" title="Job in Progress">
-          <div class="home-card-icon" style="color:var(--amber);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div>
+        <div class="home-card" style="border-left-color:var(--pink);" onclick="switchView('inprogress')" title="Job in Progress">
+          <div class="home-card-icon" style="color:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></div>
           <div class="home-card-text">
             <div class="home-card-title"><span data-en>Job in Progress</span><span data-es>Trabajo en Progreso</span></div>
             <div class="home-card-sub"><span data-en>Tap a job to update its status or add production details.</span><span data-es>Toque un trabajo para actualizar su estado o agregar detalles de producción.</span></div>
           </div>
         </div>
-        <div class="home-card" style="border-left-color:var(--green);" onclick="switchView('qarelease')" title="QA Release">
-          <div class="home-card-icon" style="color:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+        <div class="home-card" style="border-left-color:var(--pink);" onclick="switchView('qarelease')" title="QA Release">
+          <div class="home-card-icon" style="color:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
           <div class="home-card-text">
             <div class="home-card-title"><span data-en>QA Release</span><span data-es>Liberación de Calidad</span></div>
             <div class="home-card-sub"><span data-en>Tap a job to complete the QA release.</span><span data-es>Toque un trabajo para completar la liberación de calidad.</span></div>
           </div>
         </div>
-        <div class="home-card" style="border-left-color:var(--blue);" onclick="switchView('shipping')" title="Shipping Approval">
-          <div class="home-card-icon" style="color:var(--blue);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+        <div class="home-card" style="border-left-color:var(--pink);" onclick="switchView('shipping')" title="Shipping Approval">
+          <div class="home-card-icon" style="color:var(--pink);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
           <div class="home-card-text">
             <div class="home-card-title"><span data-en>Shipping Approval</span><span data-es>Aprobación de Envío</span></div>
             <div class="home-card-sub"><span data-en>Final gate before shipping.</span><span data-es>Última revisión antes del envío.</span></div>
           </div>
         </div>
-        <div class="home-card" style="border-left-color:var(--red);" onclick="switchView('qa')" title="QA">
-          <div class="home-card-icon" style="color:var(--red);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+        <div class="home-card" style="border-left-color:var(--brand);" onclick="switchView('qa')" title="QA">
+          <div class="home-card-icon" style="color:var(--brand);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
           <div class="home-card-text">
             <div class="home-card-title"><span data-en>QA</span><span data-es>Calidad</span></div>
             <div class="home-card-sub"><span data-en>Nonconformance, root cause &amp; records</span><span data-es>No conformidades, causa raíz y registros</span></div>
@@ -6668,20 +6671,21 @@ function _refreshCurrentView() {
   updateQCBadge();
   updateQAReleaseBadge();
 }
+var _syncIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 function headerSyncNowClick() {
   var btn = document.getElementById('header-sync-btn');
   var isEs = isEsLang();
   if (btn) {
     btn.disabled = true;
     btn.style.opacity = '.6';
-    btn.innerHTML = '⏳ ' + (isEs ? 'Sincronizando…' : 'Syncing…');
+    btn.innerHTML = _syncIconSvg + (isEs ? 'Sincronizando…' : 'Syncing…');
   }
   _syncNowAll().then(function(result){
     _refreshCurrentView();
     if (btn) {
       btn.disabled = false;
       btn.style.opacity = '1';
-      btn.innerHTML = '🔄 ' + (isEs ? 'Sincronizar' : 'Sync');
+      btn.innerHTML = _syncIconSvg + (isEs ? 'Sincronizar' : 'Sync');
     }
     if (result && result.ok) {
       showToast(isEs ? '✓ Sincronizado' : '✓ Synced', 'pass');
@@ -11099,14 +11103,15 @@ function isEsLang(){ return document.body.classList.contains('es'); }
    the choice for next time, same localStorage pattern as VIEW_MODE_KEY /
    SORT_MODE_KEY / SHIP_VIEW_KEY etc. above. */
 var THEME_KEY = 'moquin-qa-theme';
+var _sunIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+var _moonIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 function _applyThemeBtnLabel(){
   var btn = document.getElementById('theme-toggle-btn');
   if (!btn) return;
   var isDark = document.body.classList.contains('dark-mode');
   var isEs = isEsLang();
-  btn.textContent = isDark
-    ? (isEs ? '☀️ Modo Claro' : '☀️ Light Mode')
-    : (isEs ? '🌙 Modo Oscuro' : '🌙 Dark Mode');
+  btn.innerHTML = (isDark ? _sunIconSvg : _moonIconSvg) +
+    (isDark ? (isEs ? 'Modo Claro' : 'Light Mode') : (isEs ? 'Modo Oscuro' : 'Dark Mode'));
 }
 function toggleTheme(){
   var isDark = document.body.classList.toggle('dark-mode');
