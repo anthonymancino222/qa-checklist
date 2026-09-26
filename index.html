@@ -6812,10 +6812,20 @@ function _checkForAppUpdate(opts){
 // listener above) — never a standing poll while someone might be mid-form.
 var _lastIdleBackgroundRun = 0;
 var IDLE_BACKGROUND_THRESHOLD_MS = 30 * 60 * 1000;
+// Midnight-4am gets a longer, 1-hour idle interval instead of the normal 30
+// minutes — that window is when the overnight Cloudflare trickle (a handful
+// of idle devices each checking in independently) is least useful to anyone,
+// so it's the one place worth trading freshness for fewer requests. Based on
+// the DEVICE's own local clock, not server time.
+function _idleBackgroundThresholdMs(){
+  var h = new Date().getHours();
+  return (h >= 0 && h < 4) ? 60 * 60 * 1000 : IDLE_BACKGROUND_THRESHOLD_MS;
+}
 function _idleBackgroundCheckTick(){
+  var thresholdMs = _idleBackgroundThresholdMs();
   var idleMs = Date.now() - _lastActivityTouch;
-  if (idleMs < IDLE_BACKGROUND_THRESHOLD_MS) return; // still within a normal active-use gap, not genuinely idle
-  if (Date.now() - _lastIdleBackgroundRun < IDLE_BACKGROUND_THRESHOLD_MS) return; // already ran this idle stretch
+  if (idleMs < thresholdMs) return; // still within a normal active-use gap, not genuinely idle
+  if (Date.now() - _lastIdleBackgroundRun < thresholdMs) return; // already ran this idle stretch
   _lastIdleBackgroundRun = Date.now();
   _syncAutoPull();
   _checkForAppUpdate({autoApply:true});
@@ -6845,7 +6855,7 @@ function _activeUserAutoSyncTick(){
   if (AUTO_SYNC_ACTIVE_USERS.indexOf(_signedInUser.email.toLowerCase()) === -1) return;
   // Already idle long enough that _idleBackgroundCheckTick owns this device
   // for the moment — no need to double up.
-  if (Date.now() - _lastActivityTouch >= IDLE_BACKGROUND_THRESHOLD_MS) return;
+  if (Date.now() - _lastActivityTouch >= _idleBackgroundThresholdMs()) return;
   _syncAutoPull();
 }
 setInterval(_activeUserAutoSyncTick, 60000);
@@ -14112,6 +14122,22 @@ function confirmInspectSignature() {
 // competing for attention at the same moment (page scrolling underneath a
 // modal that just popped in) was part of why operators reported the popup
 // as easy to miss.
+// Product IDs starting with "17" haven't been issued yet — as of 2026-09-26
+// we're still in the 118xxx range, so a schedule entry showing a "17..."
+// number is stale/wrong, not a real product ID. Auto-filling it would
+// silently plant a number nobody can act on. Kama Foil Press and both die
+// cutters were confirmed to already have legitimate "17..." product IDs, so
+// they're exempt — every other station should skip the auto-fill instead
+// and let the operator type/scan the real one. Remove this once product IDs
+// generally reach the 17xxxx range (the user said they'll flag that).
+var PRODUCT_ID_1700_EXEMPT_STATIONS = ['Kama Foil Press', 'New Die Cutter', 'Old Die Cutter'];
+function _isNotYetIssuedProductId(id) {
+  return typeof id === 'string' && id.indexOf('17') === 0;
+}
+function _currentStationForProductFill() {
+  var el = document.getElementById('setup-station');
+  return (el && el.value) || (typeof jobState !== 'undefined' && jobState && jobState.station) || '';
+}
 function _maybeOfferProductIdPicker(idx, opts) {
   opts = opts || {};
   if (typeof jobState === 'undefined' || !jobState || !jobState.entries) return false;
@@ -14128,6 +14154,7 @@ function _maybeOfferProductIdPicker(idx, opts) {
   // already there (or there isn't) isn't wanted — just no-op instead.
   if (remaining.length === 1) {
     if (opts.force) return false;
+    if (_isNotYetIssuedProductId(remaining[0]) && PRODUCT_ID_1700_EXEMPT_STATIONS.indexOf(_currentStationForProductFill()) === -1) return false;
     _applyPickedProductId(remaining[0]);
     return false;
   }
@@ -14158,6 +14185,7 @@ function _maybeOfferSetupProductPicker(fieldId) {
   var entry = _scheduleData && _scheduleData.jobs && _scheduleData.jobs[job];
   if (!entry || !entry.products || !entry.products.length) return false;
   if (entry.products.length === 1) {
+    if (_isNotYetIssuedProductId(entry.products[0]) && PRODUCT_ID_1700_EXEMPT_STATIONS.indexOf(_currentStationForProductFill()) === -1) return false;
     if (!el.value.trim()) el.value = entry.products[0];
     return false;
   }
