@@ -179,22 +179,17 @@ body {
   font-size: 12px; font-weight: 800; letter-spacing: .04em; white-space: nowrap;
   color: #fff; background: #16a34a; border-radius: 20px; padding: 4px 10px 4px 8px;
 }
-/* Sits directly on the black header bar with a transparent fill, so unlike
-   every other former --pink spot (which got the darker, readable --brand
-   green) this one keeps the bold --lime already used elsewhere in the
-   header — --brand is too dark to read against black. */
+/* Header utility pills (Light Mode / Sync / Home) are the deliberately rare
+   spot that keeps the original hot pink — same bordered/outline treatment
+   for all three, no solid-fill variant, so Home doesn't stand out as a
+   different kind of button from its neighbors. */
 .header-pill-btn {
   font-size: 13.5px; font-weight: 700; padding: 6px 12px; border-radius: 8px;
-  border: 1px solid var(--lime); color: var(--lime); background: transparent;
+  border: 1px solid var(--pink); color: var(--pink); background: transparent;
   cursor: pointer; letter-spacing: .04em; white-space: nowrap;
   -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
 }
-.header-pill-btn:hover, .header-pill-btn:active { background: var(--lime-dark); color: var(--black); }
-/* Full-brightness --lime reads fine as a thin outline/icon stroke, but was
-   too glaring as a large always-on solid fill (the Home button) — toned
-   down to --lime-dark for any solid-filled pill. */
-.header-pill-btn-solid { background: var(--lime-dark); color: var(--black); }
-.header-pill-btn-solid:hover, .header-pill-btn-solid:active { background: #8a9f00; color: var(--black); }
+.header-pill-btn:hover, .header-pill-btn:active { background: var(--pink); color: #fff; }
 
 /* "Pull Schedule" — deliberately larger/bolder than a normal secondary
    button so it can't be missed now that it's the only way to open the job
@@ -2145,7 +2140,7 @@ try {
       <button id="theme-toggle-btn" class="header-pill-btn" onclick="toggleTheme()" title="Switch between light and dark screen — dark is easier to look at under bright shop-floor lighting">🌙 Dark Mode</button>
       <button id="header-sync-btn" class="header-pill-btn" onclick="headerSyncNowClick()" title="Pull fresh data from other devices and push anything pending">🔄 <span data-en>Sync</span><span data-es>Sincronizar</span></button>
       <button id="header-pull-schedule-btn" class="header-pill-btn" onclick="headerPullScheduleClick()" title="Pull the newest job schedule from Drive — takes up to 2 minutes. Only needed if you want the very latest file right now; the app also pulls it automatically at 5am, 6am, and 10am on weekdays.">🔄 <span data-en>Pull Schedule</span><span data-es>Actualizar Programa</span></button>
-      <button id="header-home-btn" class="header-pill-btn header-pill-btn-solid" onclick="switchView('home')" title="Go to the home dashboard">🏠 <span data-en>Home</span><span data-es>Inicio</span></button>
+      <button id="header-home-btn" class="header-pill-btn" onclick="switchView('home')" title="Go to the home dashboard">🏠 <span data-en>Home</span><span data-es>Inicio</span></button>
     </div>
   </div>
 </header>
