@@ -189,9 +189,12 @@ body {
   cursor: pointer; letter-spacing: .04em; white-space: nowrap;
   -webkit-tap-highlight-color: transparent; transition: background .12s, color .12s;
 }
-.header-pill-btn:hover, .header-pill-btn:active { background: var(--lime); color: var(--black); }
-.header-pill-btn-solid { background: var(--lime); color: var(--black); }
-.header-pill-btn-solid:hover, .header-pill-btn-solid:active { background: var(--lime-dark); color: var(--black); }
+.header-pill-btn:hover, .header-pill-btn:active { background: var(--lime-dark); color: var(--black); }
+/* Full-brightness --lime reads fine as a thin outline/icon stroke, but was
+   too glaring as a large always-on solid fill (the Home button) — toned
+   down to --lime-dark for any solid-filled pill. */
+.header-pill-btn-solid { background: var(--lime-dark); color: var(--black); }
+.header-pill-btn-solid:hover, .header-pill-btn-solid:active { background: #8a9f00; color: var(--black); }
 
 /* "Pull Schedule" — deliberately larger/bolder than a normal secondary
    button so it can't be missed now that it's the only way to open the job
