@@ -22086,6 +22086,13 @@ function setShipToggle(key, val, btn, groupId){
   } else {
     btn.style.background = 'var(--brand)'; btn.style.color = '#fff'; btn.style.borderColor = 'var(--brand)';
   }
+  // Transport Rate is the field the driver/warehouse picks right before
+  // signing — jump straight to the signature so they don't have to scroll
+  // past the rest of the checklist to find it. The other toggles above
+  // still work normally; this only fires for this one field.
+  if (key === 'transportRate'){
+    _scrollToField(document.getElementById('ship-sig-canvas') || document.getElementById('ship-sig-placeholder'));
+  }
 }
 
 function clearShipSig(){
