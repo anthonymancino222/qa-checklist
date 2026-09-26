@@ -18767,12 +18767,12 @@ function ncrCompress(file, cb, opts){
     if (opts && opts.skipResize) { cb(e.target.result); return; }
     var img = new Image();
     img.onload = function(){
-      var maxDim = 1000, w = img.width, h = img.height;
+      var maxDim = 2200, w = img.width, h = img.height;
       if (w>h && w>maxDim){ h=h*(maxDim/w); w=maxDim; } else if (h>maxDim){ w=w*(maxDim/h); h=maxDim; }
       var canvas = document.createElement('canvas');
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      cb(canvas.toDataURL('image/jpeg',0.72));
+      cb(canvas.toDataURL('image/jpeg',0.9));
     };
     img.src = e.target.result;
   };
