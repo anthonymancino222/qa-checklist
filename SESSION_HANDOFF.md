@@ -1,106 +1,226 @@
-# Handoff for a new chat — Moquin Press QA Checklist Approval work
+# Session Handoff — QA Checklist Approval
 
-Paste this whole file as your first message in a new chat to pick up where we left off without re-establishing permissions or re-litigating workflow.
+Read this whole file before doing anything else. It exists so a brand-new
+chat session can pick up exactly where the last one left off, with the same
+working style Anthony expects — most importantly: **you push, not him.**
 
-## Standing permissions — act, don't ask
+## 0. The one rule that matters most
 
-Full standing permission to act autonomously on this project: `git push`, editing/testing code, running Bash/PowerShell — without stopping to ask first. Only real capability walls stop you (not permission):
+**Anthony wants 99.9% of git commits and pushes done by you, unprompted.**
+Once you've made a change and verified it (see §3), commit and push it
+yourself. Do not pause to ask "should I commit this?" or "should I push
+this?" — that's already answered: yes. This applies to both `index.html`
+and `version-b/index.html` in this repo.
 
-1. The built-in browser tool **cannot open local files** (`file://` URLs refused) and has no real Google sign-in. For anything requiring real signed-in backend access, hand the user copy-paste console scripts to run in their own already-authenticated Chrome tab instead — don't try to sign in yourself.
-2. `github.com` and Cloudflare/Google Cloud dashboards may be blocked domains for the browser tool directly — navigate there anyway first; if refused, fall back to giving the user manual steps.
-3. A separate safety classifier can block a specific risky-looking action (e.g., a live production bulk-mutation script, a Worker code deploy) even after explicit chat approval — don't retry past it, hand the user the exact manual step instead.
+The only things that still need his explicit go-ahead are the genuinely
+risky categories: destructive git operations (force-push, hard reset),
+anything that touches real production data directly (a one-time backend
+migration script, deleting real records), or a change whose behavior he
+hasn't actually asked for yet (a brand-new feature idea you thought of on
+your own, not something he requested). Routine feature work, bug fixes,
+and refactors — the overwhelming majority of what happens in this repo —
+get committed and pushed by you as soon as they're verified working.
+When in doubt on a *normal* code change, push.
 
-**Git**: `index.html` (root) and `version-b/index.html` are both in this repo (`github.com/anthonymancino222/qa-checklist`), deployed via GitHub Pages at `https://anthonymancino222.github.io/qa-checklist/` (main app) and `.../version-b/` (fork). A push deploys automatically within ~30-60s — always confirm live via a genuinely fresh, no-cache `curl` fetch afterward (`curl -s "URL?nocache=$(date +%s)" -H "Cache-Control: no-cache, no-store" | grep ...`), and explicitly tell the user it's live, not just that the push succeeded.
+If it helps to know why: this has already been confirmed explicitly,
+repeatedly, across many prior sessions. Re-litigating it wastes his time.
 
-The **Cloudflare Worker backend** (`cloudflare-backend/src/index.js`) has no local deploy tooling — changes there need the user to paste into the dashboard's Quick Edit themselves.
+## 1. What this repo is
 
-**Cloudflare billing**: the user upgraded to the **Workers Paid plan ($5/month)** this session — the free-tier daily-limit concern is now much less pressing, though bulk/migration scripts should still batch sensibly rather than blast writes.
+Two parallel single-file vanilla-JS web apps, no build step, everything
+inline in one giant `<script>` tag:
 
-## Hard rules established this session (in addition to standing project rules already in memory)
+- **`index.html`** — the main app. Backend is a **Cloudflare Worker + D1
+  database** (`QA_BACKEND_URL` near the top of the script). Deploy is
+  automatic: `git push` → GitHub Pages rebuilds → live at
+  `https://anthonymancino222.github.io/qa-checklist/`. There is no
+  separate deploy step for the frontend. The Worker backend itself is
+  NOT redeployed by this repo's pushes (it's a different, rarely-touched
+  system) — if a task ever needs a Worker-side change, that's a distinct,
+  much rarer kind of edit; say so explicitly if you think you need one.
+- **`version-b/index.html`** — a fork using a **Google Apps
+  Script/JSONP backend** instead (`_qaJsonpGet`/`_qaWriteAndPoll`,
+  static API key). Deployed the same way, at `.../qa-checklist/version-b/`.
+  Its Apps Script backend source lives at `version-b/backend/Code.gs` and
+  auto-deploys via `clasp` (already installed and logged in) — you can
+  edit and push that too if a task genuinely requires it.
 
-- **Every change verified live**, not just code-reviewed — extract the real function from the file and unit-test it in Node against multiple real scenarios before shipping anything sync/data-related. This session's sync fixes were each verified against 7-11 scenario test suites before being pushed.
-- **Every fix to `index.html` gets applied identically to `version-b/index.html`**, unless the underlying mechanism is genuinely different (version-b uses Google Apps Script/JSONP for its transport, not `fetch` — same bugs, different transport, same fix pattern).
-- **Never trust a script's own "success" report for a production data write** — always independently re-verify against a fresh server fetch afterward, from a clean/new script, not just reading back the same variables. This caught the stageHistory-cleanup-appeared-to-work-but-didn't incident below.
-- **A tablet can stay open for a full shift or more without reloading** — this is normal, not an edge case. A fix to sync/data-integrity logic is not actually "shipped" to the fleet until devices reload; the 20-minute auto-update check (already built this session) is what makes that happen without relying on someone remembering to tap Sync.
-- **Don't fabricate approval/QA records.** `SHIP_AUTO_APPROVE_TESTING` must stay `false` outside active testing. When a bulk recovery script has to write real backend records (like this session's shipping-approval recovery), tag them distinctly (e.g., `_recoveredFromSyncBug: true`) and use a stage-history label that's honest about it being a recovery action, not a real human sign-off.
-- **RCA records are device-local only**, never synced to the Cloudflare backend (a separate legacy Apps Script handles daily Drive backups) — don't assume RCA data behaves like job/NCR data.
-- **Data sync priority rule (explicit user requirement, not yet fully built — see Next Goal)**: "most recent confirmed edit wins," like Google Sheets — not "whoever created the record wins." A device with a genuinely unsynced edit must never have it silently discarded by another device's stale pull.
-- Pair any complex technical explanation with a short, plain-English version (standing user preference).
-- The user explicitly does not want to pay for a second backend platform (this is why version-b uses Apps Script instead of a second paid service) — Cloudflare's $5/mo upgrade was a considered exception, not a green light for other paid services.
+**Standing rule: almost every real fix or feature belongs in BOTH files,
+applied identically** (adjusting only for the different backend transport
+where the two already differ — e.g. `_syncReconcileBeforePush` uses a
+per-record fetch in index.html vs `_qaJsonpGet({action:'listRecords'})` in
+version-b). Never ship a fix to only one. Before editing, `grep`/`Read` the
+equivalent spot in the other file first — they're usually byte-for-byte
+identical outside their transport-specific seams, which makes copying
+straightforward.
 
-## Where things stand (end of a very long, incident-heavy session — 2026-09-23)
+Both apps require Google Sign-In to do anything real — you cannot sign in
+as a real user from the built-in isolated browser tool (no real Google
+session there). See §3 for how to still verify UI changes without one.
 
-### 1. THE MAIN INCIDENT — now fully resolved
-User reported jobs already approved for shipping kept reappearing as pending, on every device, no matter how many times cleared/synced.
+## 2. Reading the code
 
-- **Root cause #1**: `_syncPullAndMerge` unconditionally kept the LOCAL copy of any record it already had locally — a genuine change made elsewhere could never land, ever, no matter how many syncs ran.
-- Fixed this once (added last-write-wins via a "confirmed sync snapshot" comparison) — **this fix itself caused a second, worse incident**: it reverted ~110 already-approved shipping jobs back to "pending," because...
-- **Root cause #2 (the real one)**: `_syncPushDelta`'s one-time migration path seeded that "confirmed" snapshot from LOCAL data alone whenever `SYNC_PENDING_KEY` looked clean, with **zero network confirmation**. A device whose earlier push had silently failed (expired Google sign-in token — tokens expire hourly, the background silent-refresh via `google.accounts.id.prompt()` is unreliable) could carry a snapshot dishonestly claiming the server was caught up.
-- **Real fix (now live, both files)**: the migration path always asks the server directly first (one GET) and only marks an id "confirmed" when the server's copy byte-for-byte matches local. Last-write-wins in `_syncPullAndMerge` was then safely restored on top of this now-honest snapshot. A separate migration marker (not the snapshot's own emptiness) gates the one-time reconciliation, since a legitimate zero-match result must not be mistaken for "never ran" and loop forever. Verified with an 11-scenario test suite reproducing the exact incident — all passing on both `index.html` and `version-b/index.html`.
-- Also fixed: `_syncPullAndMerge` didn't check `res.ok` before parsing JSON, so a 401 (expired token) silently looked like "server has zero records" instead of a real failure.
-- **The 110 reverted jobs were restored** via direct per-record `PUT` to the server (bypassing local storage, which was hitting its quota — see #3), tagged `_recoveredFromSyncBug: true`, Freight transport, generic signature. Confirmed via independent fresh server fetch: 0 pending, 110 tagged recovered.
-- **Follow-up feature added (explicit user request)**: Shipping Approval queue now has a hard cutoff — `SHIPPING_APPROVAL_CUTOFF_DATE = new Date('2026-09-22T00:00:00')` in both files. Any job that reached "finished" before that date never shows in the queue again, on any device, regardless of local cache staleness. This was requested because the user can't practically track every shop-floor tablet's individual cache state — it's a single code change every device picks up automatically.
+The files are huge (20k+ lines). Don't try to read them start-to-finish.
+- Use `Grep` for function names / class names / comment landmarks, not a
+  cover-to-cover `Read`.
+- Favicon/icon `<link>` tags near the very top contain enormous inline
+  base64 data URIs — reading a line range that includes one will blow the
+  token budget. If a `Read` of a small range mysteriously exceeds the
+  token limit, that's why; narrow the range or skip past that line.
+- Search for a function, read just its body with `offset`/`limit`, make
+  the edit, move on.
 
-### 2. Long-open-tablet blind spot — fixed
-Found because a browser tab open through several deploys that same night was still silently running OLD buggy JS in memory (JS doesn't hot-reload just because new code is deployed).
+## 3. Verification methodology (do this, every time)
 
-- `_checkForAppUpdate()` only ran when someone tapped Sync, AND had a real separate bug: it wrote its "last known version" to storage on every check regardless of whether the update was actually applied — so declining the prompt even once meant it would **never ask again** for that version, silently running stale code indefinitely.
-- **Fixed**: the version marker only advances once an update is actually accepted and applied; added a 20-minute background auto-check (`setInterval(_checkForAppUpdate, 20*60*1000)`) so a long-open tablet gets prompted within roughly a shift, not only whenever someone happens to tap Sync. Guarded against stacking a duplicate prompt. 11-scenario test suite passing on both files.
+Two layers, both real, neither optional:
 
-### 3. localStorage quota — partially fixed, ONE STEP LEFT UNVERIFIED
-A device hit `QuotaExceededError` (~9.93MB total, over the ~5-10MB browser limit) trying to save the shipping-approval recovery mutation.
+**A. Node unit tests against the REAL extracted code.** Don't hand-write
+a re-implementation of the function you're testing — brace-match extract
+it verbatim out of the live HTML file, `eval` it into a mocked Node
+environment, and assert against real scenarios. The pattern (recreate
+these scripts in your scratchpad, they don't persist between sessions):
 
-- Diagnosed precisely via a real device: NOT embedded photos (~205KB only) — it was `stageHistory` (2.8MB total), of which **~2.4MB was duplicate signature images re-embedded at every single stage transition** (`_stageSnapshot()` stored whatever `data` object it was handed verbatim, including raw base64 signature images, forever, on top of the job's own current signature field holding the same image).
-- **Fixed going forward (live, both files)**: `_stageSnapshot()` now recursively strips any embedded `data:image...` string out of what it's given, replacing it with `true` (keeps the audit fact "a signature was captured here," drops the weight). Verified no display feature reads an image back out of stageHistory, and the async Drive-upload-then-patch flow for signatures/photos still works correctly on top of this.
-- **Historical cleanup attempted but NOT confirmed working — needs to be redone.** A one-time server-side script stripped existing embedded images from all 121 affected job records' `stageHistory`. It reported "Succeeded: 121, Failed: 0," but an independent re-verification immediately after showed the data **unchanged** (~2804KB still, 144 embedded images still found). Strong suspicion: the exact stale-tab problem from #2 above — an old, buggy background sync loop running in that same browser tab silently pushed the pre-cleanup data right back over the fix within the following ~30 seconds to a few minutes.
-  - **Next step**: confirm the browser tab that will run this has been fully reloaded (hard refresh) so it's on current code — this alone may have been the entire problem, given #2 was only fixed and deployed partway through that session.
-  - Re-run the dry-run script first (logs what WOULD change + sizes, writes nothing), confirm the numbers still show ~121 records / ~2.4MB, THEN run the real write script (both scripts are straightforward to reconstruct: fetch `/records?type=job`, recursively replace `data:image...` strings inside each `data.stageHistory[].data` with `true`, PUT only records that actually changed).
-  - **Independently re-verify after** with a fresh server fetch (total stageHistory size across all jobs, count of remaining embedded images, and a spot-check that `qaSignature`/current signature fields on the jobs themselves are unchanged) — do not trust the write script's own success count alone, per the hard rule above.
+```js
+// extract_X.js — pulls a function out of the file verbatim
+const src = fs.readFileSync(file, 'utf8');
+function extractFn(name) {
+  const marker = 'function ' + name + '(';
+  const start = src.indexOf(marker);
+  let i = src.indexOf('{', start), depth = 0, end = i;
+  for (; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  return src.slice(start, end);
+}
+```
+```js
+// test_X.js — mocks globals (localStorage, fetch, document, ipLoad/ipSave,
+// Date.now — and if a function reads `new Date()` directly, mock the
+// Date CONSTRUCTOR too, not just Date.now, or tests flake by time of day),
+// then loads the extracted code with INDIRECT eval so `var` declarations
+// become real globals:
+(0, eval)(code); // not eval(code) — that scopes to this function only
+```
 
-### 4. Cloudflare D1 daily write-quota alert — root cause understood, resolved by user's own action
-- The account hit Cloudflare's D1 free-tier 100k-writes/day cap and got a "service paused" email — bad timing, right after the user had presented this app.
-- **Likely root cause**: a stale tablet running OLD sync code (from before fix #1's proper version) had a bug where, if it believed a record wasn't confirmed synced, it would re-push the ENTIRE ~339-record job store every 5-minute cooldown window — this session's direct-server-PUT recovery scripts (which deliberately bypassed local storage/snapshots to dodge the quota crash) likely left various records looking "unconfirmed" from that stale device's old-code perspective, potentially triggering repeated full-store re-pushes for hours.
-- This class of bug is now fixed by #1 and #2 above (no more blind full-store resends; devices get nudged to update within ~20 minutes).
-- **User has already upgraded to Workers Paid ($5/mo)** — their own decision after discussion; not something to revisit unless they raise it.
+Run this against **both files** after any change to shared logic (merge,
+sync, conflict-review, photo-heal, etc.) — regressions in one file's copy
+of a function are exactly as real as in the other's.
 
-## NEXT GOAL — build a proper field-level (three-way) merge for job/NCR sync
+**B. Live browser check, every time something is visually or behaviorally
+observable.** Never claim a UI change works without actually seeing it
+render. Since you can't sign in for real:
+1. `preview_start` a plain static file server over the project directory
+   (Node `http.createServer`, or add a `.claude/launch.json` entry — clean
+   either up when done).
+2. Navigate the built-in browser to it.
+3. Via `javascript_tool`, hide `#google-signin-overlay` and show
+   `#appLayout`, then seed whatever local state you need directly (e.g.
+   `ipSave([{...fake job...}], {preserveTouch:true})`) and call the
+   relevant `switchView(...)`/`open...Modal(...)` function.
+4. Screenshot / `get_page_text` / click through it for real.
+5. Stop the temp server (`Get-NetTCPConnection -LocalPort ... | ...
+   OwningProcess` then `Stop-Process`) before finishing.
 
-**Explicit user requirement**: "whatever device started an entry will have priority" was the opening ask, refined through discussion to: **most recent CONFIRMED edit wins, at the field level** — like a shared Google Sheet, where two people editing different fields of the same row never stomp on each other. User was explicit: build this properly the first time, with the same test rigor as tonight's fixes — not a quick version to revisit later. Also explicit: build with future heavy-traffic/scale in mind, not just today's usage level.
+This has caught real bugs in this project before (an `_rvjEs` reference
+left dangling after a refactor, a pencil-icon showing when it shouldn't
+have) that unit tests alone would have missed entirely.
 
-### Design already agreed with the user (not yet implemented)
+**C. Cloudflare/D1 checks (only when actually investigating production
+traffic/data).** The built-in isolated browser can't sign in to
+Cloudflare either — use `claude-in-chrome` (the user's real, already
+logged-in Chrome) via
+`ToolSearch("select:mcp__claude-in-chrome__tabs_context_mcp,...")` for
+that. The D1 **Console** tab is flaky (typed queries silently vanish);
+use **Explore Data → Studio** instead (top-right "Explore Data" button) —
+a real Monaco SQL editor, click into the query pane by `ref` (not raw
+pixel coordinates — this dashboard's viewport scaling has bitten this
+exact investigation before), type SQL, `ctrl+Return` to run.
 
-Three versions of any record are already available at sync time:
-- **base** — the last version this device confirmed the server actually had (already tracked today via the sync snapshot, and now honest per fix #1 above)
-- **local** — this device's current copy
-- **remote** — the server's current copy
+## 4. Recent history (most recent session, chronological)
 
-**Per top-level field:**
-- Only local changed it from base → keep local's value
-- Only remote changed it from base → take remote's value
-- Neither changed it → no-op
-- **Both changed it to different values → genuine conflict**, needs a tie-break rule (see below)
+This is what actually happened last session, so you're not caught flat-
+footed if Anthony references it:
 
-**Fields needing special handling, not plain overwrite:**
-- `stageHistory` — must be **unioned**, never overwritten. It's an append-only audit log; both devices' entries are equally valid and neither side should ever lose entries. (Dedup by matching stage+ts+label, most likely.)
-- `checklist` — already has a merge-by-item-id helper (`_mergeChecklist`, line ~6612 in `index.html` as of tonight) built for a similar problem (QA stages losing earlier stages' fields). Extend that same by-id merge logic into the sync path instead of a raw field overwrite.
+1. **Cloudflare rebrand**: pink → black + neon green (with pink kept as a
+   rare "critical" accent, then partially reinstated per explicit
+   feedback for a few specific elements — header pills are green, the 4
+   main home-dashboard cards + their sidebar icons are pink, QA/Help stay
+   green). If a color looks off, it was almost certainly a deliberate,
+   explicit choice — check `git log -p` on the relevant lines before
+   assuming it's wrong.
+2. **Real incident, found and fixed**: a massive Cloudflare traffic spike
+   (2.4M invocations/week vs a normal baseline) turned out to be one job
+   whose `productNumber` field was ping-ponging between two devices'
+   values 124 times over 4 days (a genuine sync conflict that kept
+   auto-re-triggering), plus two job records with a ~3.9MB photo embedded
+   directly instead of uploaded to Drive. Root-caused via direct D1 SQL
+   queries (see §3C), not guesswork.
+3. Built a **field-level sync conflict system**: `_mergeJobRecord` still
+   auto-resolves any two-device conflict immediately (never blocks a
+   sync), but now (a) freezes a field once it's already an unresolved
+   pending conflict instead of letting it flip forever, and (b) surfaces
+   every pending conflict in a new **⚠ Conflicts header button** (amber,
+   only visible when count > 0) where a QA Manager can pick "Keep mine /
+   Keep theirs / Keep both" per field.
+4. Built **`_healEmbeddedPhotos()`**: runs opportunistically off the
+   existing idle-background tick, retries any photo/signature that's
+   still a raw embedded `data:` URL (meaning its original Drive upload
+   silently failed) and swaps in the real Drive link once it succeeds. No
+   manual cleanup script should ever be needed again for this class of
+   problem.
+5. **Records job-detail popup is now editable** for `_isDataEditAllowedUser()`
+   accounts (Job #, Station, Customer, Product ID/Form ID, Qty to
+   Execute, Final Qty Produced where a real number applies) — pencil
+   icons, reusing the existing `_startEditField` pattern.
+6. **`SHIP_AUTO_APPROVE_TESTING` removed outright** (not just switched
+   off) — there is now no code path anywhere in either app that can
+   approve a shipment except a real person completing the Shipping
+   Approval screen.
+7. Confirmed (and reverted a wrong first attempt at changing) that a job
+   pending Shipping Approval is *supposed to* also show in Records with a
+   "not yet approved" status, updating in place once approved — Records
+   was never meant to hide it.
 
-**For genuine same-field conflicts** (rare — jobs normally move through one device at a time sequentially, make-ready → production → QA → shipping — so true simultaneous conflicting edits to the *same field* should be uncommon, but must still be handled correctly, not just assumed away):
-- Proposed: add a lightweight per-record "last touched" timestamp, stamped automatically at the one true choke point every save already goes through (`ipSave()`, called by literally every job mutation path including `ipUpdate()`) — avoids needing to touch dozens of scattered call sites individually.
-- Let the more recently-touched side win for that specific conflicting field.
-- **Log the conflict itself into `stageHistory`** so it's visible later for audit purposes, never silently dropped/hidden.
+## 5. Known outstanding items (not yet done — pick these up if relevant)
 
-### Before writing code
-1. Confirm `ipSave()` is genuinely the single universal choke point for every job mutation (spot-checked tonight, looked correct, but verify thoroughly — grep for any place that writes directly to `localStorage.getItem(IN_PROGRESS_KEY)`/`setItem` bypassing `ipSave`/`ipLoad`).
-2. Design the exact conflict-log shape for `stageHistory` before implementing (what fields, what the label says, whether it needs a dedicated `stage: 'merge_conflict'` type).
-3. Decide whether this applies to `job` only, or also `ncr`/`ncr_draft` (NCR doesn't have `stageHistory`/`checklist` in the same shape — check its actual field list before assuming the same special-cases apply).
-4. Build a standalone Node test harness (same pattern as tonight — extract the real function via `node -e`, mock `fetch`/`localStorage`) covering at minimum: non-overlapping field edits merge cleanly both ways, a genuine same-field conflict resolves via the tie-break and gets logged, `stageHistory` entries from both sides survive a merge with no duplicates and no loss, `checklist` merges by id correctly when both sides touched different items vs. the same item, and repeated/idempotent merges are stable.
-5. Apply identically to `version-b/index.html` once proven, same as every other fix this session.
-6. Ship, confirm live via fresh no-cache fetch, tell the user explicitly.
+- **Two job records still have an oversized embedded photo**
+  (`qc-1790424685850-0` and `-1`, job #049318, ~3.9MB/~3.7MB `mrPhoto`
+  each). A one-time migration script was written and sent to Anthony to
+  paste into his own signed-in browser console (dry-run first, real
+  write only on explicit second command) — check with him whether he's
+  run it yet before assuming it's still needed. §4 item 4 above prevents
+  new instances of this, but doesn't retroactively fix these two.
+- **Job #46850's `productNumber` conflict** (the one that was
+  ping-ponging) is now frozen, not auto-re-flipping, but still needs a
+  human to actually open the ⚠ Conflicts button and pick the correct
+  final value — the real answer (probably `118045`, based on its three
+  sibling product lines being `118043`/`118044`/`118046`, but don't just
+  guess-write it yourself; confirm with Anthony or leave it for him).
+- **`version-b`'s NCR photo compression** was already brought in line
+  with `index.html` last session — no longer outstanding, just noting it
+  here so a future session doesn't re-flag it as a gap.
 
-## Deploy mechanics (reference)
+## 6. Standing hard rules (recap — full detail lives in memory, auto-loaded)
 
-- **Frontend** (`index.html`, `version-b/index.html`): `git add`, `git commit`, `git push` — auto-deploys to GitHub Pages. Confirm live via a fresh no-cache `curl` fetch of a distinctive string from the change (a comment, a new function name), not just that the push succeeded.
-- **Backend** (`cloudflare-backend/src/index.js`): no self-service deploy — hand the user the exact code to paste into the Cloudflare dashboard's Quick Edit.
-- **Testing sync/data logic**: extract the real function(s) from the live file via a small Node script (`html.indexOf('function name')` + brace-matching), stub `fetch`/`localStorage`/whatever else is needed, run realistic scenarios, confirm pass/fail explicitly before shipping.
+- Data safety + quota check on every backend-touching change, including
+  new periodic/background calls, not just writes — this app has a real,
+  documented history of a Cloudflare quota incident from exactly this
+  kind of oversight.
+- Always clean up test/demo data you create against the real backend
+  before considering a task done.
+- After a `git push` that deploys something, explicitly tell Anthony it's
+  live — don't just report the push succeeded.
+- Pair any non-trivial technical explanation with a short, plain-English
+  version too.
+- When you spot a minor related issue while working, fix it now instead
+  of just flagging it as optional follow-up work.
 
-Ask what to pick up next, or just start on the field-level merge design above if nothing new has come in.
+## 7. Untracked files sitting in the repo root
+
+`BACKEND_GUIDE.md`, `QA Data Backend Guide.html`, `Packing reference
+photo/`, `cloudflare paid receipt/`, `photo references for certain non
+common process features/`, `version-b/desktop.ini` are untracked but
+present locally — leave them alone unless Anthony asks about them
+specifically; they look like his own reference material, not stray build
+artifacts.
