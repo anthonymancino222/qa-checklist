@@ -23428,11 +23428,11 @@ function rcaRenderDraftList(){
     seen[key] = true;
     rows.push({ r: r, idx: idx });
   });
-  if (!rows.length){ box.classList.add('hidden'); box.innerHTML = ''; return; }
   var isEs = isEsLang();
   box.classList.remove('hidden');
-  box.innerHTML = '<div class="section" style="margin-bottom:1rem"><div class="section-title" style="margin-bottom:10px">📝 ' +
-    (isEs ? 'Continuar un borrador guardado' : 'Continue a saved draft') + ' (' + rows.length + ')</div>' +
+  box.innerHTML = '<div class="section" style="margin-bottom:1rem"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:' + (rows.length ? '10px' : '0') + '">' +
+    '<div class="section-title">' + (rows.length ? '📝 ' + (isEs ? 'Continuar un borrador guardado' : 'Continue a saved draft') + ' (' + rows.length + ')' : (isEs ? 'No hay borradores guardados' : 'No saved drafts')) + '</div>' +
+    '<button type="button" class="btn" onclick="rcaStartNewDraft()">＋ ' + (isEs ? 'Iniciar nuevo borrador' : 'Start new draft') + '</button></div>' +
     rows.map(function(x){
       var r = x.r;
       var meta = [r.station ? stationLabel(r.station) : '', r.customer || '', r.savedAt ? (isEs?'guardado ':'saved ') + r.savedAt : ''].filter(Boolean).map(escHtml).join(' · ');
@@ -23441,6 +23441,16 @@ function rcaRenderDraftList(){
         '<div style="font-size:13px;color:var(--text-tertiary)">' + meta + '</div></div>' +
         '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + (isEs?'Continuar':'Continue') + '</button></div>';
     }).join('') + '</div>';
+}
+// "Start new draft" — clears the form back to the choose-a-path screen. If a
+// form is already open, confirm first since unsaved entries would be lost.
+function rcaStartNewDraft(){
+  var body = document.getElementById('rca-form-body');
+  var open = body && !body.classList.contains('hidden');
+  if (!open){ rcaResetForm(); return; }
+  var isEs = isEsLang();
+  showConfirm(isEs ? 'Iniciar un borrador nuevo borrará lo que no haya guardado en este formulario.' : 'Starting a new draft clears anything you have not saved in the current form.', rcaResetForm,
+    { title: isEs ? '¿Iniciar nuevo borrador?' : 'Start a new draft?', okLabel: isEs ? 'Sí, iniciar nuevo' : 'Yes, start new' });
 }
 function rcaContinueDraft(idxKey){
   var idx = parseInt(String(idxKey).replace('rca-',''), 10);
