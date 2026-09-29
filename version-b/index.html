@@ -5086,6 +5086,18 @@ function _findJobById(jobId){
   for (var i = 0; i < jobs.length; i++) { if (jobs[i].id === jobId) return { job: jobs[i], jobs: jobs }; }
   return null;
 }
+// Shared by every _saveEditJob* below — one place to add a new rendering
+// context (only 'cm-prod'/'rv' need a real branch; everything else, i.e.
+// the QA-release panel, falls through to _renderQaJobSummary as before).
+function _refreshJobSummaryCard(prefix, job){
+  if (prefix === 'cm-prod') { _renderProdSummary(job); return; }
+  if (prefix === 'rv') {
+    var card = document.getElementById('rv-job-summary-card');
+    if (card) card.innerHTML = _renderRvJobSummary(job);
+    return;
+  }
+  _renderQaJobSummary(job);
+}
 function _saveEditJobStation(jobId, prefix){
   var found = _findJobById(jobId); if (!found) return;
   var sel = document.getElementById(prefix + '-station-input');
@@ -5093,7 +5105,7 @@ function _saveEditJobStation(jobId, prefix){
   found.job.station = sel.value;
   _logDataEditAudit(found.job, 'DATA EDIT — Station changed: ' + (oldVal || '—') + ' → ' + sel.value);
   ipSave(found.jobs);
-  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+  _refreshJobSummaryCard(prefix, found.job);
 }
 function _saveEditJobOperator(jobId, prefix){
   var found = _findJobById(jobId); if (!found) return;
@@ -5102,7 +5114,7 @@ function _saveEditJobOperator(jobId, prefix){
   found.job.operatorName = input.value.trim();
   _logDataEditAudit(found.job, 'DATA EDIT — Operator changed: ' + (oldVal || '—') + ' → ' + found.job.operatorName);
   ipSave(found.jobs);
-  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+  _refreshJobSummaryCard(prefix, found.job);
 }
 function _saveEditJobCadStyle(jobId, prefix){
   var found = _findJobById(jobId); if (!found) return;
@@ -5114,7 +5126,7 @@ function _saveEditJobCadStyle(jobId, prefix){
   else found.job.checklist.push({ id: 'gl-cad-style', val: sel.value });
   _logDataEditAudit(found.job, 'DATA EDIT — CAD Style changed: ' + (oldVal || '—') + ' → ' + sel.value);
   ipSave(found.jobs);
-  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+  _refreshJobSummaryCard(prefix, found.job);
 }
 function _saveEditJobQtyExecQa(jobId, prefix){
   var found = _findJobById(jobId); if (!found) return;
@@ -5125,7 +5137,7 @@ function _saveEditJobQtyExecQa(jobId, prefix){
   _setStationQtyToExecute(found.job, newQty);
   _logDataEditAudit(found.job, 'DATA EDIT — Qty to Execute changed: ' + oldQty + ' → ' + newQty);
   ipSave(found.jobs);
-  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+  _refreshJobSummaryCard(prefix, found.job);
 }
 // Writes the edited Final Qty Produced back to whichever field
 // _jobQtySummaryLines() actually reads for this job (gluerFinalQty takes
@@ -5142,7 +5154,48 @@ function _saveEditJobFinalQty(jobId, prefix){
   if (newQty <= 0) { showAlert(isEsLang() ? 'Ingrese una cantidad válida.' : 'Enter a valid quantity.'); return; }
   _setStationFinalQty(found.job, newQty);
   ipSave(found.jobs);
-  if (prefix === 'cm-prod') _renderProdSummary(found.job); else _renderQaJobSummary(found.job);
+  _refreshJobSummaryCard(prefix, found.job);
+}
+// Job #, Customer, and Product ID/Form ID had no edit path anywhere in the
+// app before this — added specifically for the Records job-detail view
+// (prefix 'rv'), same DATA EDIT permission and audit-log pattern as the
+// fields above.
+function _saveEditJobNumber(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var input = document.getElementById(prefix + '-jobnum-input');
+  var newVal = input.value.trim();
+  if (!newVal) { showAlert(isEsLang() ? 'Ingrese un número de trabajo.' : 'Enter a job number.'); return; }
+  var oldVal = found.job.jobNumber;
+  found.job.jobNumber = newVal;
+  _logDataEditAudit(found.job, 'DATA EDIT — Job # changed: ' + (oldVal || '—') + ' → ' + newVal);
+  ipSave(found.jobs);
+  _refreshJobSummaryCard(prefix, found.job);
+}
+function _saveEditJobCustomerRv(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var input = document.getElementById(prefix + '-customer-input');
+  var newVal = input.value.trim();
+  var oldVal = found.job.customer;
+  found.job.customer = newVal;
+  _logDataEditAudit(found.job, 'DATA EDIT — Customer changed: ' + (oldVal || '—') + ' → ' + (newVal || '—'));
+  ipSave(found.jobs);
+  _refreshJobSummaryCard(prefix, found.job);
+}
+// Writes back to whichever of formNumber/productNumber/product this job
+// was already using (matching how it's read everywhere — see
+// _renderRvJobSummary's pidVal) rather than always writing a new field,
+// which would leave the OLD field's stale value still readable elsewhere.
+function _saveEditJobProductId(jobId, prefix){
+  var found = _findJobById(jobId); if (!found) return;
+  var input = document.getElementById(prefix + '-productid-input');
+  var newVal = input.value.trim();
+  var job = found.job;
+  var field = job.formNumber ? 'formNumber' : (job.productNumber ? 'productNumber' : 'product');
+  var oldVal = job[field];
+  job[field] = newVal;
+  _logDataEditAudit(job, 'DATA EDIT — Product ID / Form ID changed: ' + (oldVal || '—') + ' → ' + (newVal || '—'));
+  ipSave(found.jobs);
+  _refreshJobSummaryCard(prefix, job);
 }
 
 /* ══════════════════════════════════
@@ -22448,50 +22501,84 @@ function openRecordEntry(type, id){
   if (type === 'rca') return openRecordRCA(id);
 }
 
-/* ── Jobs ── */
-function openRecordJob(jobId){
-  var job = null;
-  ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
-  if (!job) return;
-
-  var inFlight = !job.shippingApproved && job.process !== 'finished';
-  if (inFlight){
-    // Still actively being worked — go straight to the live editor, same as
-    // today, but flag it so that editor hides its Edit button (Records is a
-    // read-only look-up, even for a job that's technically still in flight).
-    _openedFromRecords = true;
-    switchView('inprogress');
-    openContinueModal(job.id);
-    return;
-  }
-
-  rvContext = { type: 'job', id: jobId };
+/* ── Jobs ──
+   Job #, Station, Customer, and Product ID / Form ID are editable here for
+   the same roster that already gets DATA EDIT elsewhere in the app
+   (_isDataEditAllowedUser — QA Manager/Director accounts), reusing the
+   established _startEditField/_cancelEditField pencil-icon pattern and,
+   for Station/Qty, the SAME save functions _renderQaJobSummary already
+   uses (just adding an 'rv' branch to their prefix dispatch below) so
+   there's one source of truth per field, not a second copy that could
+   drift. Job #/Customer/Product ID had no edit path anywhere before this —
+   new _saveEditJobNumber/_saveEditJobCustomerRv/_saveEditJobProductId
+   below. rv-title/rv-sub (the modal's header) are refreshed every time
+   this runs, so an edited Job # or Product ID is never stale up top. */
+function _renderRvJobSummary(job){
   var _rvjEs = isEsLang();
+  var canEdit = _isDataEditAllowedUser();
   var pf = job.formNumber || job.productNumber || job.product;
   document.getElementById('rv-title').innerHTML = escHtml(jp('jobLabel')) + ' ' + hlId(job.jobNumber);
   document.getElementById('rv-sub').innerHTML = escHtml(stationLabel(job.station)) + (job.customer ? ' · '+escHtml(job.customer) : '') + ' · ' + hlId(pf);
 
-  var rows = [
-    [_rvjEs?'Estado':'Status', job.shippingApproved ? jp('shippingApproved') : (processLabel(job.process) || job.process || '—')],
-    [_rvjEs?'Trabajo #':'Job #', {html: hlId(job.jobNumber)}],
-    [_rvjEs?'Estación':'Station', {html: hlId(stationLabel(job.station))}],
-    [_rvjEs?'Cliente':'Customer', job.customer || '—'],
-    [_rvjEs?'ID de Producto / ID de Forma':'Product ID / Form ID', {html: hlId(job.formNumber || job.productNumber || job.product)}]
-  ];
-  if (job.operatorName) rows.push([_rvjEs?'Operador':'Operator', job.operatorName]);
-  var _recCad = (job.station === 'Long Gluer' || job.station === 'Short Gluer') ? _gluerCadSummaryLine(job) : '';
-  if (_recCad) rows.push([_rvjEs?'Estilo CAD':'CAD Style', _recCad]);
-
-  // Always show Qty to Execute / Final Qty Produced, even before either has
-  // a real number — an unfilled Final Qty is itself a useful signal that
-  // the job probably hasn't finished running yet.
   var qtyExec = _stationQtyToExecute(job);
   var finalQty = parseInt(job.gluerFinalQty || job.finalQty || 0) || 0;
   var _qtyLines = _jobQtySummaryLines(job);
-  rows.push([_rvjEs?'Cantidad a Ejecutar':'Qty to Execute', {html: hlId(_qtyLines.qtyExec)}]);
-  rows.push([_rvjEs?'Cantidad Final Producida':'Final Qty Produced', _qtyLines.finalQty]);
-  if (job.oversTarget != null) rows.push([_rvjEs?'Meta de Sobrantes':'Overs Target', job.oversTarget === '0' ? (_rvjEs?'Sin Sobrantes':'No Overs') : job.oversTarget + (_rvjEs?'% Sobrantes':'% Overs')]);
-  if (job.shipmentType === 'split') rows.push([_rvjEs?'Tipo de Envío':'Shipment Type', (_rvjEs ? 'Dividido — ' : 'Split — ') + (job.splitCount||2) + (_rvjEs?' envíos':' shipments')]);
+  // Bindery/Pressroom Cutter jobs show "Confirmed" instead of a real number
+  // (see _jobQtySummaryLines) and a gluer's first pass shows "N/A" — neither
+  // is a number _saveEditJobQtyExecQa/_saveEditJobFinalQty could sensibly
+  // write back, so the pencil only appears when there's an actual quantity.
+  var qtyEditable = canEdit && !(job.station === 'Bindery Cutter' || job.station === 'Pressroom Cutter') && !_jobIsGluerFirstPass(job);
+  var pidVal = job.formNumber || job.productNumber || job.product || '';
+
+  function editRow(rowId, editId, label, displayHtml, isEditable){
+    if (isEditable == null) isEditable = canEdit;
+    return '<div class="ncr-sumrow" id="'+rowId+'"><b>'+escHtml(label)+'</b><span>'+displayHtml+
+      (isEditable ? ' <button type="button" class="edit-qty-btn" onclick="_startEditField(\''+rowId+'\',\''+editId+'\')" title="'+(_rvjEs?'Editar':'Edit')+'">✏️</button>' : '') +
+      '</span></div>';
+  }
+  function textEditor(rowId, editId, inputId, value, saveFn){
+    return !canEdit ? '' : '<div id="'+editId+'" style="display:none;margin:8px 0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<input class="input" id="'+inputId+'" type="text" value="'+escHtml(value||'')+'" style="width:180px;">' +
+      '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="'+saveFn+'(\''+job.id+'\',\'rv\')">✓ '+(_rvjEs?'Guardar':'Save')+'</button>' +
+      '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\''+rowId+'\',\''+editId+'\')">✕ '+(_rvjEs?'Cancelar':'Cancel')+'</button>' +
+      '</div></div>';
+  }
+  function qtyEditor(rowId, editId, inputId, value, saveFn){
+    return !qtyEditable ? '' : '<div id="'+editId+'" style="display:none;margin:8px 0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<button type="button" class="qty-btn" onclick="stepQty(\''+inputId+'\',-1)">−</button>' +
+      '<input class="input qty-input" id="'+inputId+'" type="text" inputmode="numeric" value="'+value+'" oninput="_qtyFormatLive(this)" style="width:110px;text-align:center;font-family:var(--mono);font-size:16px;font-weight:700;">' +
+      '<button type="button" class="qty-btn" onclick="stepQty(\''+inputId+'\',1)">+</button>' +
+      '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="'+saveFn+'(\''+job.id+'\',\'rv\')">✓ '+(_rvjEs?'Guardar':'Save')+'</button>' +
+      '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\''+rowId+'\',\''+editId+'\')">✕ '+(_rvjEs?'Cancelar':'Cancel')+'</button>' +
+      '</div></div>';
+  }
+
+  var h = '<div class="card-label">' + (_rvjEs?'Resumen del Trabajo':'Job Summary') + '</div>' +
+    '<div class="ncr-sumrow"><b>' + (_rvjEs?'Estado':'Status') + '</b><span>' + escHtml(job.shippingApproved ? jp('shippingApproved') : (processLabel(job.process) || job.process || '—')) + '</span></div>' +
+    editRow('rv-jobnum-row', 'rv-jobnum-edit', _rvjEs?'Trabajo #':'Job #', hlId(job.jobNumber)) +
+    textEditor('rv-jobnum-row', 'rv-jobnum-edit', 'rv-jobnum-input', job.jobNumber, '_saveEditJobNumber') +
+    editRow('rv-station-row', 'rv-station-edit', _rvjEs?'Estación':'Station', hlId(stationLabel(job.station))) +
+    (canEdit ? '<div id="rv-station-edit" style="display:none;margin:8px 0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<select class="input" id="rv-station-input" style="width:auto;min-width:180px;">' + _stationOptionsHTML(job.station) + '</select>' +
+      '<button type="button" class="btn-primary" style="width:auto;padding:10px 16px;min-height:0;" onclick="_saveEditJobStation(\''+job.id+'\',\'rv\')">✓ '+(_rvjEs?'Guardar':'Save')+'</button>' +
+      '<button type="button" class="btn" style="width:auto;padding:10px 16px;margin-top:0;min-height:0;" onclick="_cancelEditField(\'rv-station-row\',\'rv-station-edit\')">✕ '+(_rvjEs?'Cancelar':'Cancel')+'</button>' +
+      '</div></div>' : '') +
+    editRow('rv-customer-row', 'rv-customer-edit', _rvjEs?'Cliente':'Customer', escHtml(job.customer||'—')) +
+    textEditor('rv-customer-row', 'rv-customer-edit', 'rv-customer-input', job.customer, '_saveEditJobCustomerRv') +
+    editRow('rv-productid-row', 'rv-productid-edit', _rvjEs?'ID de Producto / ID de Forma':'Product ID / Form ID', hlId(pidVal)) +
+    textEditor('rv-productid-row', 'rv-productid-edit', 'rv-productid-input', pidVal, '_saveEditJobProductId') +
+    (job.operatorName ? '<div class="ncr-sumrow"><b>'+(_rvjEs?'Operador':'Operator')+'</b><span>'+escHtml(job.operatorName)+'</span></div>' : '');
+
+  var _recCad = (job.station === 'Long Gluer' || job.station === 'Short Gluer') ? _gluerCadSummaryLine(job) : '';
+  if (_recCad) h += '<div class="ncr-sumrow"><b>'+(_rvjEs?'Estilo CAD':'CAD Style')+'</b><span>'+escHtml(_recCad)+'</span></div>';
+
+  h += editRow('rv-qtyexec-row', 'rv-qtyexec-edit', _rvjEs?'Cantidad a Ejecutar':'Qty to Execute', hlId(_qtyLines.qtyExec), qtyEditable) +
+    qtyEditor('rv-qtyexec-row', 'rv-qtyexec-edit', 'rv-qtyexec-input', qtyExec||0, '_saveEditJobQtyExecQa') +
+    editRow('rv-finalqty-row', 'rv-finalqty-edit', _rvjEs?'Cantidad Final Producida':'Final Qty Produced', escHtml(_qtyLines.finalQty), qtyEditable) +
+    qtyEditor('rv-finalqty-row', 'rv-finalqty-edit', 'rv-finalqty-input', finalQty, '_saveEditJobFinalQty');
+
+  if (job.oversTarget != null) h += '<div class="ncr-sumrow"><b>'+(_rvjEs?'Meta de Sobrantes':'Overs Target')+'</b><span>'+escHtml(job.oversTarget === '0' ? (_rvjEs?'Sin Sobrantes':'No Overs') : job.oversTarget + (_rvjEs?'% Sobrantes':'% Overs'))+'</span></div>';
+  if (job.shipmentType === 'split') h += '<div class="ncr-sumrow"><b>'+(_rvjEs?'Tipo de Envío':'Shipment Type')+'</b><span>'+escHtml((_rvjEs ? 'Dividido — ' : 'Split — ') + (job.splitCount||2) + (_rvjEs?' envíos':' shipments'))+'</span></div>';
 
   var shortInfo = null;
   if (job.glrReleaseNotes && job.glrReleaseNotes.state === 'short') {
@@ -22512,13 +22599,30 @@ function openRecordJob(jobId){
   } else if (qtyExec && finalQty) {
     shortInfo = 'No';
   }
-  if (shortInfo) rows.push([_rvjEs?'¿Corto?':'Short?', shortInfo]);
+  if (shortInfo) h += '<div class="ncr-sumrow"><b>'+(_rvjEs?'¿Corto?':'Short?')+'</b><span>'+escHtml(shortInfo)+'</span></div>';
 
-  rows.push([_rvjEs?'Terminado':'Finished', job.finishedAt || job.packerFinishedAt || '—']);
+  h += '<div class="ncr-sumrow"><b>'+(_rvjEs?'Terminado':'Finished')+'</b><span>'+escHtml(job.finishedAt || job.packerFinishedAt || '—')+'</span></div>';
+  return h;
+}
+function openRecordJob(jobId){
+  var job = null;
+  ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
+  if (!job) return;
 
-  var h = '<div class="card"><div class="card-label">' + (_rvjEs?'Resumen del Trabajo':'Job Summary') + '</div>' + rows.map(function(r){
-    return '<div class="ncr-sumrow"><b>'+escHtml(r[0])+'</b><span>'+_rowVal(r[1])+'</span></div>';
-  }).join('') + '</div>';
+  var inFlight = !job.shippingApproved && job.process !== 'finished';
+  if (inFlight){
+    // Still actively being worked — go straight to the live editor, same as
+    // today, but flag it so that editor hides its Edit button (Records is a
+    // read-only look-up, even for a job that's technically still in flight).
+    _openedFromRecords = true;
+    switchView('inprogress');
+    openContinueModal(job.id);
+    return;
+  }
+
+  rvContext = { type: 'job', id: jobId };
+  var _rvjEs = isEsLang();
+  var h = '<div class="card" id="rv-job-summary-card">' + _renderRvJobSummary(job) + '</div>';
 
   if (job.shipmentType === 'split' && job.splitQtys && job.splitQtys.length){
     var _splitNotesByShip = {};
