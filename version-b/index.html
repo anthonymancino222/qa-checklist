@@ -2555,7 +2555,7 @@ try {
               <button type="button" class="tgl" style="flex:1;min-width:100px;" onclick="toggleOperatorBtn(this)">Felix</button>
               <button type="button" class="tgl" style="flex:1;min-width:100px;" data-other="1" onclick="toggleOperatorOtherBtn('kama',this)"><span data-en>Other</span><span data-es>Otro</span></button>
             </div>
-            <input id="kama-operator-other" class="input" type="text" placeholder="Enter operator name…" data-ph-en="Enter operator name…" data-ph-es="Ingrese nombre del operador…" autocomplete="off" style="margin-top:7px;display:none;">
+            <input id="kama-operator-other" onblur="rosterPromptAddOperator('kama',this)" class="input" type="text" placeholder="Enter operator name…" data-ph-en="Enter operator name…" data-ph-es="Ingrese nombre del operador…" autocomplete="off" style="margin-top:7px;display:none;">
 
           </div>
 
@@ -2625,7 +2625,7 @@ try {
               <button type="button" class="tgl" style="flex:1;min-width:100px;" onclick="toggleOperatorBtn(this)">Fernando Paulino</button>
               <button type="button" class="tgl" style="flex:1;min-width:100px;" data-other="1" onclick="toggleOperatorOtherBtn('dc',this)"><span data-en>Other</span><span data-es>Otro</span></button>
             </div>
-            <input id="dc-operator-other" class="input" type="text" placeholder="Enter operator name…" data-ph-en="Enter operator name…" data-ph-es="Ingrese nombre del operador…" autocomplete="off" style="margin-top:7px;display:none;">
+            <input id="dc-operator-other" onblur="rosterPromptAddOperator('dc',this)" class="input" type="text" placeholder="Enter operator name…" data-ph-en="Enter operator name…" data-ph-es="Ingrese nombre del operador…" autocomplete="off" style="margin-top:7px;display:none;">
           </div>
 
           <!-- Make Ready phase fields -->
@@ -2711,7 +2711,7 @@ try {
               <button type="button" class="tgl" style="flex:1;min-width:100px;" onclick="toggleOperatorBtn(this)">Sam Vilayphone</button>
               <button type="button" class="tgl" style="flex:1;min-width:100px;" data-other="1" onclick="toggleOperatorOtherBtn('gluer',this)"><span data-en>Other</span><span data-es>Otro</span></button>
             </div>
-            <input id="gluer-operator-other" class="input" type="text" placeholder="Enter operator name…" data-ph-en="Enter operator name…" data-ph-es="Ingrese nombre del operador…" autocomplete="off" style="margin-top:7px;display:none;">
+            <input id="gluer-operator-other" onblur="rosterPromptAddOperator('gluer',this)" class="input" type="text" placeholder="Enter operator name…" data-ph-en="Enter operator name…" data-ph-es="Ingrese nombre del operador…" autocomplete="off" style="margin-top:7px;display:none;">
           </div>
 
           <div id="gluer-makeready-fields">
@@ -4096,6 +4096,7 @@ try {
       <div id="qamanager-body" style="display:none;padding:0 16px 24px;flex-direction:column;gap:12px;max-width:420px;">
         <button id="qamgr-data-edit-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="toggleDataEditMode()" title="Show edit pencils on job fields (passcode required)">✏️ DATA EDIT</button>
         <button id="qamgr-deleted-items-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openDeletedItemsView()" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
+        <button id="qamgr-names-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openRosterManager()" title="Delete or add customer / operator names">👥 <span data-en>Manage Names</span><span data-es>Administrar Nombres</span></button>
       </div>
     </div>
     <div id="view-ncr" class="screen">
@@ -5938,6 +5939,7 @@ function _tryRestoreLocalSession() {
   _renderSignedInUser();
   _applyDataEditVisibility();
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
+  setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
   // Deferred to next tick — this runs very early in the script, before
   // later-declared module vars (_scheduleData, _pullScheduleInFlight) have
   // been assigned; letting the rest of the script finish first avoids
@@ -6057,6 +6059,7 @@ function _onGoogleSignIn(response) {
   // Google's own silent one-tap resume succeeds on that later visit.
   _saveLocalSession(_googleIdToken);
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
+  setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
   setTimeout(_initScheduleAutoPull, 0);
 }
 
@@ -11749,6 +11752,16 @@ function _restoreOperatorGroupState(stationKey, selectedLabels, otherActive, oth
       var isOther = b.getAttribute('data-other') === '1';
       b.classList.toggle('sel', isOther ? !!otherActive : (selectedLabels || []).indexOf(b.textContent.trim()) !== -1);
     });
+    // A saved name that is no longer in the roster (deleted since) still comes back selected.
+    var otherBtnR = group.querySelector('.tgl[data-other="1"]');
+    (selectedLabels || []).forEach(function(n){
+      var present = Array.prototype.some.call(group.querySelectorAll('.tgl'), function(b){ return b.getAttribute('data-other') !== '1' && b.textContent.trim() === n; });
+      if (present) return;
+      var nb = document.createElement('button');
+      nb.type = 'button'; nb.className = 'tgl sel'; nb.style.cssText = 'flex:1;min-width:100px;';
+      nb.textContent = n; nb.onclick = function(){ toggleOperatorBtn(nb); };
+      group.insertBefore(nb, otherBtnR);
+    });
   }
   var other = document.getElementById(stationKey + '-operator-other');
   if (other) {
@@ -13684,11 +13697,10 @@ function buildChecklistItem(item, prefix) {
     inner += '</div>';
     inner += '<div style="margin-top:8px;">' +
       '<select class="input" id="'+prefix+'-val-'+item.id+'" onchange="handleOperatorChange(\''+prefix+'\',\''+item.id+'\',this)">' +
-        '<option value="Michael W." selected>Michael W.</option>' +
-        '<option value="Felix">Felix</option>' +
+        rosterOptionsHTML('op_checklist') +
         '<option value="other">' + (isEs ? 'Otro — escribir manualmente' : 'Other — type manually') + '</option>' +
       '</select>' +
-      '<input class="input" id="'+prefix+'-val-'+item.id+'-other" type="text" placeholder="' + (isEs ? 'Ingrese el nombre del operador…' : 'Enter operator name…') + '" autocomplete="off" style="margin-top:7px;display:none;" oninput="document.getElementById(\''+prefix+'-val-'+item.id+'\').setAttribute(\'data-other\',this.value)">' +
+      '<input class="input" id="'+prefix+'-val-'+item.id+'-other" type="text" onblur="rosterPromptAddChecklistOperator(this)" placeholder="' + (isEs ? 'Ingrese el nombre del operador…' : 'Enter operator name…') + '" autocomplete="off" style="margin-top:7px;display:none;" oninput="document.getElementById(\''+prefix+'-val-'+item.id+'\').setAttribute(\'data-other\',this.value)">' +
     '</div>';
   } else if (type === 'qty') {
     inner += '</div>';
@@ -16034,6 +16046,8 @@ var CUSTOMERS = [
   "Willow Creekside Farms","Winland Foods","Xytogen Biotech"
 ].sort(function(a,b){ return a.localeCompare(b); });
 
+var CUSTOMERS_BASE = CUSTOMERS.slice();
+
 /* Custom customers — any manually-typed name that isn't already in the
    canonical list above gets added here and remembered across sessions, so
    next time it's just a search-and-pick instead of retyping the full name. */
@@ -16056,23 +16070,293 @@ function _saveCustomCustomers(list){
 function addCustomerToList(name){
   name = String(name||'').trim();
   if (!name) return false;
-  var known = CUSTOMERS.some(function(c){ return c.toLowerCase() === name.toLowerCase(); });
-  if (known) return false;
-  CUSTOMERS.push(name);
-  CUSTOMERS.sort(function(a,b){ return a.localeCompare(b); });
-  var custom = _loadCustomCustomers();
-  custom.push(name);
-  _saveCustomCustomers(custom);
-  // RCA's <select> is populated once at page load (not re-rendered like the
-  // NCR/QA forms), so it needs its own new <option> inserted live.
-  var rcaSel = document.getElementById('rca-customer-select');
-  if (rcaSel && !Array.prototype.some.call(rcaSel.options, function(o){ return o.value === name; })) {
-    var opt = document.createElement('option');
-    opt.value = name; opt.textContent = name;
-    rcaSel.appendChild(opt);
-  }
+  if (rosterHas('customer', name)) return false;
+  rosterPromptAdd('customer', name); // asks "Are you sure?" before anything is saved
+  return false;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   NAME ROSTERS — customers + operators
+   Anyone can add a new name (always behind an "Are you sure?" prompt);
+   only QA Manager accounts (DATA EDIT roster) can delete one, from
+   QA Manager → Manage Names. There is deliberately no "rename": a saved
+   job/NCR/RCA keeps the name exactly as it was typed, so renaming a list
+   entry could never fix old records anyway — a misspelling is fixed by
+   deleting the bad entry and adding the correct one.
+   Each list is stored as { name: {a:true|false, t:ms} } — a timestamped
+   add/remove mark per name — so two devices editing at once merge cleanly
+   (latest mark per name wins). The baseline names (built into the app)
+   are never rewritten, only marked removed.
+   ROSTER_SHARED: when true the roster also syncs through the existing
+   /records endpoint as one small record (type 'roster'); one read per
+   sign-in, and a read+write only when a name is actually added/deleted.
+   ══════════════════════════════════════════════════════════════════ */
+var ROSTER_SHARED = false;
+var ROSTER_KEY = 'moquin_qa_roster';
+var ROSTER_REMOTE_ID = 'roster-main';
+var ROSTER_LISTS = {
+  customer:     { label: ['Customers', 'Clientes'] },
+  op_kama:      { label: ['Operators — Kama Foil Press', 'Operadores — Kama Foil Press'] },
+  op_dc:        { label: ['Operators — Die Cutter', 'Operadores — Troqueladora'] },
+  op_gluer:     { label: ['Operators — Gluer', 'Operadores — Engomadora'] },
+  op_checklist: { label: ['Operators — checklist dropdown', 'Operadores — lista del checklist'] }
+};
+var ROSTER_BASE = { customer: CUSTOMERS_BASE.slice(), op_checklist: ['Michael W.', 'Felix'] };
+var _roster = { lists: {} };
+var _rosterDeclined = {};
+var _rosterPrompting = false;
+var _rosterLastPull = 0;
+var _rosterReady = false;
+
+function _rosterLoad(){
+  try { var r = JSON.parse(localStorage.getItem(ROSTER_KEY)); if (r && r.lists) _roster = r; } catch(e){}
+}
+function _rosterSaveLocal(){
+  try { localStorage.setItem(ROSTER_KEY, JSON.stringify(_roster)); } catch(e){}
+}
+function _rosterMerge(other){
+  if (!other || !other.lists) return;
+  Object.keys(other.lists).forEach(function(k){
+    var dst = _roster.lists[k] || (_roster.lists[k] = {});
+    var src = other.lists[k] || {};
+    Object.keys(src).forEach(function(n){
+      if (!dst[n] || (src[n].t || 0) > (dst[n].t || 0)) dst[n] = src[n];
+    });
+  });
+}
+function rosterEffective(key){
+  var list = _roster.lists[key] || {}, base = ROSTER_BASE[key] || [], out = [];
+  base.forEach(function(n){ if (!(list[n] && list[n].a === false)) out.push(n); });
+  Object.keys(list).forEach(function(n){
+    if (list[n].a && out.indexOf(n) === -1 && base.indexOf(n) === -1) out.push(n);
+  });
+  if (key === 'customer') out.sort(function(a,b){ return a.localeCompare(b); });
+  return out;
+}
+function rosterHas(key, name){
+  var low = String(name || '').trim().toLowerCase();
+  return rosterEffective(key).some(function(n){ return n.toLowerCase() === low; });
+}
+function rosterAdd(key, name){
+  name = String(name || '').trim();
+  if (!name || rosterHas(key, name)) return false;
+  var list = _roster.lists[key] || (_roster.lists[key] = {});
+  list[name] = { a: true, t: Date.now() };
+  _rosterSaveLocal();
+  rosterApply(key);
+  rosterPushRemote();
   return true;
 }
+function rosterRemove(key, name){
+  if (!_isDataEditAllowedUser()) return false;
+  var list = _roster.lists[key] || (_roster.lists[key] = {});
+  list[name] = { a: false, t: Date.now() };
+  _rosterSaveLocal();
+  rosterApply(key);
+  rosterPushRemote();
+  return true;
+}
+function rosterApply(key){
+  if (!_rosterReady) return;
+  if (!key || key === 'customer'){
+    CUSTOMERS.length = 0;
+    rosterEffective('customer').forEach(function(n){ CUSTOMERS.push(n); });
+    var sel = document.getElementById('rca-customer-select');
+    if (sel){
+      var keep = sel.value;
+      while (sel.options.length > 2) sel.remove(2);
+      CUSTOMERS.forEach(function(c){
+        var o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
+      });
+      if (keep && Array.prototype.some.call(sel.options, function(o){ return o.value === keep; })) sel.value = keep;
+    }
+  }
+  ['kama','dc','gluer'].forEach(function(sk){ if (!key || key === 'op_' + sk) rosterRenderOperatorGroup(sk); });
+}
+function rosterRenderOperatorGroup(sk){
+  var g = document.getElementById(sk + '-operator-group');
+  if (!g) return;
+  var selected = _getOperatorGroupState(sk);
+  var otherBtn = g.querySelector('.tgl[data-other="1"]');
+  Array.prototype.slice.call(g.querySelectorAll('.tgl')).forEach(function(b){ if (b.getAttribute('data-other') !== '1') b.remove(); });
+  var names = rosterEffective('op_' + sk);
+  // A name already picked on an in-progress form stays selectable even if it
+  // was just deleted from the roster, so nothing is silently dropped.
+  selected.forEach(function(n){ if (names.indexOf(n) === -1) names.push(n); });
+  names.forEach(function(n){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'tgl' + (selected.indexOf(n) !== -1 ? ' sel' : '');
+    b.style.cssText = 'flex:1;min-width:100px;';
+    b.textContent = n;
+    b.onclick = function(){ toggleOperatorBtn(b); };
+    g.insertBefore(b, otherBtn);
+  });
+}
+function rosterOptionsHTML(key){
+  return rosterEffective(key).map(function(n, i){
+    return '<option value="' + escHtml(n) + '"' + (i === 0 ? ' selected' : '') + '>' + escHtml(n) + '</option>';
+  }).join('');
+}
+function rosterPromptAdd(key, name, onAdded){
+  name = String(name || '').trim();
+  if (!name || rosterHas(key, name)) return;
+  var dk = key + '|' + name.toLowerCase();
+  if (_rosterDeclined[dk] || _rosterPrompting) return;
+  _rosterPrompting = true;
+  var isEs = isEsLang(), label = ROSTER_LISTS[key].label[isEs ? 1 : 0];
+  var where = ROSTER_SHARED ? (isEs ? 'Todos los dispositivos la verán.' : 'Everyone will see it in the dropdown.') : (isEs ? 'Solo en este dispositivo.' : 'This device only.');
+  showConfirm(
+    (isEs ? '¿Agregar "' + name + '" a la lista: ' : 'Add "' + name + '" to the list: ') + label + '? ' + where,
+    function(ok){
+      _rosterPrompting = false;
+      if (!ok){ _rosterDeclined[dk] = true; return; }
+      if (rosterAdd(key, name) && onAdded) onAdded(name);
+    },
+    { title: isEs ? '¿Agregar un nombre nuevo?' : 'Add a new name?', okLabel: isEs ? 'Sí, agregar' : 'Yes, add', danger: false }
+  );
+}
+function rosterPromptAddOperator(sk, inp){
+  rosterPromptAdd('op_' + sk, inp.value, function(name){
+    var g = document.getElementById(sk + '-operator-group');
+    if (g){
+      Array.prototype.forEach.call(g.querySelectorAll('.tgl'), function(b){
+        if (b.getAttribute('data-other') === '1') b.classList.remove('sel');
+        else if (b.textContent.trim() === name) b.classList.add('sel');
+      });
+    }
+    inp.value = ''; inp.style.display = 'none';
+  });
+}
+function rosterPromptAddChecklistOperator(inp){
+  rosterPromptAdd('op_checklist', inp.value, function(name){
+    var sel = document.getElementById(inp.id.replace(/-other$/, ''));
+    if (sel){
+      var o = document.createElement('option'); o.value = name; o.textContent = name;
+      sel.insertBefore(o, sel.querySelector('option[value="other"]'));
+      sel.value = name;
+    }
+    inp.value = ''; inp.style.display = 'none';
+  });
+}
+
+/* ── Shared sync (index.html only; no-ops when ROSTER_SHARED is false) ── */
+function rosterPullRemote(done, force){
+  if (!ROSTER_SHARED || !QA_BACKEND_URL || !_googleIdToken){ if (done) done(); return; }
+  if (!force && Date.now() - _rosterLastPull < 60000){ if (done) done(); return; }
+  _rosterLastPull = Date.now();
+  fetch(QA_BACKEND_URL + '/records/' + ROSTER_REMOTE_ID + '?type=roster', { headers: _authHeaders() })
+    .then(function(res){ return res.ok ? res.json() : null; })
+    .then(function(j){
+      if (j && j.record && j.record.data){ _rosterMerge(j.record.data); _rosterSaveLocal(); rosterApply(); }
+      if (done) done();
+    })
+    .catch(function(){ if (done) done(); });
+}
+function rosterPushRemote(){
+  if (!ROSTER_SHARED || !QA_BACKEND_URL || !_googleIdToken) return;
+  rosterPullRemote(function(){
+    fetch(QA_BACKEND_URL + '/records/' + ROSTER_REMOTE_ID, {
+      method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
+      body: JSON.stringify({ type: 'roster', data: _roster })
+    }).catch(function(){ /* local copy is already saved; the next add/delete or sign-in re-syncs */ });
+  }, true);
+}
+
+/* ── QA Manager → Manage Names ── */
+var _rosterMgrKey = 'customer';
+function openRosterManager(){
+  if (!_isDataEditAllowedUser()) return;
+  var ov = document.getElementById('rosterMgrOverlay');
+  if (!ov){
+    ov = document.createElement('div');
+    ov.id = 'rosterMgrOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:20px 12px;';
+    ov.addEventListener('click', function(e){ if (e.target === ov) closeRosterManager(); });
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  rosterMgrRender();
+}
+function closeRosterManager(){
+  var ov = document.getElementById('rosterMgrOverlay');
+  if (ov) ov.style.display = 'none';
+}
+function rosterMgrRender(){
+  var ov = document.getElementById('rosterMgrOverlay');
+  if (!ov) return;
+  var isEs = isEsLang();
+  var filterEl = document.getElementById('rosterMgrFilter');
+  var q = filterEl ? filterEl.value.trim().toLowerCase() : '';
+  var names = rosterEffective(_rosterMgrKey).filter(function(n){ return !q || n.toLowerCase().indexOf(q) !== -1; });
+  var opts = Object.keys(ROSTER_LISTS).map(function(k){
+    return '<option value="' + k + '"' + (k === _rosterMgrKey ? ' selected' : '') + '>' + escHtml(ROSTER_LISTS[k].label[isEs ? 1 : 0]) + '</option>';
+  }).join('');
+  ov.innerHTML =
+    '<div style="background:var(--surface);color:var(--text-primary);border:1px solid var(--border-mid);border-radius:14px;padding:16px;width:100%;max-width:480px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">' +
+        '<div style="font-size:18px;font-weight:800;">👥 ' + (isEs ? 'Administrar Nombres' : 'Manage Names') + '</div>' +
+        '<button type="button" class="header-pill-btn" onclick="closeRosterManager()">✕</button></div>' +
+      '<div style="font-size:13.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;">' +
+        (isEs ? 'Borrar un nombre solo lo quita del menú. Los trabajos y registros ya guardados conservan el nombre tal como se escribió. Para corregir un error de ortografía: borre el nombre incorrecto y agregue el correcto.'
+              : 'Deleting a name only removes it from the dropdown — jobs and records already saved keep the name exactly as it was typed. To fix a misspelling: delete the bad name, then add the correct one.') + '</div>' +
+      '<select id="rosterMgrList" class="input" onchange="_rosterMgrKey=this.value;rosterMgrRender()" style="width:100%;margin-bottom:8px;">' + opts + '</select>' +
+      '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
+        '<input id="rosterMgrAdd" class="input" type="text" placeholder="' + (isEs ? 'Nombre nuevo…' : 'New name…') + '" autocomplete="off" style="flex:1;min-width:0;">' +
+        '<button type="button" class="header-pill-btn" onclick="rosterMgrAdd()">＋ ' + (isEs ? 'Agregar' : 'Add') + '</button></div>' +
+      '<input id="rosterMgrFilter" class="input" type="text" placeholder="' + (isEs ? 'Filtrar…' : 'Filter…') + '" value="' + escHtml(filterEl ? filterEl.value : '') + '" oninput="rosterMgrRender()" autocomplete="off" style="width:100%;margin-bottom:8px;">' +
+      '<div style="max-height:50vh;overflow:auto;border-top:1px solid var(--border);">' +
+        (names.length ? names.map(function(n, i){
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);">' +
+            '<span style="min-width:0;overflow-wrap:anywhere;">' + escHtml(n) + '</span>' +
+            '<button type="button" class="header-pill-btn" style="color:#dc2626;border-color:#dc2626;" data-name="' + escHtml(n) + '" onclick="rosterMgrDelete(this.dataset.name)">🗑 ' + (isEs ? 'Borrar' : 'Delete') + '</button></div>';
+        }).join('') : '<div style="padding:12px 2px;color:var(--text-tertiary);">' + (isEs ? 'Sin nombres.' : 'No names.') + '</div>') +
+      '</div></div>';
+  var f = document.getElementById('rosterMgrFilter');
+  if (f && q){ f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+}
+function rosterMgrAdd(){
+  var inp = document.getElementById('rosterMgrAdd');
+  var name = inp ? inp.value.trim() : '';
+  var isEs = isEsLang();
+  if (!name) return;
+  if (rosterHas(_rosterMgrKey, name)){ showAlert(isEs ? 'Ese nombre ya está en la lista.' : 'That name is already in the list.'); return; }
+  showConfirm(
+    (isEs ? '¿Agregar "' + name + '" a: ' : 'Add "' + name + '" to: ') + ROSTER_LISTS[_rosterMgrKey].label[isEs ? 1 : 0] + '?',
+    function(ok){ if (ok){ rosterAdd(_rosterMgrKey, name); rosterMgrRender(); } },
+    { title: isEs ? '¿Agregar un nombre nuevo?' : 'Add a new name?', okLabel: isEs ? 'Sí, agregar' : 'Yes, add', danger: false }
+  );
+}
+function rosterMgrDelete(name){
+  var isEs = isEsLang();
+  showConfirm(
+    (isEs ? '¿Borrar "' + name + '" de: ' : 'Delete "' + name + '" from: ') + ROSTER_LISTS[_rosterMgrKey].label[isEs ? 1 : 0] + '? ' +
+      (isEs ? 'Los registros ya guardados no cambian.' : 'Records already saved are not changed.'),
+    function(ok){ if (ok){ rosterRemove(_rosterMgrKey, name); rosterMgrRender(); } },
+    { title: isEs ? '¿Borrar este nombre?' : 'Delete this name?', okLabel: isEs ? 'Sí, borrar' : 'Yes, delete' }
+  );
+}
+
+(function _rosterInit(){
+  function run(){
+    ['kama','dc','gluer'].forEach(function(sk){
+      var g = document.getElementById(sk + '-operator-group');
+      if (!g) return;
+      ROSTER_BASE['op_' + sk] = Array.prototype.filter.call(g.querySelectorAll('.tgl'), function(b){ return b.getAttribute('data-other') !== '1'; })
+        .map(function(b){ return b.textContent.trim(); });
+    });
+    _rosterLoad();
+    // One-time carry-over of customers typed in before rosters existed.
+    var legacy = [];
+    try { legacy = JSON.parse(localStorage.getItem(CUSTOM_CUSTOMERS_KEY)) || []; } catch(e){}
+    var cl = _roster.lists.customer || (_roster.lists.customer = {});
+    legacy.forEach(function(n){ if (n && ROSTER_BASE.customer.indexOf(n) === -1 && !cl[n]) cl[n] = { a: true, t: 1 }; });
+    _rosterSaveLocal();
+    _rosterReady = true;
+    rosterApply();
+  }
+  try { run(); } catch(e){ console.error('roster init failed', e); }
+})();
 
 var customerDropOpen = false;
 var closeDropTimer = null;
@@ -20466,11 +20750,7 @@ if (RCA_LIVE) {
 (function rcaPopulateCustomers(){
   var sel = document.getElementById('rca-customer-select');
   if (!sel || typeof CUSTOMERS === 'undefined') return;
-  CUSTOMERS.forEach(function(c){
-    var o = document.createElement('option');
-    o.value = c; o.textContent = c;
-    sel.appendChild(o);
-  });
+  // options are built by rosterApply('customer') (roster module)
 })();
 function rcaCustomerChange(v){
   var other = document.getElementById('rca-customer-other');
