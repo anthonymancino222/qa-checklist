@@ -4213,6 +4213,7 @@ try {
             <option value="Packing">Packing</option>
             <option value="Samples">Samples</option>
             <option value="Vendor">Vendor</option>
+            <option value="Combination">Combination (more than one station)</option>
           </select>
         </div>
         <div class="field-group">
@@ -4228,9 +4229,9 @@ try {
           <input type="text" class="hidden other-input" id="rca-qa-name-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre">
         </div>
       </div>
-      <div class="field-row single" id="rca-extra-station-wrap">
+      <div class="field-row single hidden" id="rca-extra-station-wrap">
         <div class="field-group">
-          <label><span data-en>Other stations involved</span><span data-es>Otras estaciones involucradas</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>optional — if this job came back with issues from more than one station</span><span data-es>opcional — si el trabajo regresó con problemas de más de una estación</span>)</span></label>
+          <label><span data-en>Stations involved</span><span data-es>Estaciones involucradas</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>tap every station this job came back from</span><span data-es>toque cada estación de la que regresó el trabajo</span>)</span><span class="req">*</span></label>
           <div class="rca-chip-row" id="rca-extra-station-grid"></div>
         </div>
       </div>
@@ -20864,8 +20865,6 @@ function rcaRenderCascadeGrids(alsoIssueCat){
 }
 function rcaOnStationChange(){
   _rcaApplyManagerName();
-  var _p = rcaGetVal('station');
-  _rcaExtraStations = _rcaExtraStations.filter(function(x){ return x !== _p; });
   rcaRenderExtraStations();
   rcaRenderCascadeGrids(true);
 }
@@ -20879,13 +20878,15 @@ function rcaOnStationChange(){
    behavior. ── */
 var _rcaExtraStations = [];
 var _rcaIssueStations = {};
+function _rcaIsCombo(){ return rcaGetVal('station') === 'Combination'; }
 function _rcaAllStationNames(){
   var sel = document.getElementById('rca-station');
-  return Array.prototype.map.call(sel.options, function(o){ return o.value; }).filter(Boolean);
+  return Array.prototype.map.call(sel.options, function(o){ return o.value; }).filter(function(v){ return v && v !== 'Combination'; });
 }
 function _rcaInvolvedStations(){
+  if (_rcaIsCombo()) return _rcaExtraStations.slice();
   var p = rcaGetVal('station');
-  return (p ? [p] : []).concat(_rcaExtraStations);
+  return p ? [p] : [];
 }
 function _rcaIssueOptions(){
   var out = [];
@@ -20896,9 +20897,10 @@ function _rcaIssueOptions(){
   return out;
 }
 function _rcaStationGroups(){
-  var primary = rcaGetVal('station');
+  var primary = _rcaIsCombo() ? '' : rcaGetVal('station');
   var cats = (rcaGetVal('issuecat-value')||'').split(', ').filter(Boolean);
-  if (!_rcaExtraStations.length) return [{station:primary, cats:cats}];
+  if (!_rcaIsCombo()) return [{station:primary, cats:cats}];
+  if (!_rcaExtraStations.length) return [{station:'', cats:cats}];
   var involved = _rcaInvolvedStations();
   var by = {}; involved.forEach(function(s){ by[s] = []; });
   cats.forEach(function(cat){
@@ -20912,13 +20914,15 @@ function _rcaStationGroups(){
 function rcaRenderExtraStations(){
   var grid = document.getElementById('rca-extra-station-grid');
   if (!grid) return;
-  var primary = rcaGetVal('station');
-  var isEs = isEsLang();
-  if (!primary){
-    grid.innerHTML = '<div style="font-size:14px;color:var(--text-tertiary)">' + (isEs?'Primero seleccione la estación arriba.':'Pick the first station above first.') + '</div>';
+  var wrap = document.getElementById('rca-extra-station-wrap');
+  if (!_rcaIsCombo()){
+    _rcaExtraStations = [];
+    if (wrap) wrap.classList.add('hidden');
+    grid.innerHTML = '';
     return;
   }
-  grid.innerHTML = _rcaAllStationNames().filter(function(s){ return s !== primary; }).map(function(s){
+  if (wrap) wrap.classList.remove('hidden');
+  grid.innerHTML = _rcaAllStationNames().map(function(s){
     return '<div class="rca-chip'+(_rcaExtraStations.indexOf(s)!==-1?' selected':'')+'" data-kind="extra" data-station="'+escHtml(s)+'" onclick="rcaChipClick(this)">'+escHtml(s)+'</div>';
   }).join('');
 }
@@ -20942,13 +20946,17 @@ function rcaRenderIssueAssign(){
   var cats = (rcaGetVal('issuecat-value')||'').split(', ').filter(Boolean);
   var involved = _rcaInvolvedStations();
   Object.keys(_rcaIssueStations).forEach(function(c){ if (cats.indexOf(c)===-1) delete _rcaIssueStations[c]; });
-  if (!_rcaExtraStations.length || !cats.length){ box.innerHTML = ''; return; }
+  if (!_rcaIsCombo() || !_rcaExtraStations.length || !cats.length){ box.innerHTML = ''; return; }
   var isEs = isEsLang();
   var rows = cats.map(function(cat){
-    var avail = involved.filter(function(s){ return qualityIssueCategoriesFor(s).indexOf(cat)!==-1; });
-    if (!avail.length) avail = involved.slice();
+    // Any issue can be assigned to any chosen station; a brand-new issue
+    // defaults to the first station that normally lists it.
+    var avail = involved.slice();
     var cur = (_rcaIssueStations[cat]||[]).filter(function(s){ return avail.indexOf(s)!==-1; });
-    if (!cur.length) cur = [avail.indexOf(involved[0])!==-1 ? involved[0] : avail[0]];
+    if (!cur.length){
+      var natural = involved.filter(function(s){ return qualityIssueCategoriesFor(s).indexOf(cat)!==-1; });
+      cur = [natural.length ? natural[0] : involved[0]];
+    }
     _rcaIssueStations[cat] = cur;
     return '<div class="rca-assign-row"><div class="rca-assign-issue">'+escHtml(cat)+'</div><div class="rca-chip-row">'+
       avail.map(function(s){
@@ -20966,7 +20974,12 @@ function rcaRenderIssueAssign(){
 // Saves one record per station group; with no extra stations this is
 // exactly the old single rcaSendToSheets(rcaCollectData(...)) call.
 function rcaSendAll(status, action, onDone){
-  if (!_rcaExtraStations.length){ rcaSendToSheets(rcaCollectData(status, action), onDone); return; }
+  if (!_rcaIsCombo() || !_rcaExtraStations.length){
+    var d0 = rcaCollectData(status, action);
+    if (d0.station === 'Combination') d0.station = ''; // never store the placeholder as a real station
+    rcaSendToSheets(d0, onDone);
+    return;
+  }
   var groups = _rcaStationGroups();
   var detail = rcaGetVal('issue-desc');
   var pending = groups.length, allOk = true;
@@ -21288,6 +21301,11 @@ function rcaLockForm(){
 }
 
 function rcaValidate(ids){
+  if (ids.indexOf('station') !== -1 && _rcaIsCombo() && !_rcaExtraStations.length){
+    showAlert(isEsLang() ? 'Seleccione al menos una estación.' : 'Please tap at least one station.');
+    var _w = document.getElementById('rca-extra-station-wrap'); if (_w) _w.scrollIntoView({behavior:'smooth', block:'center'});
+    return false;
+  }
   for(let id of ids){
     const el=document.getElementById('rca-'+id);
     if(el&&!el.value.trim()){
