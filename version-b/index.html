@@ -4189,6 +4189,8 @@ try {
         <div class="field-group">
           <label><span data-en>Product ID</span><span data-es>ID de Producto</span><span class="req">*</span></label>
           <input type="text" inputmode="numeric" placeholder="e.g. P-10045" data-ph-en="e.g. P-10045" data-ph-es="ej. P-10045" id="rca-prod-num">
+          <div id="rca-extra-prods"></div>
+          <button type="button" class="btn rca-add-prod" style="margin-top:6px;font-size:13px;padding:5px 12px" onclick="rcaAddProduct()">＋ <span data-en>Add another Product ID</span><span data-es>Agregar otro ID de Producto</span></button>
         </div>
       </div>
       <div class="field-row">
@@ -4294,6 +4296,8 @@ try {
       <div class="why-row"><div class="why-num"><span data-en>Why 4</span><span data-es>Por qué 4</span></div><input type="text" placeholder="And why?" data-ph-en="And why?" data-ph-es="¿Y por qué?" id="rca-w4"></div>
       <div class="arrow-down">↓</div>
       <div class="why-row"><div class="why-num"><span data-en>Why 5</span><span data-es>Por qué 5</span></div><input type="text" placeholder="Root cause identified" data-ph-en="Root cause identified" data-ph-es="Causa raíz identificada" id="rca-w5" style="font-weight:600"></div>
+      <div id="rca-extra-whys-w"></div>
+      <button type="button" class="btn rca-add-why" style="margin-top:8px;font-size:13px;padding:5px 12px" onclick="rcaAddWhy('w')">＋ <span data-en>Add another Why</span><span data-es>Agregar otro Por qué</span></button>
       <div style="margin-top:12px" class="field-row single">
         <div class="field-group">
           <label><span data-en>Root cause summary</span><span data-es>Resumen de causa raíz</span><span class="req">*</span></label>
@@ -4422,6 +4426,8 @@ try {
       <div class="why-row"><div class="why-num"><span data-en>Why 4</span><span data-es>Por qué 4</span></div><input type="text" placeholder="And why?" data-ph-en="And why?" data-ph-es="¿Y por qué?" id="rca-mw4"></div>
       <div class="arrow-down">↓</div>
       <div class="why-row"><div class="why-num"><span data-en>Why 5</span><span data-es>Por qué 5</span></div><input type="text" placeholder="Root cause identified" data-ph-en="Root cause identified" data-ph-es="Causa raíz identificada" id="rca-mw5" style="font-weight:600"></div>
+      <div id="rca-extra-whys-mw"></div>
+      <button type="button" class="btn rca-add-why" style="margin-top:8px;font-size:13px;padding:5px 12px" onclick="rcaAddWhy('mw')">＋ <span data-en>Add another Why</span><span data-es>Agregar otro Por qué</span></button>
       <div style="margin-top:12px" class="field-row single">
         <div class="field-group">
           <label><span data-en>Root cause summary</span><span data-es>Resumen de causa raíz</span><span class="req">*</span></label>
@@ -7710,7 +7716,7 @@ function _applyListFilters(list, sectionPrefix) {
   _filterBaseLists[sectionPrefix] = list;
   var f = _getSectionFilters(sec.storeKey);
   var arr = list;
-  if (f.stations.length) arr = arr.filter(function(x){ return f.stations.indexOf(sec.station(x)) >= 0; });
+  if (f.stations.length) arr = arr.filter(function(x){ return String(sec.station(x) || '').split(' + ').some(function(st){ return f.stations.indexOf(st) >= 0; }); });
   if (f.cad.length) arr = arr.filter(function(x){ return f.cad.indexOf(sec.cad(x)) >= 0; });
   if (sec.operator && f.operator.length) arr = arr.filter(function(x){ return f.operator.indexOf(sec.operator(x)) >= 0; });
   if (sec.customer && f.customer.length) arr = arr.filter(function(x){ return f.customer.indexOf(sec.customer(x)) >= 0; });
@@ -19752,11 +19758,12 @@ function calculateQAAnalytics(list){
   var byStation = {};
   list.forEach(function(r){
     if (r.type === 'ncr_draft' || !r.station) return;
-    var st = r.station;
-    if (!byStation[st]) byStation[st] = { jobs:0, ncrs:0, rcas:0 };
-    if (r.type === 'job') byStation[st].jobs++;
-    else if (r.type === 'ncr') byStation[st].ncrs++;
-    else if (r.type === 'rca') byStation[st].rcas++;
+    String(r.station).split(' + ').forEach(function(st){
+      if (!byStation[st]) byStation[st] = { jobs:0, ncrs:0, rcas:0 };
+      if (r.type === 'job') byStation[st].jobs++;
+      else if (r.type === 'ncr') byStation[st].ncrs++;
+      else if (r.type === 'rca') byStation[st].rcas++;
+    });
   });
 
   var ncrByStatus = { 'Open':0, 'In Progress':0, 'Closed':0 };
@@ -20868,7 +20875,7 @@ function rcaPrefill(v){
     if (!n) return;
     if (n.jobNumber) document.getElementById('rca-job-num').value = n.jobNumber;
     var prod = (n.products && n.products.filter(function(p){return p&&p.trim();})[0]) || n.product || '';
-    if (prod) document.getElementById('rca-prod-num').value = prod;
+    if (prod) _rcaSetProductIds((n.products || []).filter(function(p){ return p && p.trim(); }).join(', ') || prod);
     if (n.station) document.getElementById('rca-station').value = n.station;
     _rcaSetCustomer(n.customerFinal || '');
     var issue = n.issue || n.salesSummary || '';
@@ -20888,7 +20895,7 @@ function rcaPrefill(v){
     var entry = _scheduleData && _scheduleData.jobs && _scheduleData.jobs[key];
     if (!entry) return;
     document.getElementById('rca-job-num').value = key;
-    if ((entry.products||[]).length) document.getElementById('rca-prod-num').value = entry.products[0];
+    if ((entry.products||[]).length) _rcaSetProductIds(entry.products.join(', '));
     if (entry.customer) _rcaSetCustomer(entry.customer);
   }
 }
@@ -21338,6 +21345,119 @@ function _rcaRestoreUi(ui){
   _rcaOtherText = ui.other || {};
 }
 
+/* ── Extra Product IDs and extra 5-Why rows ──
+   Extra Whys are saved appended to Why 5 as " ¦ Why 6: …" (the sheet only has
+   five Why columns) and split back out when a record is reopened. Extra
+   Product IDs are saved comma-joined in the one Product Number field. ── */
+function rcaAddProduct(val){
+  var box = document.getElementById('rca-extra-prods');
+  if (!box) return;
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;margin-top:6px;';
+  var inp = document.createElement('input');
+  inp.type = 'text'; inp.inputMode = 'numeric'; inp.style.flex = '1';
+  inp.placeholder = isEsLang() ? 'Otro ID de Producto' : 'Another Product ID';
+  inp.value = val || '';
+  var x = document.createElement('button');
+  x.type = 'button'; x.className = 'btn'; x.textContent = '✕'; x.title = isEsLang() ? 'Quitar' : 'Remove';
+  x.onclick = function(){ row.remove(); };
+  row.appendChild(inp); row.appendChild(x); box.appendChild(row);
+  if (!val) inp.focus();
+}
+function _rcaSetProductIds(str){
+  var parts = String(str || '').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  document.getElementById('rca-prod-num').value = parts[0] || '';
+  var box = document.getElementById('rca-extra-prods');
+  if (box) box.innerHTML = '';
+  parts.slice(1).forEach(function(p){ rcaAddProduct(p); });
+}
+function _rcaProductIds(){
+  var extra = Array.prototype.map.call(document.querySelectorAll('#rca-extra-prods input'), function(i){ return i.value.trim(); });
+  return [rcaGetVal('prod-num')].concat(extra).filter(Boolean).join(', ');
+}
+function _rcaRenumberWhys(prefix){
+  var isEs = isEsLang();
+  Array.prototype.forEach.call(document.querySelectorAll('#rca-extra-whys-' + prefix + ' .why-num'), function(el, i){
+    el.textContent = (isEs ? 'Por qué ' : 'Why ') + (i + 6);
+  });
+}
+function rcaAddWhy(prefix, val){
+  var box = document.getElementById('rca-extra-whys-' + prefix);
+  if (!box) return;
+  var isEs = isEsLang();
+  var wrap = document.createElement('div');
+  wrap.innerHTML = '<div class="arrow-down">↓</div><div class="why-row"><div class="why-num"></div><input type="text" placeholder="' + (isEs ? '¿Y por qué?' : 'And why?') + '"><button type="button" class="btn" style="padding:6px 10px" title="' + (isEs ? 'Quitar' : 'Remove') + '">✕</button></div>';
+  var inp = wrap.querySelector('input');
+  inp.value = val || '';
+  wrap.querySelector('button').onclick = function(){ wrap.remove(); _rcaRenumberWhys(prefix); };
+  box.appendChild(wrap);
+  _rcaRenumberWhys(prefix);
+  if (!val) inp.focus();
+}
+function _rcaWhy5Full(prefix){
+  var base = rcaGetVal(prefix + '5');
+  var parts = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#rca-extra-whys-' + prefix + ' input'), function(i, n){
+    var v = i.value.trim();
+    if (v) parts.push('Why ' + (n + 6) + ': ' + v);
+  });
+  return parts.length ? base + ' ¦ ' + parts.join(' ¦ ') : base;
+}
+function _rcaSetWhy5(prefix, str){
+  var segs = String(str || '').split(' ¦ ');
+  var inp = document.getElementById('rca-' + prefix + '5');
+  if (inp) inp.value = segs[0] || '';
+  var box = document.getElementById('rca-extra-whys-' + prefix);
+  if (box) box.innerHTML = '';
+  segs.slice(1).forEach(function(t){ rcaAddWhy(prefix, t.replace(/^Why \d+: /, '')); });
+}
+function _rcaClearExtras(){
+  var b = document.getElementById('rca-extra-prods'); if (b) b.innerHTML = '';
+  ['w','mw'].forEach(function(p){ var w = document.getElementById('rca-extra-whys-' + p); if (w) w.innerHTML = ''; });
+}
+
+/* ── One RCA, several stations ──
+   A Combination RCA is ONE record: station is saved as "Old Die Cutter + Long
+   Gluer" and the issues are saved per station as "[Old Die Cutter] Perforation
+   issue ¦ [Long Gluer] Over glue". These helpers build that text and read it
+   back when the record is reopened. ── */
+function _rcaStationValue(){
+  if (!_rcaIsCombo()) return rcaGetVal('station');
+  // Only stations that actually have an issue assigned belong on the record.
+  var used = _rcaStationGroups().filter(function(g){ return g.station && g.cats.length; }).map(function(g){ return g.station; });
+  return (used.length ? used : _rcaExtraStations).join(' + ');
+}
+function _rcaIssueComposed(detailId){
+  if (!_rcaIsCombo() || !_rcaExtraStations.length) return _rcaComposeFull('rca-issuecat-grid', detailId);
+  var base = _rcaStationGroups().filter(function(g){ return g.station; }).map(function(g){
+    return '[' + g.station + '] ' + _rcaComposeFull('rca-issuecat-grid', null, g);
+  }).join(' ¦ ');
+  var det = detailId ? rcaGetVal(detailId) : '';
+  return base && det ? base + ' — ' + det : (base || det);
+}
+function _rcaLoadComboIssues(rec, issueStr){
+  var stations = [], union = [], otherText = '';
+  _rcaIssueStations = {};
+  String(issueStr || '').split(' ¦ ').forEach(function(seg){
+    var m = /^\[([^\]]+)\] ([\s\S]*)$/.exec(seg);
+    if (!m) return;
+    var st = m[1], body = m[2];
+    var om = /(?:^|, )Other: ([\s\S]*)$/.exec(body);
+    if (om){ otherText = om[1]; body = body.replace(/(^|, )Other: [\s\S]*$/, '$1Other'); }
+    if (stations.indexOf(st) === -1) stations.push(st);
+    body.split(', ').filter(Boolean).forEach(function(c){
+      if (union.indexOf(c) === -1) union.push(c);
+      var list = _rcaIssueStations[c] || (_rcaIssueStations[c] = []);
+      if (list.indexOf(st) === -1) list.push(st);
+    });
+  });
+  if (!stations.length) stations = String(rec.station || '').split(' + ').filter(Boolean);
+  document.getElementById('rca-station').value = 'Combination';
+  _rcaExtraStations = stations;
+  if (otherText) _rcaOtherText['rca-issuecat-grid'] = otherText;
+  _rcaSetGridValue('rca-issuecat-grid', 'rca-issuecat-value', union.join(', '));
+}
+
 /* ── Multi-station RCA — a job can come back with issues from more than one
    station. QA picks extra stations, then says which issue belongs to which
    station (same idea as the Pallet Tag's per-issue assignment). Saving
@@ -21435,41 +21555,16 @@ function rcaRenderIssueAssign(){
   var groups = _rcaStationGroups();
   var idle = involved.filter(function(s){ return !groups.some(function(g){ return g.station===s; }); });
   box.innerHTML = '<div class="rca-assign"><div class="rca-assign-title">'+(isEs?'¿Qué problema corresponde a qué estación?':'Which issue goes with which station?')+'</div>'+rows+
-    '<div class="rca-assign-note">'+(isEs?'Se guardará un registro por estación: ':'One record will be saved per station: ')+
+    '<div class="rca-assign-note">'+(isEs?'Un solo RCA cubrirá: ':'This will save as ONE RCA covering: ')+
     groups.map(function(g){ return '<b>'+escHtml(g.station)+'</b> ('+g.cats.length+')'; }).join(', ')+'.'+
-    (idle.length ? ' '+(isEs?'Sin problemas asignados (no se creará registro): ':'No issues assigned (no record will be created): ')+idle.map(escHtml).join(', ')+'.' : '')+
+    (idle.length ? ' '+(isEs?'Sin problemas asignados (se omiten de este RCA): ':'No issues assigned (left out of this RCA): ')+idle.map(escHtml).join(', ')+'.' : '')+
     '</div></div>';
 }
 // Saves one record per station group; with no extra stations this is
 // exactly the old single rcaSendToSheets(rcaCollectData(...)) call.
 function rcaSendAll(status, action, onDone){
-  if (!_rcaIsCombo() || !_rcaExtraStations.length){
-    var d0 = rcaCollectData(status, action);
-    if (d0.station === 'Combination') d0.station = ''; // never store the placeholder as a real station
-    rcaSendToSheets(d0, onDone);
-    return;
-  }
-  var groups = _rcaStationGroups();
-  var detail = rcaGetVal('issue-desc');
-  var pending = groups.length, allOk = true;
-  groups.forEach(function(g, i){
-    var d = rcaCollectData(status, action);
-    d.station = g.station;
-    d.issueCategory = _rcaComposeFull('rca-issuecat-grid', null, g);
-    d.issueDesc = _rcaComposeFull('rca-issuecat-grid', 'issue-desc', g);
-    var _rcNew = _rcaComposeFull('rca-rootcause-grid','rootcause-detail', g) || _rcaComposeFull('rca-m-rootcause-grid','m-rootcause-detail', g);
-    var _caNew = _rcaComposeFull('rca-correctiveaction-grid','future-action', g) || _rcaComposeFull('rca-m-correctiveaction-grid','m-future-action', g);
-    if (_rcNew) d.rootCause = _rcNew;
-    if (_caNew) d.correctiveAction = _caNew;
-    if (i > 0) d.token = ''; // only the first may update an existing draft; the rest are new records
-    rcaSendToSheets(d, function(ok){
-      if (!ok) allOk = false;
-      if (--pending === 0){
-        onDone(allOk);
-        if (allOk && groups.length > 1) rcaShowToast(isEsLang() ? '✅ '+groups.length+' registros guardados (uno por estación)' : '✅ '+groups.length+' records saved (one per station)');
-      }
-    });
-  });
+  // One record no matter how many stations are involved (see _rcaStationValue).
+  rcaSendToSheets(rcaCollectData(status, action), onDone);
 }
 
 /* ── Manager / approver name selects — same RCA_MANAGER_NAMES roster used
@@ -21499,7 +21594,7 @@ function rcaNameSelectChange(selId){
 }
 function _rcaApplyManagerName(){
   var station = rcaGetVal('station');
-  var name = STATION_MANAGER[station];
+  var name = STATION_MANAGER[station] || STATION_MANAGER[_rcaInvolvedStations()[0]];
   if (!name) return;
   Object.keys(RCA_NAME_SELECT_MAP).forEach(function(selId){
     var sel = document.getElementById(selId);
@@ -21689,15 +21784,15 @@ function rcaCollectData(status, action){
   const dispNotes = rcaGetVal('disp-notes') || rcaGetVal('m-disp-notes');
   return {
     action:action||status.toLowerCase().replace(/ /g,'_'),
-    jobNumber:rcaGetVal('job-num'), productNumber:rcaGetVal('prod-num'), customer:rcaGetVal('customer'),
-    dateFound:rcaGetVal('date-found'), station:rcaGetVal('station'), qaTech:rcaGetQAName(),
-    issueCategory:_rcaComposeFull('rca-issuecat-grid'),
-    issueDesc:_rcaComposeFull('rca-issuecat-grid','issue-desc'),
+    jobNumber:rcaGetVal('job-num'), productNumber:_rcaProductIds(), customer:rcaGetVal('customer'),
+    dateFound:rcaGetVal('date-found'), station:_rcaStationValue(), qaTech:rcaGetQAName(),
+    issueCategory:_rcaIssueComposed(),
+    issueDesc:_rcaIssueComposed('issue-desc'),
     rcaUi:_rcaUiSnapshot(), path:rcaCurrentPath===1?'Path 1 — QA completes all':'Path 2 — Escalate to manager',
     problemStmt:rcaGetVal('problem-stmt')||rcaGetVal('m-problem-stmt'),
     why1:rcaGetVal('w1')||rcaGetVal('mw1'), why2:rcaGetVal('w2')||rcaGetVal('mw2'),
     why3:rcaGetVal('w3')||rcaGetVal('mw3'), why4:rcaGetVal('w4')||rcaGetVal('mw4'),
-    why5:rcaGetVal('w5')||rcaGetVal('mw5'),
+    why5:_rcaWhy5Full('w')||_rcaWhy5Full('mw'),
     rootCause:rootCause,
     rcSummary:rcaGetVal('rc-summary')||rcaGetVal('m-rc-summary'),
     immAction:rcaGetVal('imm-action'), correctiveAction:ca,
@@ -21919,7 +22014,7 @@ function _rcaJsonpGet(token, onOk, onErr){
 // won't have any) and then locked read-only.
 function _rcaFillIncidentInfo(rec){
   document.getElementById('rca-job-num').value = rec.jobNumber || '';
-  document.getElementById('rca-prod-num').value = rec.productNumber || '';
+  _rcaSetProductIds(rec.productNumber);
   document.getElementById('rca-date-found').value = rec.dateFound || '';
   if (rec.customer) _rcaSetCustomer(rec.customer);
   var stationSel = document.getElementById('rca-station');
@@ -21944,7 +22039,9 @@ function _rcaFillIncidentInfo(rec){
   // that empty set and wiped the category right back out — the category
   // never stuck for the manager, and with no category selected the root
   // cause / corrective action grids had nothing to cascade from either.
-  _rcaSetGridValue('rca-issuecat-grid', 'rca-issuecat-value', parts[0] || rec.issueCategory || '');
+  var _issueStr = parts[0] || rec.issueCategory || '';
+  if (/^\[[^\]]+\] /.test(_issueStr) || String(rec.station || '').indexOf(' + ') !== -1) _rcaLoadComboIssues(rec, _issueStr);
+  else _rcaSetGridValue('rca-issuecat-grid', 'rca-issuecat-value', _issueStr);
   document.getElementById('rca-issue-desc').value = parts.length > 1 ? parts.slice(1).join(' — ') : '';
 }
 function _rcaLockIncidentInfo(){
@@ -21955,6 +22052,7 @@ function _rcaLockIncidentInfo(){
    'rca-date-found','rca-station','rca-qa-name','rca-qa-name-other','rca-issue-desc','rca-photo-input'
   ].forEach(function(id){ var e = document.getElementById(id); if (e) e.disabled = true; });
   document.querySelectorAll('#rca-issuecat-grid .disp-option').forEach(function(el){ el.style.pointerEvents = 'none'; el.style.opacity = '.7'; });
+  document.querySelectorAll('#rca-extra-prods input, #rca-extra-prods button, .rca-add-prod').forEach(function(e){ e.disabled = true; });
 }
 
 function _rcaSetTokenLoading(state, opts){
