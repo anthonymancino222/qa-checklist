@@ -4231,6 +4231,8 @@ try {
   </div>
 
   <div style="font-size:15px;color:var(--text-secondary);margin-bottom:8px;font-weight:600"><span data-en>Choose workflow path</span><span data-es>Elija la ruta de trabajo</span></div>
+  <div id="rca-drafts-box" class="hidden"></div>
+
   <div class="path-selector">
     <div class="path-card" id="rca-path1-card" onclick="rcaSetPath(1)">
       <div class="path-icon">✅</div>
@@ -11210,7 +11212,7 @@ function switchView(id) {
   if (id === 'ncr')        renderNCRView();
   if (id === 'ncrprog')    renderNCRProgress();
   if (id === 'ncrpie')     renderQAData();
-  if (id === 'rca')        rcaPopulatePrefill();
+  if (id === 'rca')      { rcaPopulatePrefill(); rcaRenderDraftList(); }
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    renderRecords();
   if (id === 'qamanager')  _renderQaManagerAccess();
@@ -21689,7 +21691,7 @@ function rcaResetForm(){
   // Reset every piece of module-level selection/photo/token state.
   _rcaGridSelectedSets = {};
   _rcaExtraStations = []; _rcaIssueStations = {};
-  rcaRenderExtraStations(); rcaRenderIssueAssign();
+  rcaRenderExtraStations(); rcaRenderIssueAssign(); rcaRenderDraftList();
   rcaDispSelectedValues = []; rcaDisp2SelectedValues = [];
   rcaPhotos = [];
   if (typeof rcaRenderPhotoGrid === 'function') rcaRenderPhotoGrid();
@@ -21853,6 +21855,7 @@ function rcaSaveDraft(){
   var isEs = isEsLang();
   rcaSetStatus('saving', isEs?'Guardando borrador...':'Saving draft...');
   rcaSendAll('Draft', undefined, ok=>{
+    rcaRenderDraftList();
     // The `ok===false` fallback text used to also claim success ("Draft
     // saved locally") regardless — the exact same silent-failure bug as
     // the one fixed in rcaSendToSheets/_rcaMirrorLocal, just repeated here
@@ -23392,6 +23395,35 @@ function rcaPrintRecordReport(idxKey){
 // a separate version. The stale draft entry is removed from this device's
 // local list right away so finishing it doesn't leave a duplicate
 // half-filled copy sitting in Records next to the real, completed one.
+// "Continue a saved draft" list at the top of the RCA form — same local
+// draft records the Records tab's Continue Draft button uses. One row per
+// job+station (each draft save mirrors a fresh copy, newest first, so older
+// copies of the same job are hidden here rather than listed twice).
+function rcaRenderDraftList(){
+  var box = document.getElementById('rca-drafts-box');
+  if (!box) return;
+  var list = rcaLoadRecords(), seen = {}, rows = [];
+  list.forEach(function(r, idx){
+    if (!r || r.status !== 'Draft') return;
+    var key = (r.jobNumber||'') + '|' + (r.station||'');
+    if (seen[key]) return;
+    seen[key] = true;
+    rows.push({ r: r, idx: idx });
+  });
+  if (!rows.length){ box.classList.add('hidden'); box.innerHTML = ''; return; }
+  var isEs = isEsLang();
+  box.classList.remove('hidden');
+  box.innerHTML = '<div class="section" style="margin-bottom:1rem"><div class="section-title" style="margin-bottom:10px">📝 ' +
+    (isEs ? 'Continuar un borrador guardado' : 'Continue a saved draft') + ' (' + rows.length + ')</div>' +
+    rows.map(function(x){
+      var r = x.r;
+      var meta = [r.station ? stationLabel(r.station) : '', r.customer || '', r.savedAt ? (isEs?'guardado ':'saved ') + r.savedAt : ''].filter(Boolean).map(escHtml).join(' · ');
+      return '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border)">' +
+        '<div style="min-width:0"><div style="font-weight:700;font-size:15px">' + (isEs?'Trabajo ':'Job ') + escHtml(r.jobNumber || '—') + '</div>' +
+        '<div style="font-size:13px;color:var(--text-tertiary)">' + meta + '</div></div>' +
+        '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + (isEs?'Continuar':'Continue') + '</button></div>';
+    }).join('') + '</div>';
+}
 function rcaContinueDraft(idxKey){
   var idx = parseInt(String(idxKey).replace('rca-',''), 10);
   var list = rcaLoadRecords();
@@ -23415,9 +23447,13 @@ function rcaContinueDraft(idxKey){
     notice.querySelector('[data-es]').textContent = 'Continuando borrador del Trabajo ' + (r.jobNumber || '—') + '.';
     notice.classList.remove('hidden');
   }
-  list.splice(idx, 1);
+  // Also drop older saved copies of this same job+station draft — each draft
+  // save mirrors a new copy, and leaving the stale ones would make the job
+  // reappear in the Continue-a-draft list right after it was picked up.
+  list = list.filter(function(x, i){ return i !== idx && !(x && x.status === 'Draft' && (x.jobNumber||'') === (r.jobNumber||'') && (x.station||'') === (r.station||'')); });
   localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
+  rcaRenderDraftList();
   document.getElementById('view-rca').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
