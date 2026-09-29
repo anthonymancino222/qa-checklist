@@ -6139,6 +6139,56 @@ function _backgroundUploadPhoto(jobId, dataUrl, topField, stageIndex, stageField
     ipSave(jobs);
   });
 }
+function _getPathOnJob(job, path) {
+  var parts = path.split('.'), obj = job;
+  for (var i = 0; i < parts.length; i++) {
+    if (obj == null) return undefined;
+    obj = obj[parts[i]];
+  }
+  return obj;
+}
+// Same top-level (or dotted, one-level-nested) job fields every
+// _backgroundUploadPhoto call site above ever targets. A field only ever
+// ends up stuck holding the raw embedded photo when its ORIGINAL upload
+// attempt failed (offline, slow shop-floor wifi, backend hiccup) — that's
+// a deliberate fallback so a photo is never lost, but nothing used to
+// retry it afterward, so it just sat there bloating the record forever.
+// Confirmed live 2026-09-29: one job's make-ready photo (mrPhoto) was
+// still a ~3.9MB embedded data URL weeks after the job finished.
+var _JOB_PHOTO_FIELDS = ['mrPhoto', 'opSignature', 'qaSignature', 'shipping.cutterPicture', 'shipping.signature'];
+// Opportunistic self-heal — called from _idleBackgroundCheckTick, so this
+// only ever runs on a device that's genuinely idle (never mid-task) and at
+// most once per idle stretch, same gating as the update check it runs
+// alongside. One photo at a time (not all in parallel) so it doesn't burst
+// a pile of uploads onto a connection that's already doing normal sync
+// traffic. Anything that fails again just gets retried on the next idle
+// tick — no different from the original upload's own retry-free fallback,
+// just no longer a dead end.
+function _healEmbeddedPhotos(){
+  var jobs = ipLoad();
+  var candidates = [];
+  jobs.forEach(function(job){
+    _JOB_PHOTO_FIELDS.forEach(function(path){
+      var v = _getPathOnJob(job, path);
+      if (typeof v === 'string' && v.indexOf('data:') === 0) candidates.push({ jobId: job.id, path: path, dataUrl: v });
+    });
+  });
+  if (!candidates.length) return;
+  candidates.reduce(function(chain, c){
+    return chain.then(function(){
+      return _uploadPhotoToDrive(c.dataUrl).then(function(url){
+        if (!url || url === c.dataUrl) return; // still failed — left as-is, retried again next idle tick
+        var current = ipLoad();
+        for (var i = 0; i < current.length; i++){
+          if (current[i].id !== c.jobId) continue;
+          _setPathOnJob(current[i], c.path, url);
+          break;
+        }
+        ipSave(current);
+      });
+    });
+  }, Promise.resolve());
+}
 
 // qc_draft (a shared Save Progress entry) keys off plain `id`, same as a job —
 // only NCR's own stores use ncrId/__draftId.
@@ -6801,6 +6851,7 @@ function _idleBackgroundCheckTick(){
   _lastIdleBackgroundRun = Date.now();
   _syncAutoPull();
   _checkForAppUpdate({autoApply:true});
+  _healEmbeddedPhotos();
 }
 // Checked every 60s — cheap, purely local Date.now() comparisons, no
 // network cost at all for the (overwhelmingly common) tick where the
