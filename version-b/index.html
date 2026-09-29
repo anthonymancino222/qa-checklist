@@ -1820,6 +1820,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .disp-icon{font-size:20px;margin-bottom:4px}
 #view-rca .disposition-grid.rca-grid-collapsed{display:none}
 #view-rca .rca-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+#view-rca .rca-per-block{grid-column:1/-1;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--surface-raised)}
+#view-rca .rca-per-title{font-size:14px;font-weight:800;color:var(--text-primary);margin-bottom:8px}
+#view-rca .rca-per-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media (max-width:560px){#view-rca .rca-per-opts{grid-template-columns:repeat(2,1fr)}}
+#view-rca .rca-other-box{margin-top:8px}
+#view-rca .rca-other-box input{width:100%}
+#view-rca .rca-other-box.hidden{display:none}
 #view-rca .rca-chip{border:1.5px solid var(--border-mid);border-radius:20px;padding:7px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-secondary);background:var(--surface);transition:all .15s;user-select:none}
 #view-rca .rca-chip:hover{border-color:var(--brand);background:var(--brand-soft)}
 #view-rca .rca-chip.selected{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
@@ -17371,8 +17378,8 @@ var QUALITY_DATA = {
     correctiveActions: ["Reduce glue bead width and verify on test fold","Adjust glue volume setting and run test pieces before production","Realign nozzle position and confirm placement on first article","Check substrate guides and lock before run","Verify glue settings match board caliper spec before setup"]
   },
   "Folder gluer issue": {
-    rootCauses: ["Glue temperature incorrect","Glue bead misaligned","Fold score weak","Guide misaligned","Speed too high for substrate","Glue nozzle clogged","Panel gap incorrect"],
-    correctiveActions: ["Calibrate glue temperature before run","Clean and inspect glue nozzles before run","Verify fold scores are deep enough before feeding","Align guides and run test fold before production","Reduce speed if substrate is prone to misalignment","Verify panel dimensions match die spec"]
+    rootCauses: ["Glue temperature incorrect","Glue bead misaligned","Fold score weak","Guide misaligned","Speed too high for substrate","Glue nozzle clogged","Panel gap incorrect","Pre-break not done or pre-breaker not set correctly"],
+    correctiveActions: ["Calibrate glue temperature before run","Clean and inspect glue nozzles before run","Verify fold scores are deep enough before feeding","Align guides and run test fold before production","Reduce speed if substrate is prone to misalignment","Verify panel dimensions match die spec","Pre-break all fold lines and verify pre-breaker setting before run"]
   },
   "Short / quantity": {
     rootCauses: ["Miscounting at QC","Spoilage not accounted for","Feeder misfeed not caught","Wrong quantity entered in system","Sheets pulled for samples not logged"],
@@ -20692,6 +20699,7 @@ function rcaSetDisp(el,val){
   else if (i!==-1) rcaDispSelectedValues.splice(i,1);
   document.getElementById('rca-disp-value').value = rcaDispSelectedValues.join(', ');
   _rcaSyncGridSummary('rca-disp-grid','rca-disp-value');
+  _rcaSyncDispOther('rca-disp-grid');
 }
 function rcaSetDisp2(el,val){
   el.classList.toggle('selected');
@@ -20700,6 +20708,7 @@ function rcaSetDisp2(el,val){
   else if (i!==-1) rcaDisp2SelectedValues.splice(i,1);
   document.getElementById('rca-disp2-value').value = rcaDisp2SelectedValues.join(', ');
   _rcaSyncGridSummary('rca-disp2-grid','rca-disp2-value');
+  _rcaSyncDispOther('rca-disp2-grid');
 }
 
 /* ── Collapsible option grids — the root-cause/corrective-action/disposition
@@ -20793,8 +20802,11 @@ function _rcaInitCollapsibleGrids(){
 // the hidden input leaves that set empty and the very next re-render wipes
 // the value straight back out.
 function _rcaSetGridValue(gridId, valueId, valueString){
-  _rcaGridSelectedSets[gridId] = valueString ? valueString.split(', ') : [];
-  document.getElementById(valueId).value = valueString || '';
+  var str = String(valueString || '');
+  var m = /(?:^|, )Other: ([\s\S]*)$/.exec(str);
+  if (m){ _rcaOtherText[gridId] = m[1]; str = (str.slice(0, m.index) ? str.slice(0, m.index) + ', ' : '') + 'Other'; }
+  _rcaGridSelectedSets[gridId] = str ? str.split(', ') : [];
+  document.getElementById(valueId).value = str;
 }
 function _rcaGridHTML(gridId, valueId, options){
   var selectedSet = _rcaGridSelectedSets[gridId] || [];
@@ -20823,6 +20835,7 @@ function _rcaGridPick(gridId, valueId, el, val){
   else if (i!==-1) set.splice(i,1);
   document.getElementById(valueId).value = set.join(', ');
   _rcaSyncGridSummary(gridId, valueId);
+  _rcaSyncOther(gridId);
 }
 function rcaRenderIssueCatGrid(){
   var grid = document.getElementById('rca-issuecat-grid');
@@ -20856,17 +20869,193 @@ function rcaCascadeOptions(kind){
 function rcaRenderCascadeGrids(alsoIssueCat){
   if (alsoIssueCat !== false) rcaRenderIssueCatGrid();
   rcaRenderIssueAssign();
-  var rc = rcaCascadeOptions('rootCauses');
-  var ca = rcaCascadeOptions('correctiveActions');
-  _rcaRenderGrid('rca-rootcause-grid','rca-rootcause-value', rc);
-  _rcaRenderGrid('rca-m-rootcause-grid','rca-m-rootcause-value', rc);
-  _rcaRenderGrid('rca-correctiveaction-grid','rca-correctiveaction-value', ca);
-  _rcaRenderGrid('rca-m-correctiveaction-grid','rca-m-correctiveaction-value', ca);
+  _rcaSyncOther('rca-issuecat-grid');
+  _rcaRenderCascadeGrid('rca-rootcause-grid','rca-rootcause-value','rootCauses');
+  _rcaRenderCascadeGrid('rca-m-rootcause-grid','rca-m-rootcause-value','rootCauses');
+  _rcaRenderCascadeGrid('rca-correctiveaction-grid','rca-correctiveaction-value','correctiveActions');
+  _rcaRenderCascadeGrid('rca-m-correctiveaction-grid','rca-m-correctiveaction-value','correctiveActions');
 }
 function rcaOnStationChange(){
   _rcaApplyManagerName();
   rcaRenderExtraStations();
   rcaRenderCascadeGrids(true);
+}
+
+/* ── Per-issue root cause / corrective action + "Other" text boxes ──
+   When more than one quality issue is in play (several issues at one
+   station, or a Combination), each issue gets its OWN root-cause and
+   corrective-action picker instead of one shared pile. Hidden inputs stay a
+   plain comma list (union of everything picked) so existing validation and
+   summaries keep working; the readable "[Issue] cause, cause ¦ [Issue] ..."
+   text is composed at save time by _rcaComposeFull. Picking "Other" anywhere
+   reveals a text box whose text is saved as "Other: text". ── */
+var _rcaPer = {};        // gridId -> { 'station||cat' : [values] }
+var _rcaPerMode = {};    // gridId -> true while rendered per-issue
+var _rcaOtherText = {};  // gridId or gridId|pairKey -> free text
+var RCA_CASCADE_KIND = {
+  'rca-rootcause-grid':'rootCauses','rca-m-rootcause-grid':'rootCauses',
+  'rca-correctiveaction-grid':'correctiveActions','rca-m-correctiveaction-grid':'correctiveActions'
+};
+var RCA_VALUE_TO_GRID = {
+  'issuecat-value':'rca-issuecat-grid','rootcause-value':'rca-rootcause-grid','m-rootcause-value':'rca-m-rootcause-grid',
+  'correctiveaction-value':'rca-correctiveaction-grid','m-correctiveaction-value':'rca-m-correctiveaction-grid'
+};
+function _rcaPairs(){
+  var out = [];
+  _rcaStationGroups().forEach(function(g){ g.cats.forEach(function(c){ out.push({station:g.station, cat:c, key:g.station+'||'+c}); }); });
+  return out;
+}
+function _rcaPairLabel(p){ return p.cat + (_rcaIsCombo() && p.station ? ' — ' + p.station : ''); }
+function _rcaValsWithOther(vals, text, name){
+  name = name || 'Other';
+  var v = vals.filter(function(x){ return x !== name; });
+  if (vals.indexOf(name) !== -1) v.push(text ? name + ': ' + text : name);
+  return v.join(', ');
+}
+function _rcaComposeFull(gridId, detailId, group){
+  var base = '';
+  if (_rcaPerMode[gridId]){
+    var per = _rcaPer[gridId] || {}, segs = [];
+    _rcaPairs().forEach(function(p){
+      if (group && p.station !== group.station) return;
+      var vals = per[p.key] || [];
+      if (!vals.length) return;
+      segs.push('[' + (group ? p.cat : _rcaPairLabel(p)) + '] ' + _rcaValsWithOther(vals, (_rcaOtherText[gridId+'|'+p.key]||'').trim()));
+    });
+    base = segs.join(' ¦ ');
+  } else {
+    var vals2 = (_rcaGridSelectedSets[gridId] || []).slice();
+    if (group && gridId === 'rca-issuecat-grid') vals2 = group.cats.slice();
+    base = _rcaValsWithOther(vals2, (_rcaOtherText[gridId]||'').trim());
+  }
+  var det = detailId ? rcaGetVal(detailId) : '';
+  return base && det ? base + ' — ' + det : (base || det);
+}
+function _rcaDispComposed(gridId){
+  var arr = gridId === 'rca-disp-grid' ? rcaDispSelectedValues : rcaDisp2SelectedValues;
+  return _rcaValsWithOther(arr, (_rcaOtherText[gridId]||'').trim(), 'Other — Add Comment');
+}
+function _rcaOtherBox(gridId){
+  var g = document.getElementById(gridId);
+  if (!g) return null;
+  var id = gridId + '-otherbox', b = document.getElementById(id);
+  if (!b){ b = document.createElement('div'); b.id = id; b.className = 'rca-other-box hidden'; g.parentNode.insertBefore(b, g.nextSibling); }
+  return b;
+}
+function _rcaFillOtherBox(box, stateKey, show){
+  if (!box) return;
+  box.classList.toggle('hidden', !show);
+  if (!show){ box.innerHTML = ''; return; }
+  var isEs = isEsLang();
+  box.innerHTML = '<input type="text" placeholder="' + (isEs ? 'Otro — escriba lo que se necesita…' : 'Other — type what is needed…') + '">';
+  var inp = box.firstChild;
+  inp.value = _rcaOtherText[stateKey] || '';
+  inp.addEventListener('input', function(){ _rcaOtherText[stateKey] = inp.value; });
+}
+function _rcaSyncOther(gridId){
+  var show = !_rcaPerMode[gridId] && (_rcaGridSelectedSets[gridId] || []).indexOf('Other') !== -1;
+  _rcaFillOtherBox(_rcaOtherBox(gridId), gridId, show);
+}
+function _rcaSyncDispOther(gridId){
+  var arr = gridId === 'rca-disp-grid' ? rcaDispSelectedValues : rcaDisp2SelectedValues;
+  _rcaFillOtherBox(_rcaOtherBox(gridId), gridId, arr.indexOf('Other — Add Comment') !== -1);
+}
+function _rcaRenderCascadeGrid(gridId, valueId, kind){
+  var pairs = _rcaPairs();
+  if (pairs.length <= 1){
+    _rcaPerMode[gridId] = false;
+    _rcaRenderGrid(gridId, valueId, rcaCascadeOptions(kind));
+    _rcaSyncOther(gridId);
+    return;
+  }
+  _rcaPerMode[gridId] = true;
+  var grid = document.getElementById(gridId);
+  if (!grid) return;
+  var per = _rcaPer[gridId] || (_rcaPer[gridId] = {});
+  var validKeys = {};
+  var html = pairs.map(function(p){
+    validKeys[p.key] = true;
+    var data = qualityIssueData(p.station, p.cat);
+    var opts = ((data && data[kind]) || []).concat(['N/A','Other']);
+    var cur = (per[p.key] || []).filter(function(v){ return opts.indexOf(v) !== -1; });
+    per[p.key] = cur;
+    var hasOther = cur.indexOf('Other') !== -1;
+    return '<div class="rca-per-block"><div class="rca-per-title">' + escHtml(_rcaPairLabel(p)) + '</div><div class="rca-per-opts">' +
+      opts.map(function(o){
+        return '<div class="disp-option' + (cur.indexOf(o) !== -1 ? ' selected' : '') + '" data-grid="' + gridId + '" data-key="' + escHtml(p.key) + '" data-val="' + escHtml(o) + '" onclick="_rcaPerPick(this)">' + escHtml(o) + '</div>';
+      }).join('') + '</div>' +
+      (hasOther ? '<div class="rca-other-box"><input type="text" data-grid="' + gridId + '" data-key="' + escHtml(p.key) + '" placeholder="' + (isEsLang() ? 'Otro — escriba lo que se necesita…' : 'Other — type what is needed…') + '" value="' + escHtml(_rcaOtherText[gridId+'|'+p.key] || '') + '" oninput="_rcaPerOtherInput(this)"></div>' : '') +
+      '</div>';
+  }).join('');
+  Object.keys(per).forEach(function(k){ if (!validKeys[k]) delete per[k]; });
+  grid.innerHTML = html;
+  var union = [];
+  Object.keys(per).forEach(function(k){ per[k].forEach(function(v){ if (union.indexOf(v) === -1) union.push(v); }); });
+  _rcaGridSelectedSets[gridId] = union;
+  document.getElementById(valueId).value = union.join(', ');
+  _rcaSyncGridSummary(gridId, valueId);
+  _rcaFillOtherBox(_rcaOtherBox(gridId), gridId, false);
+}
+function _rcaPerPick(el){
+  var gridId = el.dataset.grid, key = el.dataset.key, val = el.dataset.val;
+  var per = _rcaPer[gridId] || (_rcaPer[gridId] = {});
+  var list = per[key] || (per[key] = []);
+  var i = list.indexOf(val);
+  if (i === -1) list.push(val); else list.splice(i, 1);
+  var valueId = gridId.replace(/-grid$/, '-value');
+  _rcaRenderCascadeGrid(gridId, valueId, RCA_CASCADE_KIND[gridId]);
+}
+function _rcaPerOtherInput(inp){ _rcaOtherText[inp.dataset.grid + '|' + inp.dataset.key] = inp.value; }
+// Returns an error message (and focuses the offending spot) or ''.
+function _rcaGridProblem(gridId){
+  var isEs = isEsLang(), box;
+  if (_rcaPerMode[gridId]){
+    var per = _rcaPer[gridId] || {}, pairs = _rcaPairs();
+    for (var i = 0; i < pairs.length; i++){
+      var p = pairs[i], vals = per[p.key] || [];
+      if (!vals.length) return (isEs ? 'Elija al menos una opción para: ' : 'Please choose at least one option for: ') + _rcaPairLabel(p);
+      if (vals.indexOf('Other') !== -1 && !(_rcaOtherText[gridId+'|'+p.key] || '').trim()){
+        box = document.querySelector('#' + gridId + ' input[data-key="' + p.key.replace(/"/g,'\\"') + '"]');
+        if (box) box.focus();
+        return (isEs ? 'Escriba lo que se necesita para "Otro" en: ' : 'Please type what is needed for "Other" under: ') + _rcaPairLabel(p);
+      }
+    }
+    return '';
+  }
+  if ((_rcaGridSelectedSets[gridId] || []).indexOf('Other') !== -1 && !(_rcaOtherText[gridId] || '').trim()){
+    box = document.querySelector('#' + gridId + '-otherbox input');
+    if (box) box.focus();
+    return isEs ? 'Escriba lo que se necesita para "Otro".' : 'Please type what is needed for "Other".';
+  }
+  return '';
+}
+function rcaValidate(ids){
+  if (!_rcaValidateBase(ids)) return false;
+  for (var i = 0; i < ids.length; i++){
+    var gid = RCA_VALUE_TO_GRID[ids[i]];
+    if (!gid) continue;
+    var msg = _rcaGridProblem(gid);
+    if (msg){ showAlert(msg); return false; }
+  }
+  return true;
+}
+function _rcaDispOtherOk(gridId){
+  var arr = gridId === 'rca-disp-grid' ? rcaDispSelectedValues : rcaDisp2SelectedValues;
+  if (arr.indexOf('Other — Add Comment') !== -1 && !(_rcaOtherText[gridId] || '').trim()){
+    showAlert(isEsLang() ? 'Escriba lo que se necesita para la disposición "Otro".' : 'Please type what is needed for the "Other" disposition.');
+    var b = document.querySelector('#' + gridId + '-otherbox input'); if (b) b.focus();
+    return false;
+  }
+  return true;
+}
+function _rcaUiSnapshot(){
+  try { return JSON.parse(JSON.stringify({ sets:_rcaGridSelectedSets, per:_rcaPer, other:_rcaOtherText })); } catch(e){ return null; }
+}
+function _rcaRestoreUi(ui){
+  if (!ui) return;
+  _rcaGridSelectedSets = ui.sets || {};
+  _rcaPer = ui.per || {};
+  _rcaOtherText = ui.other || {};
 }
 
 /* ── Multi-station RCA — a job can come back with issues from more than one
@@ -20986,8 +21175,12 @@ function rcaSendAll(status, action, onDone){
   groups.forEach(function(g, i){
     var d = rcaCollectData(status, action);
     d.station = g.station;
-    d.issueCategory = g.cats.join(', ');
-    d.issueDesc = d.issueCategory + (detail ? ' — ' + detail : '');
+    d.issueCategory = _rcaComposeFull('rca-issuecat-grid', null, g);
+    d.issueDesc = _rcaComposeFull('rca-issuecat-grid', 'issue-desc', g);
+    var _rcNew = _rcaComposeFull('rca-rootcause-grid','rootcause-detail', g) || _rcaComposeFull('rca-m-rootcause-grid','m-rootcause-detail', g);
+    var _caNew = _rcaComposeFull('rca-correctiveaction-grid','future-action', g) || _rcaComposeFull('rca-m-correctiveaction-grid','m-future-action', g);
+    if (_rcNew) d.rootCause = _rcNew;
+    if (_caNew) d.correctiveAction = _caNew;
     if (i > 0) d.token = ''; // only the first may update an existing draft; the rest are new records
     rcaSendToSheets(d, function(ok){
       if (!ok) allOk = false;
@@ -21210,16 +21403,17 @@ function _rcaCompose(catId, detailId){
   return cat && det ? cat + ' — ' + det : (cat || det);
 }
 function rcaCollectData(status, action){
-  const ca = _rcaCompose('correctiveaction-value','future-action') || _rcaCompose('m-correctiveaction-value','m-future-action');
-  const rootCause = _rcaCompose('rootcause-value','rootcause-detail') || _rcaCompose('m-rootcause-value','m-rootcause-detail');
-  const disp = document.getElementById('rca-disp-value').value || document.getElementById('rca-disp2-value').value;
+  const ca = _rcaComposeFull('rca-correctiveaction-grid','future-action') || _rcaComposeFull('rca-m-correctiveaction-grid','m-future-action');
+  const rootCause = _rcaComposeFull('rca-rootcause-grid','rootcause-detail') || _rcaComposeFull('rca-m-rootcause-grid','m-rootcause-detail');
+  const disp = _rcaDispComposed('rca-disp-grid') || _rcaDispComposed('rca-disp2-grid');
   const dispNotes = rcaGetVal('disp-notes') || rcaGetVal('m-disp-notes');
   return {
     action:action||status.toLowerCase().replace(/ /g,'_'),
     jobNumber:rcaGetVal('job-num'), productNumber:rcaGetVal('prod-num'), customer:rcaGetVal('customer'),
     dateFound:rcaGetVal('date-found'), station:rcaGetVal('station'), qaTech:rcaGetQAName(),
-    issueCategory:rcaGetVal('issuecat-value'),
-    issueDesc:_rcaCompose('issuecat-value','issue-desc'), path:rcaCurrentPath===1?'Path 1 — QA completes all':'Path 2 — Escalate to manager',
+    issueCategory:_rcaComposeFull('rca-issuecat-grid'),
+    issueDesc:_rcaComposeFull('rca-issuecat-grid','issue-desc'),
+    rcaUi:_rcaUiSnapshot(), path:rcaCurrentPath===1?'Path 1 — QA completes all':'Path 2 — Escalate to manager',
     problemStmt:rcaGetVal('problem-stmt')||rcaGetVal('m-problem-stmt'),
     why1:rcaGetVal('w1')||rcaGetVal('mw1'), why2:rcaGetVal('w2')||rcaGetVal('mw2'),
     why3:rcaGetVal('w3')||rcaGetVal('mw3'), why4:rcaGetVal('w4')||rcaGetVal('mw4'),
@@ -21300,7 +21494,7 @@ function rcaLockForm(){
   document.getElementById('rca-status-bar').style.borderColor='var(--green)';
 }
 
-function rcaValidate(ids){
+function _rcaValidateBase(ids){
   if (ids.indexOf('station') !== -1 && _rcaIsCombo() && !_rcaExtraStations.length){
     showAlert(isEsLang() ? 'Seleccione al menos una estación.' : 'Please tap at least one station.');
     var _w = document.getElementById('rca-extra-station-wrap'); if (_w) _w.scrollIntoView({behavior:'smooth', block:'center'});
@@ -21340,6 +21534,7 @@ function rcaReturnToQA(){
     if (_dispGrid2) _dispGrid2.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
+  if(!_rcaDispOtherOk('rca-disp2-grid')) return;
   var btn = document.querySelector('#rca-section-mgrfill .btn-warn');
   if (btn){ btn.disabled = true; btn.textContent = isEs?'Enviando...':'Submitting...'; }
   rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando sección del gerente...':'Saving manager section...') : (isEs?'Guardando localmente...':'Saving locally...'));
@@ -21393,6 +21588,7 @@ function rcaSubmitPath1(){
     if (_dispGrid1) _dispGrid1.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
+  if(!_rcaDispOtherOk('rca-disp-grid')) return;
   if(!rcaGetQAName()||!rcaGetCloseQAName()){showAlert(isEs?'Seleccione o ingrese los nombres de los técnicos de calidad.':'Please select or enter QA tech names.');_scrollToField(document.getElementById('rca-qa-name'));return;}
   const btn=document.getElementById('rca-btn-submit1');
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
