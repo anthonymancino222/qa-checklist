@@ -22219,14 +22219,7 @@ function _computeFilteredRecords(){
   var searchEl = document.getElementById('records-search');
   var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
 
-  // A job actually sitting in the Shipping Approval queue (see
-  // _isJobPendingShippingApproval — same predicate that queue itself
-  // filters on) stays there only, not duplicated into Records, until
-  // someone actually completes shipping approval on it. Every other stage
-  // (Job in Progress, QA Release pending, etc.) still shows here live, per
-  // this screen's "at any stage" design — this is the one deliberate
-  // exception, not a reversal of that.
-  var jobs      = _recNorm(ipLoad().filter(function(j){ return !_isJobPendingShippingApproval(j); }), 'job');
+  var jobs      = _recNorm(ipLoad(), 'job');
   var ncrs      = _recNorm(ncrLoad(), 'ncr');
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
@@ -22446,10 +22439,7 @@ function exportRecordsCSV(){
 // prevention, and the type toggle (All/Jobs/NCR/RCA) still applies too.
 function exportAllRecordsCSV(){
   var isEs = isEsLang();
-  // Same exclusion as _computeFilteredRecords — a job still pending
-  // Shipping Approval isn't a Records record yet, so it shouldn't be in a
-  // "Records" export either.
-  var jobs      = _recNorm(ipLoad().filter(function(j){ return !_isJobPendingShippingApproval(j); }), 'job');
+  var jobs      = _recNorm(ipLoad(), 'job');
   var ncrs      = _recNorm(ncrLoad(), 'ncr');
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
