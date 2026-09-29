@@ -1819,6 +1819,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .disp-option.selected{border:2px solid var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
 #view-rca .disp-icon{font-size:20px;margin-bottom:4px}
 #view-rca .disposition-grid.rca-grid-collapsed{display:none}
+#view-rca .rca-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+#view-rca .rca-chip{border:1.5px solid var(--border-mid);border-radius:20px;padding:7px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-secondary);background:var(--surface);transition:all .15s;user-select:none}
+#view-rca .rca-chip:hover{border-color:var(--brand);background:var(--brand-soft)}
+#view-rca .rca-chip.selected{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+#view-rca .rca-assign{margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface-raised)}
+#view-rca .rca-assign-title{font-size:14px;font-weight:700;color:var(--text-secondary);margin-bottom:8px}
+#view-rca .rca-assign-row{padding:8px 0;border-top:1px solid var(--border)}
+#view-rca .rca-assign-row:first-of-type{border-top:none}
+#view-rca .rca-assign-issue{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+#view-rca .rca-assign-note{font-size:13px;color:var(--text-tertiary);margin-top:8px;line-height:1.4}
 #rca-token-loading{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
 #rca-token-loading.hidden{display:none}
 .rca-token-spinner{width:60px;height:60px;border:6px solid var(--brand-soft);border-top-color:var(--brand);border-radius:50%;animation:rca-spin .8s linear infinite}
@@ -4218,11 +4228,18 @@ try {
           <input type="text" class="hidden other-input" id="rca-qa-name-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre">
         </div>
       </div>
+      <div class="field-row single" id="rca-extra-station-wrap">
+        <div class="field-group">
+          <label><span data-en>Other stations involved</span><span data-es>Otras estaciones involucradas</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>optional — if this job came back with issues from more than one station</span><span data-es>opcional — si el trabajo regresó con problemas de más de una estación</span>)</span></label>
+          <div class="rca-chip-row" id="rca-extra-station-grid"></div>
+        </div>
+      </div>
       <div class="field-row single">
         <div class="field-group">
           <label><span data-en>Quality issue</span><span data-es>Problema de calidad</span><span class="req">*</span></label>
           <div class="disposition-grid" id="rca-issuecat-grid"></div>
           <input type="hidden" id="rca-issuecat-value">
+          <div id="rca-issue-assign"></div>
           <textarea placeholder="Additional detail — describe what was observed (optional)…" data-ph-en="Additional detail — describe what was observed (optional)…" data-ph-es="Detalle adicional — describa lo observado (opcional)…" id="rca-issue-desc" style="margin-top:10px"></textarea>
         </div>
       </div>
@@ -4329,6 +4346,9 @@ try {
         <div class="disp-option" onclick="rcaSetDisp(this,'100% Inspect — Remove Defects')"><div class="disp-icon">🔎</div><span data-en>100% Inspect — Remove Defects</span><span data-es>Inspeccionar 100% — Remover Defectos</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Pull &amp; Discard When Found')"><div class="disp-icon">🗑️</div><span data-en>Pull &amp; Discard When Found</span><span data-es>Retirar y Descartar al Encontrar</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Rework Before Use')"><div class="disp-icon">🔧</div><span data-en>Rework Before Use</span><span data-es>Reprocesar Antes de Usar</span></div>
+        <div class="disp-option" onclick="rcaSetDisp(this,'Rework Perfs Before Use')"><div class="disp-icon">✂️</div><span data-en>Rework Perfs Before Use</span><span data-es>Reprocesar Perforados Antes de Usar</span></div>
+        <div class="disp-option" onclick="rcaSetDisp(this,'Sort — Remove Bad Perfs')"><div class="disp-icon">🗂️</div><span data-en>Sort — Remove Bad Perfs</span><span data-es>Clasificar — Retirar Perforados Malos</span></div>
+        <div class="disp-option" onclick="rcaSetDisp(this,'Re-Perf — Rerun Through Die Cutter')"><div class="disp-icon">🔁</div><span data-en>Re-Perf — Rerun Through Die Cutter</span><span data-es>Re-Perforar — Repasar por la Troqueladora</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Use for Makeready Only')"><div class="disp-icon">🛠️</div><span data-en>Use for Makeready Only</span><span data-es>Usar Solo para Preparación</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Save as Extra Quantity')"><div class="disp-icon">📦</div><span data-en>Save as Extra Quantity</span><span data-es>Guardar como Cantidad Extra</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Scrap — Do Not Use')"><div class="disp-icon">❌</div><span data-en>Scrap — Do Not Use</span><span data-es>Desechar — No Usar</span></div>
@@ -4443,6 +4463,9 @@ try {
         <div class="disp-option" onclick="rcaSetDisp2(this,'100% Inspect — Remove Defects')"><div class="disp-icon">🔎</div><span data-en>100% Inspect — Remove Defects</span><span data-es>Inspeccionar 100% — Remover Defectos</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Pull &amp; Discard When Found')"><div class="disp-icon">🗑️</div><span data-en>Pull &amp; Discard When Found</span><span data-es>Retirar y Descartar al Encontrar</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Rework Before Use')"><div class="disp-icon">🔧</div><span data-en>Rework Before Use</span><span data-es>Reprocesar Antes de Usar</span></div>
+        <div class="disp-option" onclick="rcaSetDisp2(this,'Rework Perfs Before Use')"><div class="disp-icon">✂️</div><span data-en>Rework Perfs Before Use</span><span data-es>Reprocesar Perforados Antes de Usar</span></div>
+        <div class="disp-option" onclick="rcaSetDisp2(this,'Sort — Remove Bad Perfs')"><div class="disp-icon">🗂️</div><span data-en>Sort — Remove Bad Perfs</span><span data-es>Clasificar — Retirar Perforados Malos</span></div>
+        <div class="disp-option" onclick="rcaSetDisp2(this,'Re-Perf — Rerun Through Die Cutter')"><div class="disp-icon">🔁</div><span data-en>Re-Perf — Rerun Through Die Cutter</span><span data-es>Re-Perforar — Repasar por la Troqueladora</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Use for Makeready Only')"><div class="disp-icon">🛠️</div><span data-en>Use for Makeready Only</span><span data-es>Usar Solo para Preparación</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Save as Extra Quantity')"><div class="disp-icon">📦</div><span data-en>Save as Extra Quantity</span><span data-es>Guardar como Cantidad Extra</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Scrap — Do Not Use')"><div class="disp-icon">❌</div><span data-en>Scrap — Do Not Use</span><span data-es>Desechar — No Usar</span></div>
@@ -17233,6 +17256,9 @@ var DISPOSITION_OPTIONS = [
   '100% Inspect — Remove Defects',
   'Pull & Discard When Found',
   'Rework Before Use',
+  'Rework Perfs Before Use',
+  'Sort — Remove Bad Perfs',
+  'Re-Perf — Rerun Through Die Cutter',
   'Use for Makeready Only',
   'Save as Extra Quantity',
   'Scrap — Do Not Use',
@@ -17322,6 +17348,10 @@ var QUALITY_DATA = {
   "Die cutting issue": {
     rootCauses: ["Dull cutting rule","Misaligned die","Incorrect impression","Board movement during cut","Wrong die used","Ejection rubber worn","Stripping issue","Die not locked properly","Board caliper exceeds CAD die specification"],
     correctiveActions: ["Replace dull cutting rule before next run","Re-align and lock die before run","Adjust impression setting and pull test cuts","Replace worn ejection rubber","Verify correct die is pulled and matched to job ticket","Inspect and secure die lock before run","Perform stripping test before full production"]
+  },
+  "Perforation issue": {
+    rootCauses: ["Perf rule worn or dull (not cutting through the ties)","Perf rule too short / wrong height for board caliper","Wrong perf rule type — tooth-to-gap ratio not right for the job","Perf rule loose or shifted in the die","Insufficient or uneven impression at the perf","Perf out of position — die not registered to the print","Makeready under the perf uneven or missing","Perf ties too strong — sheet will not tear cleanly","Perf ties too weak — sheet tearing during handling or transit","Board caliper or grain not suited to the perf spec","Perf rule damaged by a previous run"],
+    correctiveActions: ["Replace worn perf rule before next run","Verify perf rule height and tooth/gap spec against the CAD die drawing","Adjust impression at the perf and pull test cuts, checking tear","Re-secure the perf rule in the die and lock before run","Perform tear test on first-off and at set intervals during the run","Re-register die to the print before run","Send die to tooling to rework or replace the perf rule","Add a perf tear check to first article sign-off","Confirm perf spec is correct for the board on the job ticket"]
   },
   "Process not followed": {
     rootCauses: ["Operator skipped sign-off step","Job ticket not reviewed","Wrong version run","No first article inspection done","Changeover procedure not followed","QC check skipped"],
@@ -18212,12 +18242,12 @@ Object.keys(STATION_RC_OVERRIDES).forEach(function(key){
 // source equivalent, so they use a small generic set instead.
 var STATION_ISSUES = {
   "New Die Cutter": [
-    "Die cutting issue","Tooling issue","Cracking / bursting","Registration",
+    "Die cutting issue","Perforation issue","Tooling issue","Cracking / bursting","Registration",
     "Short / quantity","Scuffing","Damaged","Process not followed",
     "Documentation / job ticket","Equipment issue","5S","Safety","Other"
   ],
   "Old Die Cutter": [
-    "Die cutting issue","Tooling issue","Cracking / bursting","Registration",
+    "Die cutting issue","Perforation issue","Tooling issue","Cracking / bursting","Registration",
     "Short / quantity","Scuffing","Damaged","Process not followed",
     "Documentation / job ticket","Equipment issue","5S","Safety","Other"
   ],
@@ -20797,7 +20827,7 @@ function rcaRenderIssueCatGrid(){
   var grid = document.getElementById('rca-issuecat-grid');
   if (!grid) return;
   var station = rcaGetVal('station');
-  var cats = qualityIssueCategoriesFor(station);
+  var cats = _rcaIssueOptions();
   _rcaRenderGrid('rca-issuecat-grid', 'rca-issuecat-value', cats);
   // Category selection lives in the same grid helper, but picking one must
   // also rebuild the root-cause/corrective-action grids below it.
@@ -20812,18 +20842,19 @@ function rcaCascadeOptions(kind){
   // the root-cause/corrective-action options across all of them rather than
   // looking up a single category (a comma-joined string would never match
   // any one key in qualityIssueData).
-  var cats = (rcaGetVal('issuecat-value')||'').split(', ').filter(Boolean);
-  if (!cats.length) return [];
+  var groups = _rcaStationGroups();
+  if (!groups.some(function(g){ return g.cats.length; })) return [];
   var merged = [];
-  cats.forEach(function(cat){
-    var data = qualityIssueData(station, cat);
+  groups.forEach(function(g){ g.cats.forEach(function(cat){
+    var data = qualityIssueData(g.station, cat);
     if (data && data[kind]) data[kind].forEach(function(v){ if (merged.indexOf(v)===-1) merged.push(v); });
-  });
+  }); });
   merged.push('N/A','Other');
   return merged;
 }
 function rcaRenderCascadeGrids(alsoIssueCat){
   if (alsoIssueCat !== false) rcaRenderIssueCatGrid();
+  rcaRenderIssueAssign();
   var rc = rcaCascadeOptions('rootCauses');
   var ca = rcaCascadeOptions('correctiveActions');
   _rcaRenderGrid('rca-rootcause-grid','rca-rootcause-value', rc);
@@ -20833,7 +20864,126 @@ function rcaRenderCascadeGrids(alsoIssueCat){
 }
 function rcaOnStationChange(){
   _rcaApplyManagerName();
+  var _p = rcaGetVal('station');
+  _rcaExtraStations = _rcaExtraStations.filter(function(x){ return x !== _p; });
+  rcaRenderExtraStations();
   rcaRenderCascadeGrids(true);
+}
+
+/* ── Multi-station RCA — a job can come back with issues from more than one
+   station. QA picks extra stations, then says which issue belongs to which
+   station (same idea as the Pallet Tag's per-issue assignment). Saving
+   writes ONE normal RCA record per station carrying just that station's
+   issues, so Records/PDF/manager-email flows need no changes. With no extra
+   stations chosen, every function below collapses to the old single-station
+   behavior. ── */
+var _rcaExtraStations = [];
+var _rcaIssueStations = {};
+function _rcaAllStationNames(){
+  var sel = document.getElementById('rca-station');
+  return Array.prototype.map.call(sel.options, function(o){ return o.value; }).filter(Boolean);
+}
+function _rcaInvolvedStations(){
+  var p = rcaGetVal('station');
+  return (p ? [p] : []).concat(_rcaExtraStations);
+}
+function _rcaIssueOptions(){
+  var out = [];
+  var involved = _rcaInvolvedStations();
+  (involved.length ? involved : ['']).forEach(function(st){
+    qualityIssueCategoriesFor(st).forEach(function(c){ if (out.indexOf(c)===-1) out.push(c); });
+  });
+  return out;
+}
+function _rcaStationGroups(){
+  var primary = rcaGetVal('station');
+  var cats = (rcaGetVal('issuecat-value')||'').split(', ').filter(Boolean);
+  if (!_rcaExtraStations.length) return [{station:primary, cats:cats}];
+  var involved = _rcaInvolvedStations();
+  var by = {}; involved.forEach(function(s){ by[s] = []; });
+  cats.forEach(function(cat){
+    var assigned = (_rcaIssueStations[cat]||[]).filter(function(s){ return by[s]; });
+    if (!assigned.length) assigned = [involved[0]];
+    assigned.forEach(function(s){ by[s].push(cat); });
+  });
+  var groups = involved.filter(function(s){ return by[s].length; }).map(function(s){ return {station:s, cats:by[s]}; });
+  return groups.length ? groups : [{station:primary, cats:cats}];
+}
+function rcaRenderExtraStations(){
+  var grid = document.getElementById('rca-extra-station-grid');
+  if (!grid) return;
+  var primary = rcaGetVal('station');
+  var isEs = isEsLang();
+  if (!primary){
+    grid.innerHTML = '<div style="font-size:14px;color:var(--text-tertiary)">' + (isEs?'Primero seleccione la estación arriba.':'Pick the first station above first.') + '</div>';
+    return;
+  }
+  grid.innerHTML = _rcaAllStationNames().filter(function(s){ return s !== primary; }).map(function(s){
+    return '<div class="rca-chip'+(_rcaExtraStations.indexOf(s)!==-1?' selected':'')+'" data-kind="extra" data-station="'+escHtml(s)+'" onclick="rcaChipClick(this)">'+escHtml(s)+'</div>';
+  }).join('');
+}
+function rcaChipClick(el){
+  var st = el.dataset.station;
+  if (el.dataset.kind === 'extra'){
+    var i = _rcaExtraStations.indexOf(st);
+    if (i === -1) _rcaExtraStations.push(st); else _rcaExtraStations.splice(i,1);
+    rcaRenderExtraStations();
+  } else if (el.dataset.kind === 'assign'){
+    var cat = el.dataset.cat;
+    var list = _rcaIssueStations[cat] || (_rcaIssueStations[cat] = []);
+    var j = list.indexOf(st);
+    if (j === -1) list.push(st); else list.splice(j,1);
+  }
+  rcaRenderCascadeGrids(true);
+}
+function rcaRenderIssueAssign(){
+  var box = document.getElementById('rca-issue-assign');
+  if (!box) return;
+  var cats = (rcaGetVal('issuecat-value')||'').split(', ').filter(Boolean);
+  var involved = _rcaInvolvedStations();
+  Object.keys(_rcaIssueStations).forEach(function(c){ if (cats.indexOf(c)===-1) delete _rcaIssueStations[c]; });
+  if (!_rcaExtraStations.length || !cats.length){ box.innerHTML = ''; return; }
+  var isEs = isEsLang();
+  var rows = cats.map(function(cat){
+    var avail = involved.filter(function(s){ return qualityIssueCategoriesFor(s).indexOf(cat)!==-1; });
+    if (!avail.length) avail = involved.slice();
+    var cur = (_rcaIssueStations[cat]||[]).filter(function(s){ return avail.indexOf(s)!==-1; });
+    if (!cur.length) cur = [avail.indexOf(involved[0])!==-1 ? involved[0] : avail[0]];
+    _rcaIssueStations[cat] = cur;
+    return '<div class="rca-assign-row"><div class="rca-assign-issue">'+escHtml(cat)+'</div><div class="rca-chip-row">'+
+      avail.map(function(s){
+        return '<div class="rca-chip'+(cur.indexOf(s)!==-1?' selected':'')+'" data-kind="assign" data-cat="'+escHtml(cat)+'" data-station="'+escHtml(s)+'" onclick="rcaChipClick(this)">'+escHtml(s)+'</div>';
+      }).join('')+'</div></div>';
+  }).join('');
+  var groups = _rcaStationGroups();
+  var idle = involved.filter(function(s){ return !groups.some(function(g){ return g.station===s; }); });
+  box.innerHTML = '<div class="rca-assign"><div class="rca-assign-title">'+(isEs?'¿Qué problema corresponde a qué estación?':'Which issue goes with which station?')+'</div>'+rows+
+    '<div class="rca-assign-note">'+(isEs?'Se guardará un registro por estación: ':'One record will be saved per station: ')+
+    groups.map(function(g){ return '<b>'+escHtml(g.station)+'</b> ('+g.cats.length+')'; }).join(', ')+'.'+
+    (idle.length ? ' '+(isEs?'Sin problemas asignados (no se creará registro): ':'No issues assigned (no record will be created): ')+idle.map(escHtml).join(', ')+'.' : '')+
+    '</div></div>';
+}
+// Saves one record per station group; with no extra stations this is
+// exactly the old single rcaSendToSheets(rcaCollectData(...)) call.
+function rcaSendAll(status, action, onDone){
+  if (!_rcaExtraStations.length){ rcaSendToSheets(rcaCollectData(status, action), onDone); return; }
+  var groups = _rcaStationGroups();
+  var detail = rcaGetVal('issue-desc');
+  var pending = groups.length, allOk = true;
+  groups.forEach(function(g, i){
+    var d = rcaCollectData(status, action);
+    d.station = g.station;
+    d.issueCategory = g.cats.join(', ');
+    d.issueDesc = d.issueCategory + (detail ? ' — ' + detail : '');
+    if (i > 0) d.token = ''; // only the first may update an existing draft; the rest are new records
+    rcaSendToSheets(d, function(ok){
+      if (!ok) allOk = false;
+      if (--pending === 0){
+        onDone(allOk);
+        if (allOk && groups.length > 1) rcaShowToast(isEsLang() ? '✅ '+groups.length+' registros guardados (uno por estación)' : '✅ '+groups.length+' records saved (one per station)');
+      }
+    });
+  });
 }
 
 /* ── Manager / approver name selects — same RCA_MANAGER_NAMES roster used
@@ -21156,7 +21306,7 @@ function rcaSendToManager(){
   const btn=document.querySelector("#section-sendmgr .btn-warn");
   if(btn){btn.disabled=true;btn.textContent = isEs ? "Enviando..." : "Sending...";}
   rcaSetStatus("saving", RCA_LIVE ? (isEs?"Notificando al gerente...":"Notifying manager...") : (isEs?"Simulando transferencia al gerente...":"Simulating manager hand-off..."));
-  rcaSendToSheets(rcaCollectData("Pending","send_to_manager"), function(ok){
+  rcaSendAll("Pending","send_to_manager", function(ok){
     rcaShow("section-mgrfill");rcaHide("section-sendmgr");
     rcaSetStatus("pending", isEs?"Enviado al gerente — esperando causa raíz y acción correctiva":"Sent to manager — awaiting root cause & corrective action");
     rcaShowToast(ok?(RCA_LIVE?(isEs?"📧 ¡Gerente notificado por correo!":"📧 Manager notified by email!"):(isEs?"📧 Transferencia al gerente simulada — sección desbloqueada":"📧 Manager hand-off simulated — section unlocked")):(isEs?"Sección del gerente desbloqueada — verifique la conexión":"Manager section unlocked — check connection"),!ok);
@@ -21180,7 +21330,7 @@ function rcaReturnToQA(){
   // worked only for the single-device "QA and manager share one screen"
   // simulation. A manager opened via the emailed link is a separate device/
   // session that needs its own submission recorded (and QA notified) right here.
-  rcaSendToSheets(rcaCollectData('Manager Complete','return_to_qa'), function(ok){
+  rcaSendAll('Manager Complete','return_to_qa', function(ok){
     rcaSetStatus('pending', isEs?'Sección del gerente enviada — equipo de calidad notificado':'Manager section submitted — QA team notified');
     rcaShowToast(ok?(RCA_LIVE?(isEs?'📧 ¡Equipo de calidad notificado!':'📧 QA team notified!'):(isEs?'Sección guardada localmente':'Section saved locally')):(isEs?'Enviado':'Submitted'),!ok);
     rcaHide('section-mgrfill');
@@ -21209,7 +21359,7 @@ function rcaCloseOut(){
   const btn=document.getElementById('rca-btn-close');
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
   rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...'));
-  rcaSendToSheets(rcaCollectData('Closed','close_out'), ok=>{
+  rcaSendAll('Closed','close_out', ok=>{
     rcaSetStatus('closed', RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally'));
     rcaShowToast(ok?(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
     rcaLockForm();
@@ -21229,7 +21379,7 @@ function rcaSubmitPath1(){
   const btn=document.getElementById('rca-btn-submit1');
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
   rcaSetStatus('saving', RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...'));
-  rcaSendToSheets(rcaCollectData('Closed'), ok=>{
+  rcaSendAll('Closed', undefined, ok=>{
     rcaSetStatus('closed', RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally'));
     rcaShowToast(ok?(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')):(isEs?'✅ ¡Enviado!':'✅ Submitted!'));
     rcaLockForm();
@@ -21239,7 +21389,7 @@ function rcaSubmitPath1(){
 function rcaSaveDraft(){
   var isEs = isEsLang();
   rcaSetStatus('saving', isEs?'Guardando borrador...':'Saving draft...');
-  rcaSendToSheets(rcaCollectData('Draft'), ok=>{
+  rcaSendAll('Draft', undefined, ok=>{
     rcaSetStatus('draft', (isEs?'Borrador guardado — ':'Draft saved — ')+new Date().toLocaleTimeString());
     rcaShowToast(ok?(RCA_LIVE?(isEs?'💾 ¡Borrador guardado en Google Sheets!':'💾 Draft saved to Google Sheets!'):(isEs?'💾 ¡Borrador guardado localmente!':'💾 Draft saved locally!')):(isEs?'Borrador guardado localmente':'Draft saved locally'),!ok);
   });
@@ -21306,6 +21456,7 @@ function _rcaFillIncidentInfo(rec){
 function _rcaLockIncidentInfo(){
   var pathSel = document.querySelector('.path-selector');
   if (pathSel) pathSel.style.display = 'none';
+  var _xs = document.getElementById('rca-extra-station-wrap'); if (_xs) _xs.style.display = 'none';
   ['rca-prefill-select','rca-job-num','rca-prod-num','rca-customer-select','rca-customer-other',
    'rca-date-found','rca-station','rca-qa-name','rca-qa-name-other','rca-issue-desc','rca-photo-input'
   ].forEach(function(id){ var e = document.getElementById(id); if (e) e.disabled = true; });
@@ -22899,6 +23050,9 @@ window.addEventListener('storage', function(e){
       "100% Inspect — Remove Defects":"Inspección 100% — Retirar Defectos",
       "Pull & Discard When Found":"Retirar y Desechar al Encontrarlo",
       "Rework Before Use":"Reprocesar Antes de Usar",
+      "Rework Perfs Before Use":"Reprocesar Perforados Antes de Usar",
+      "Sort — Remove Bad Perfs":"Clasificar — Retirar Perforados Malos",
+      "Re-Perf — Rerun Through Die Cutter":"Re-Perforar — Repasar por la Troqueladora",
       "Use for Makeready Only":"Usar Solo para Preparación (Make Ready)",
       "Save as Extra Quantity":"Guardar como Cantidad Extra",
       "Scrap — Do Not Use":"Desechar — No Usar",
