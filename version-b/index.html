@@ -21447,94 +21447,6 @@ function setShippingViewMode(mode){
 
 var SHIPPING_APPROVAL_STATIONS = ['Bindery Cutter', 'Pressroom Cutter', 'Long Gluer', 'Short Gluer', 'Packing'];
 
-// ══════════════════════════════════════════════════════════════════════
-// TEMPORARY — TESTING ONLY. While true, every job that reaches Shipping
-// Approval is approved automatically in the background (no modal, no
-// human review) with a generic "everything passed" record — Transport
-// Rate: Freight, one generic black-squiggle signature — and lands
-// straight in Records. This exists purely so testing/demo data can move
-// through the app without hand-approving each shipment.
-//
-// Shipping Approval is normally the app's real, human, "final and
-// irreversible" sign-off gate before a job ships (see the confirm text in
-// submitShippingApproval below) — this flag bypasses that gate entirely.
-//
-// >>> SET THIS BACK TO false BEFORE THE APP GOES LIVE. <<<
-// ══════════════════════════════════════════════════════════════════════
-var SHIP_AUTO_APPROVE_TESTING = false;
-
-// Cached so every auto-approved job gets the literal same signature image
-// (one generic squiggle), rather than regenerating a new one per job.
-var _genericShipSignatureCache = null;
-function _genericShipSignatureDataURL(){
-  if (_genericShipSignatureCache) return _genericShipSignatureCache;
-  var c = document.createElement('canvas');
-  c.width = 500; c.height = 160;
-  var ctx = c.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, c.width, c.height);
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 3;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(55, 100);
-  ctx.bezierCurveTo(105, 40, 135, 145, 185, 80);
-  ctx.bezierCurveTo(225, 30, 255, 125, 300, 90);
-  ctx.bezierCurveTo(340, 58, 375, 112, 425, 85);
-  ctx.stroke();
-  _genericShipSignatureCache = c.toDataURL('image/png');
-  return _genericShipSignatureCache;
-}
-// Mirrors the shipping object submitShippingApproval() builds by hand, so
-// an auto-approved job looks identical to a normally-approved one anywhere
-// it's later displayed (job detail popup, Records, NCR summary, etc.) —
-// just with SHIP_AUTO_APPROVE_TESTING-flagged values.
-//
-// Mutates `job` IN PLACE and does NOT call ipUpdate/ipSave itself — batched
-// by _shipAutoApproveInChunks() below, not called per-job directly.
-//
-// Deliberately does NOT copy job.mrPhoto into shipping.cutterPicture (the
-// normal manual flow does — see submitShippingApproval — since a real
-// approver is reviewing that specific photo). For an auto-approved test
-// record that's just a second full copy of the same base64 image sitting
-// inside the same job object for no reason; the job's own mrPhoto is still
-// there for anything that wants to show a picture. Cutting this out roughly
-// halves the added weight per auto-approved job.
-function _shipAutoApproveJob(job){
-  var shipping = {
-    passFail: 'pass',
-    transportRate: 'Freight',
-    vehicleCondition: 'Satisfactory',
-    sealLock: 'Yes',
-    dimensionApproval: 'Yes',
-    labelApplied: 'Yes',
-    productIdMatch: 'Yes',
-    cutterPicture: null,
-    signature: _genericShipSignatureDataURL(),
-    signatureAt: formatTS(),
-    _autoApprovedTesting: true
-  };
-  job.shippingApproved = true;
-  job.shippingApprovedAt = formatTS();
-  job.shipping = shipping;
-  job.stageHistory = _stageSnapshot(job.stageHistory, 'shipping_approval', 'Shipping Approval — Auto-Approved (Testing)', {
-    passFail: shipping.passFail, transportRate: shipping.transportRate, vehicleCondition: shipping.vehicleCondition,
-    sealLock: shipping.sealLock, dimensionApproval: shipping.dimensionApproval, labelApplied: shipping.labelApplied,
-    productIdMatch: shipping.productIdMatch, cutterPicture: shipping.cutterPicture, signature: shipping.signature
-  });
-}
-// A single batched ipSave() (see prior commit) fixed the "one massive save
-// per job" freeze, but a big enough backlog is still one massive save,
-// period — JSON.stringify + localStorage.setItem + a full network POST of
-// the ENTIRE jobs array, still done synchronously in one go, still enough
-// to hang the tab (and, at real scale, the machine) for a long stretch.
-//
-// This processes the backlog in small chunks with a setTimeout between each
-// one, handing control back to the browser after every chunk so it never
-// goes unresponsive — same total work, just spread out instead of dumped
-// in one tick. _shipAutoApproveRunning guards against starting a second
-// overlapping sweep if the Shipping screen gets revisited mid-sweep.
 // A backlog of stale, pre-cutoff jobs (from the 2026-09-23 sync bug — see
 // _syncPullAndMerge's history comment) kept resurfacing in this queue no
 // matter what device or how many times it was cleared, since a job that
@@ -21558,27 +21470,18 @@ function _isJobPendingShippingApproval(j){
   return true;
 }
 
-var SHIP_AUTO_APPROVE_CHUNK_SIZE = 10;
-var _shipAutoApproveRunning = false;
-function _shipAutoApproveInChunks(){
-  if (_shipAutoApproveRunning) return;
-  _shipAutoApproveRunning = true;
-  (function step(){
-    var all = ipLoad();
-    var pending = all.filter(_isJobPendingShippingApproval);
-    if (!pending.length){ _shipAutoApproveRunning = false; return; }
-    pending.slice(0, SHIP_AUTO_APPROVE_CHUNK_SIZE).forEach(_shipAutoApproveJob);
-    ipSave(all);
-    setTimeout(step, 60);
-  })();
-}
+// Shipping Approval is the app's real, human, "final and irreversible"
+// sign-off gate before a job ships (see the confirm text in
+// submitShippingApproval below). This used to have a SHIP_AUTO_APPROVE_TESTING
+// flag that could bulk-approve every pending job in the background with a
+// generic "everything passed" record — useful while testing unrelated parts
+// of the app, but a standing risk of a real job getting waved through with
+// no human review if it were ever left on. Removed outright (not just
+// switched off) at Anthony's request now that testing no longer needs it —
+// nothing in this app can approve a shipment except a person actually
+// completing this screen.
 function _shippingPendingJobs(){
-  var pending = ipLoad().filter(_isJobPendingShippingApproval);
-  if (SHIP_AUTO_APPROVE_TESTING && pending.length){
-    _shipAutoApproveInChunks(); // runs in the background; doesn't block this call
-    return [];
-  }
-  return pending;
+  return ipLoad().filter(_isJobPendingShippingApproval);
 }
 
 function updateShippingBadge(){
