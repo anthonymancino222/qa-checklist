@@ -7020,14 +7020,32 @@ function _mergeJobRecord(base, local, remote) {
   delete keys.lastTouchedAt;
   delete keys._conflictReview;
 
+  var localReview = local._conflictReview || {}, remoteReview = remote._conflictReview || {};
+
   var merged = {};
-  var conflicts = [];
+  var conflicts = [];       // genuinely new this pass — get auto-tie-broken AND logged
+  var stillPending = [];    // already flagged before this pass — frozen, not re-logged
   Object.keys(keys).forEach(function(k){
     var b = JSON.stringify(base[k]), l = JSON.stringify(local[k]), r = JSON.stringify(remote[k]);
     if (l === r) { merged[k] = local[k]; return; } // both sides agree (incl. neither ever changed it)
     if (b === l) { merged[k] = remote[k]; return; } // only remote changed it
     if (b === r) { merged[k] = local[k]; return; } // only local changed it
     // both changed it, to different values — genuine conflict
+    if (localReview[k] && remoteReview[k]) {
+      // Already an unresolved conflict on this field BEFORE this merge even
+      // started. Auto-tie-breaking it again here would just flip it to
+      // whichever side happens to have the newer lastTouchedAt THIS pass —
+      // and if neither device ever actually reconciles, that flips back and
+      // forth forever. Confirmed live: one job's productNumber ping-ponged
+      // between two devices 124 times over 4 days before this fix, each
+      // flip logging its own stageHistory entry. Freezing to the last
+      // common value (falling back to local if there's no base to freeze
+      // to) breaks the cycle — the field stays put until a person actually
+      // resolves it via resolveConflict(), not before.
+      merged[k] = base.hasOwnProperty(k) ? base[k] : local[k];
+      stillPending.push({ field: k, localValue: local[k], remoteValue: remote[k] });
+      return;
+    }
     conflicts.push({ field: k, localValue: local[k], remoteValue: remote[k] });
   });
 
@@ -7042,15 +7060,19 @@ function _mergeJobRecord(base, local, remote) {
 
   // _conflictReview tracks conflicts a person hasn't reviewed yet (see
   // openConflictReview()) — separate from the automatic tie-break above,
-  // which already applied and is never blocked on this. A field key present
-  // on only ONE side here means someone already resolved it there (see
-  // resolveConflict()) and pushed that; absence wins, so the other device's
-  // still-pending copy of that same field doesn't linger forever. Anything
-  // in BOTH sides is still genuinely unreviewed.
+  // which already applied (for brand-new conflicts) and is never blocked on
+  // this. A field key present on only ONE side here means someone already
+  // resolved it there (see resolveConflict()) and pushed that; absence
+  // wins, so the other device's still-pending copy of that same field
+  // doesn't linger forever. Anything in BOTH sides is still genuinely
+  // unreviewed — refreshed with the latest local/remote values below so the
+  // review UI shows current data, without re-logging or re-flipping it.
   var mergedReview = {};
-  var localReview = local._conflictReview || {}, remoteReview = remote._conflictReview || {};
   Object.keys(Object.assign({}, localReview, remoteReview)).forEach(function(k){
     if (localReview[k] && remoteReview[k]) mergedReview[k] = localReview[k];
+  });
+  stillPending.forEach(function(c){
+    mergedReview[c.field] = { localValue: c.localValue, remoteValue: c.remoteValue, at: formatTS() };
   });
   conflicts.forEach(function(c){
     mergedReview[c.field] = { localValue: c.localValue, remoteValue: c.remoteValue, at: formatTS() };
