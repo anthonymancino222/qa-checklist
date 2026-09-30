@@ -1835,6 +1835,21 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .rca-assign-row{padding:8px 0;border-top:1px solid var(--border)}
 #view-rca .rca-assign-row:first-of-type{border-top:none}
 #view-rca .rca-assign-issue{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+/* Path 1 is a 3-phase CAR: Root cause -> Corrective action plan -> Verification & approval */
+#rca-form-body:not(.rca-p1) .rca-p1-only{display:none !important}
+#rca-form-body.rca-p1 .rca-p2-only{display:none !important}
+#view-rca .rca-phasebar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:stretch}
+#view-rca .rca-phasetab{flex:1 1 150px;display:flex;align-items:center;gap:10px;border:1.5px solid var(--border-mid);border-radius:10px;padding:10px 12px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:var(--text-secondary)}
+#view-rca .rca-phasetab .rca-phasenum{flex:0 0 28px;height:28px;border-radius:50%;background:var(--border-mid);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+#view-rca .rca-phasetab .rca-phasename{font-weight:700;font-size:14px;line-height:1.2}
+#view-rca .rca-phasetab .rca-phasesub{font-size:12px;color:var(--text-tertiary);font-weight:500}
+#view-rca .rca-phasetab.active{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+#view-rca .rca-phasetab.active .rca-phasenum{background:var(--brand)}
+#view-rca .rca-phasetab.done .rca-phasenum{background:var(--green)}
+#view-rca .rca-carpill{display:inline-block;border-radius:12px;padding:2px 10px;font-size:13px;font-weight:700;background:var(--brand-soft);color:var(--brand-dark);margin-left:8px}
+#view-rca .rca-carpill.pv{background:var(--amber-soft,#fff3cd);color:var(--amber-ink,#7a5a00)}
+#view-rca .rca-carpill.cl{background:var(--green-soft);color:var(--green)}
+#view-rca .rca-phase-nav{margin:0 0 1.25rem}
 #view-rca .rca-assign-note{font-size:13px;color:var(--text-tertiary);margin-top:8px;line-height:1.4}
 #rca-token-loading{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
 #rca-token-loading.hidden{display:none}
@@ -4256,6 +4271,16 @@ try {
 
   <div id="rca-form-body" class="hidden">
 
+    <!-- Path 1 phase stepper (Path 1 only) -->
+    <div class="rca-p1-only">
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:6px;font-weight:600"><span data-en>CAR status:</span><span data-es>Estado de la ACR:</span><span class="rca-carpill" id="rca-car-status-pill">Open</span></div>
+      <div class="rca-phasebar" id="rca-phasebar">
+        <button type="button" class="rca-phasetab" id="rca-phasetab-1" onclick="rcaGoPhase(1)"><span class="rca-phasenum">1</span><span><span class="rca-phasename"><span data-en>Root cause</span><span data-es>Causa raíz</span></span><br><span class="rca-phasesub"><span data-en>What happened &amp; why</span><span data-es>Qué pasó y por qué</span></span></span></button>
+        <button type="button" class="rca-phasetab" id="rca-phasetab-2" onclick="rcaGoPhase(2)"><span class="rca-phasenum">2</span><span><span class="rca-phasename"><span data-en>Corrective action plan</span><span data-es>Plan de acción correctiva</span></span><br><span class="rca-phasesub"><span data-en>What we will do, who, when</span><span data-es>Qué haremos, quién, cuándo</span></span></span></button>
+        <button type="button" class="rca-phasetab" id="rca-phasetab-3" onclick="rcaGoPhase(3)"><span class="rca-phasenum">3</span><span><span class="rca-phasename"><span data-en>Verification &amp; approval</span><span data-es>Verificación y aprobación</span></span><br><span class="rca-phasesub"><span data-en>Did it work? Approve &amp; close</span><span data-es>¿Funcionó? Aprobar y cerrar</span></span></span></button>
+      </div>
+    </div>
+
     <!-- SECTION 1 -->
     <div class="section">
       <div class="section-header">
@@ -4277,6 +4302,73 @@ try {
           <select id="rca-prefill-select" onchange="rcaPrefill(this.value)">
             <option value="">— select an NCR, QC job, or scheduled job to pre-fill —</option>
           </select>
+        </div>
+      </div>
+      <!-- CAR record identity + traceability (SQF) — Path 1 only -->
+      <div class="rca-p1-only" id="rca-car-info" style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--surface-raised)">
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>CAR / NCR #</span><span data-es>ACR / RNC #</span><span class="req">*</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>unique — e.g. 2026-17</span><span data-es>único — ej. 2026-17</span>)</span></label>
+            <input type="text" placeholder="2026-17" id="rca-car-no">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Date opened</span><span data-es>Fecha de apertura</span><span class="req">*</span></label>
+            <input type="date" id="rca-open-date" onchange="rcaOpenDateChanged()">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Target close date</span><span data-es>Fecha objetivo de cierre</span></label>
+            <input type="date" id="rca-target-close" oninput="this.dataset.touched='1'">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Source of the CAR</span><span data-es>Origen de la ACR</span><span class="req">*</span></label>
+            <select id="rca-car-source">
+              <option value="">Select source</option>
+              <option value="Customer Complaint">Customer Complaint</option>
+              <option value="Internal Observation">Internal Observation</option>
+              <option value="Internal Audit">Internal Audit</option>
+              <option value="External Audit">External Audit</option>
+              <option value="Management Review">Management Review</option>
+              <option value="Supplier">Supplier</option>
+              <option value="Employee Report">Employee Report</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label><span data-en>Originated by</span><span data-es>Originado por</span><span class="req">*</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>customer contact, employee, auditor…</span><span data-es>contacto del cliente, empleado, auditor…</span>)</span></label>
+            <input type="text" placeholder="e.g. Cassidy Dutton (Amy's Kitchen)" data-ph-en="e.g. Cassidy Dutton (Amy's Kitchen)" data-ph-es="ej. Cassidy Dutton (Amy's Kitchen)" id="rca-originated-by">
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-group">
+            <label><span data-en>Original complaint / NCR reference</span><span data-es>Queja original / referencia de RNC</span><span class="req">*</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>email subject, NCR file, PO…</span><span data-es>asunto del correo, archivo de RNC, PO…</span>)</span></label>
+            <input type="text" placeholder="e.g. Email 'Faded print — PO 210523' 8/11" data-ph-en="e.g. Email 'Faded print — PO 210523' 8/11" data-ph-es="ej. Correo 'Impresión tenue — PO 210523' 11/8" id="rca-orig-ref">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Moquin NCR #</span><span data-es>RNC # de Moquin</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>if any</span><span data-es>si aplica</span>)</span></label>
+            <input type="text" id="rca-moquin-ncr">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Customer NCR #</span><span data-es>RNC # del cliente</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>if any</span><span data-es>si aplica</span>)</span></label>
+            <input type="text" id="rca-customer-ncr">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Lot qty</span><span data-es>Cant. del lote</span></label>
+            <input type="text" inputmode="numeric" id="rca-lot-qty">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Qty inspected</span><span data-es>Cant. inspeccionada</span></label>
+            <input type="text" inputmode="numeric" id="rca-qty-insp">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Qty rejected</span><span data-es>Cant. rechazada</span></label>
+            <input type="text" inputmode="numeric" id="rca-qty-rej">
+          </div>
         </div>
       </div>
       <div class="field-row">
@@ -4402,40 +4494,80 @@ try {
           <textarea placeholder="Summarize the confirmed root cause in 1–2 sentences" data-ph-en="Summarize the confirmed root cause in 1–2 sentences" data-ph-es="Resuma la causa raíz confirmada en 1–2 oraciones" id="rca-rc-summary" style="min-height:56px"></textarea>
         </div>
       </div>
+      <div class="rca-p1-only">
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Root cause investigation — responsible</span><span data-es>Investigación de causa raíz — responsable</span></label>
+            <select id="rca-rc-resp-select" onchange="rcaNameSelectChange('rca-rc-resp-select')"></select>
+            <input type="text" class="hidden other-input" id="rca-rc-resp-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre" oninput="document.getElementById('rca-rc-resp').value=this.value">
+            <input type="hidden" id="rca-rc-resp">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Due date</span><span data-es>Fecha límite</span></label>
+            <input type="date" id="rca-rc-due">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Completion date</span><span data-es>Fecha de finalización</span></label>
+            <input type="date" id="rca-rc-done">
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- SECTION 3: Corrective Action (Path 1) -->
     <div id="rca-section-ca" class="section hidden">
       <div class="section-header">
         <div class="section-num" id="rca-ca-num">3</div>
-        <div class="section-title"><span data-en>Corrective action</span><span data-es>Acción correctiva</span></div>
+        <div class="section-title"><span data-en>Corrective action plan</span><span data-es>Plan de acción correctiva</span></div>
         <span class="section-badge badge-qa"><span data-en>QA Tech</span><span data-es>Técnico de Calidad</span></span>
       </div>
       <div class="field-row single">
         <div class="field-group">
-          <label><span data-en>Immediate action taken</span><span data-es>Acción inmediata tomada</span></label>
-          <textarea placeholder="What was done right now to address the issue?" data-ph-en="What was done right now to address the issue?" data-ph-es="¿Qué se hizo de inmediato para atender el problema?" id="rca-imm-action" style="min-height:56px"></textarea>
-        </div>
-      </div>
-      <div class="field-row single">
-        <div class="field-group">
-          <label><span data-en>Approved corrective action for future runs</span><span data-es>Acción correctiva aprobada para futuras corridas</span><span class="req">*</span></label>
+          <label><span data-en>Corrective action plan — what will be done to prevent this from happening again</span><span data-es>Plan de acción correctiva — qué se hará para evitar que vuelva a ocurrir</span><span class="req">*</span></label>
           <div class="disposition-grid" id="rca-correctiveaction-grid"></div>
           <input type="hidden" id="rca-correctiveaction-value">
           <textarea placeholder="Additional detail or conditions for this corrective action (optional)…" data-ph-en="Additional detail or conditions for this corrective action (optional)…" data-ph-es="Detalle o condiciones adicionales para esta acción correctiva (opcional)…" id="rca-future-action" style="margin-top:10px"></textarea>
         </div>
       </div>
-      <div class="field-row">
-        <div class="field-group">
-          <label><span data-en>Approved by</span><span data-es>Aprobado por</span></label>
-          <select id="rca-approved-by-select" onchange="rcaNameSelectChange('rca-approved-by-select')"></select>
-          <input type="text" class="hidden other-input" id="rca-approved-by-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre" oninput="document.getElementById('rca-approved-by').value=this.value">
-          <input type="hidden" id="rca-approved-by">
+      <div class="rca-p1-only">
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Responsible for this action</span><span data-es>Responsable de esta acción</span><span class="req">*</span></label>
+            <select id="rca-ca-resp-select" onchange="rcaNameSelectChange('rca-ca-resp-select')"></select>
+            <input type="text" class="hidden other-input" id="rca-ca-resp-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre" oninput="document.getElementById('rca-ca-resp').value=this.value">
+            <input type="hidden" id="rca-ca-resp">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Due date</span><span data-es>Fecha límite</span><span class="req">*</span></label>
+            <input type="date" id="rca-ca-due">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Completion date</span><span data-es>Fecha de finalización</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>when it is actually implemented</span><span data-es>cuando se implemente</span>)</span></label>
+            <input type="date" id="rca-ca-done">
+          </div>
         </div>
-        <div class="field-group">
-          <label><span data-en>Approval date</span><span data-es>Fecha de aprobación</span></label>
-          <input type="date" id="rca-approval-date">
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Changes form, fit or function? (needs customer approval first)</span><span data-es>¿Cambia forma, ajuste o función? (requiere aprobación del cliente antes)</span></label>
+            <select id="rca-cust-approval">
+              <option value="">Select</option>
+              <option value="No">No</option>
+              <option value="Yes — customer approval required">Yes — customer approval required</option>
+              <option value="Yes — customer approved">Yes — customer approved</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label><span data-en>New / revised SOP #</span><span data-es>SOP nuevo / revisado #</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>if this action needs one</span><span data-es>si esta acción lo requiere</span>)</span></label>
+            <input type="text" id="rca-sop-ref">
+          </div>
         </div>
+      </div>
+    </div>
+    <div class="rca-p1-only rca-phase-nav" id="rca-phase-nav-2">
+      <div class="action-row">
+        <button type="button" class="btn" onclick="rcaGoPhase(1)">← <span data-en>Back: Root cause</span><span data-es>Atrás: Causa raíz</span></button>
+        <button type="button" class="btn" onclick="rcaSaveDraft()">💾 <span data-en>Save</span><span data-es>Guardar</span></button>
+        <button type="button" class="btn btn-primary" id="rca-btn-submitplan" onclick="rcaSubmitPlan()"><span data-en>Submit plan → Pending Verification</span><span data-es>Enviar plan → Pendiente de verificación</span></button>
       </div>
     </div>
 
@@ -4443,8 +4575,14 @@ try {
     <div id="rca-section-disp" class="section hidden">
       <div class="section-header">
         <div class="section-num" id="rca-disp-num">4</div>
-        <div class="section-title"><span data-en>Disposition</span><span data-es>Disposición</span><span class="req">*</span></div>
+        <div class="section-title"><span data-en>Immediate action &amp; disposition</span><span data-es>Acción inmediata y disposición</span><span class="req">*</span></div>
         <span class="section-badge badge-qa" id="rca-disp-badge"><span data-en>QA Tech</span><span data-es>Técnico de Calidad</span></span>
+      </div>
+      <div class="field-row single" style="margin-bottom:12px">
+        <div class="field-group">
+          <label><span data-en>Immediate action taken</span><span data-es>Acción inmediata tomada</span></label>
+          <textarea placeholder="What was done right now to contain the issue?" data-ph-en="What was done right now to contain the issue?" data-ph-es="¿Qué se hizo de inmediato para contener el problema?" id="rca-imm-action" style="min-height:56px"></textarea>
+        </div>
       </div>
       <div style="font-size:14px;color:var(--text-secondary);margin-bottom:10px"><span data-en>What happens to the affected product?</span><span data-es>¿Qué sucede con el producto afectado?</span></div>
       <div class="disposition-grid" id="rca-disp-grid">
@@ -4473,6 +4611,12 @@ try {
           <label><span data-en>Disposition notes</span><span data-es>Notas de disposición</span></label>
           <input type="text" placeholder="Any conditions, quantity, or additional notes" data-ph-en="Any conditions, quantity, or additional notes" data-ph-es="Cualquier condición, cantidad o nota adicional" id="rca-disp-notes">
         </div>
+      </div>
+    </div>
+    <div class="rca-p1-only rca-phase-nav" id="rca-phase-nav-1">
+      <div class="action-row">
+        <button type="button" class="btn" onclick="rcaSaveDraft()">💾 <span data-en>Save</span><span data-es>Guardar</span></button>
+        <button type="button" class="btn btn-primary" onclick="rcaNextPhase(1)"><span data-en>Next: Corrective action plan →</span><span data-es>Siguiente: Plan de acción correctiva →</span></button>
       </div>
     </div>
 
@@ -4607,24 +4751,88 @@ try {
     <div id="rca-section-close" class="section close-section hidden">
       <div class="section-header">
         <div class="section-num" style="background:var(--green)" id="rca-close-num">5</div>
-        <div class="section-title"><span data-en>QA close-out</span><span data-es>Cierre de Calidad</span></div>
+        <div class="section-title"><span class="rca-p2-only"><span data-en>QA close-out</span><span data-es>Cierre de Calidad</span></span><span class="rca-p1-only"><span data-en>Verification &amp; approval of the corrective action plan</span><span data-es>Verificación y aprobación del plan de acción correctiva</span></span></div>
         <span class="section-badge badge-close"><span data-en>QA Tech</span><span data-es>Técnico de Calidad</span></span>
+      </div>
+      <div class="rca-p1-only" style="font-size:14px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px">
+        <span data-en>Do this phase <b>after</b> the corrective action has actually been put in place — e.g. after the next production run. The record stays <b>Pending Verification</b> until the action is confirmed effective.</span><span data-es>Haga esta fase <b>después</b> de que la acción correctiva se haya implementado — por ejemplo, tras la siguiente corrida de producción. El registro permanece <b>Pendiente de verificación</b> hasta confirmar que la acción es efectiva.</span>
       </div>
       <div class="field-row">
         <div class="field-group">
-          <label><span data-en>Verification method</span><span data-es>Método de verificación</span></label>
+          <label><span data-en>Verification method</span><span data-es>Método de verificación</span><span class="req rca-p1-only">*</span></label>
           <select id="rca-verify-method">
             <option value="">Select method</option>
+            <option value="Next production run check">Next production run check</option>
             <option value="Visual inspection">Visual inspection</option>
             <option value="Sample check">Sample check</option>
             <option value="100% inspection">100% inspection</option>
+            <option value="Follow-up audit">Follow-up audit</option>
+            <option value="Customer confirmation">Customer confirmation</option>
             <option value="Manager sign-off">Manager sign-off</option>
-            <option value="No further action needed">No further action needed</option>
+            <option value="No further action needed">No verification needed (explain in notes)</option>
           </select>
         </div>
-        <div class="field-group">
+        <div class="field-group rca-p2-only">
           <label><span data-en>Close-out date</span><span data-es>Fecha de cierre</span><span class="req">*</span></label>
           <input type="date" id="rca-close-date">
+        </div>
+      </div>
+      <div class="rca-p1-only">
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Verified by</span><span data-es>Verificado por</span><span class="req">*</span></label>
+            <select id="rca-verified-by-select" onchange="rcaToggleOther('verified-by-select','verified-by-other')">
+              <option value="">Select name</option>
+              <option>Anthony M</option>
+              <option>Norma S</option>
+              <option>Mariah G</option>
+              <option>Mathias M</option>
+              <option value="Other">Other</option>
+            </select>
+            <input type="text" class="hidden other-input" id="rca-verified-by-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Verification date</span><span data-es>Fecha de verificación</span><span class="req">*</span></label>
+            <input type="date" id="rca-verify-date">
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-group">
+            <label><span data-en>Verification results / evidence</span><span data-es>Resultados / evidencia de verificación</span><span class="req">*</span></label>
+            <textarea placeholder="What was checked and what was found (e.g. 'Next run of job 123456 inspected every 5 min — no faded sheets found')" data-ph-en="What was checked and what was found (e.g. 'Next run of job 123456 inspected every 5 min — no faded sheets found')" data-ph-es="Qué se revisó y qué se encontró (ej. 'Siguiente corrida del trabajo 123456 inspeccionada cada 5 min — sin hojas tenues')" id="rca-verify-results" style="min-height:70px"></textarea>
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field-group">
+            <label><span data-en>Attached documents / objective evidence</span><span data-es>Documentos adjuntos / evidencia objetiva</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>list file names or where they are kept</span><span data-es>liste nombres de archivo o dónde se guardan</span>)</span></label>
+            <input type="text" id="rca-evidence-ref">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Was the corrective action effective?</span><span data-es>¿Fue efectiva la acción correctiva?</span><span class="req">*</span></label>
+            <select id="rca-effective">
+              <option value="">Select</option>
+              <option value="Yes">Yes — effective, no recurrence</option>
+              <option value="No">No — not effective (reopen plan)</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label><span data-en>Closure date</span><span data-es>Fecha de cierre</span><span class="req">*</span></label>
+            <input type="date" id="rca-close-date-p1" oninput="var c=document.getElementById('rca-close-date');if(c)c.value=this.value">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label><span data-en>Corrective action plan approved by</span><span data-es>Plan de acción correctiva aprobado por</span><span class="req">*</span></label>
+            <select id="rca-approved-by-select" onchange="rcaNameSelectChange('rca-approved-by-select')"></select>
+            <input type="text" class="hidden other-input" id="rca-approved-by-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre" oninput="document.getElementById('rca-approved-by').value=this.value">
+            <input type="hidden" id="rca-approved-by">
+          </div>
+          <div class="field-group">
+            <label><span data-en>Approval date</span><span data-es>Fecha de aprobación</span><span class="req">*</span></label>
+            <input type="date" id="rca-approval-date">
+          </div>
         </div>
       </div>
       <div class="field-row single">
@@ -4647,9 +4855,15 @@ try {
           <input type="text" class="hidden other-input" id="rca-close-qa-name-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre">
         </div>
       </div>
-      <div class="action-row">
+      <div class="action-row rca-p2-only">
         <button class="btn btn-success" id="rca-btn-close" onclick="rcaCloseOut()">🔒 <span data-en>Close &amp; submit record</span><span data-es>Cerrar y enviar registro</span></button>
         <button class="btn" onclick="rcaSaveDraft()">💾 <span data-en>Save draft</span><span data-es>Guardar borrador</span></button>
+      </div>
+      <div class="action-row rca-p1-only">
+        <button type="button" class="btn" onclick="rcaGoPhase(2)">← <span data-en>Back: Corrective action plan</span><span data-es>Atrás: Plan de acción correctiva</span></button>
+        <button type="button" class="btn" onclick="rcaSaveDraft()">💾 <span data-en>Save (stay Pending Verification)</span><span data-es>Guardar (seguir pendiente de verificación)</span></button>
+        <button type="button" class="btn btn-success" id="rca-btn-closecar" onclick="rcaCloseCar()">🔒 <span data-en>Verify, approve &amp; close</span><span data-es>Verificar, aprobar y cerrar</span></button>
+        <button type="button" class="btn btn-warn" id="rca-btn-reopen" onclick="rcaReopenPlan()">↩️ <span data-en>Not effective — reopen plan</span><span data-es>No efectiva — reabrir plan</span></button>
       </div>
       <div class="action-row" style="margin-top:8px">
         <button type="button" class="btn" onclick="rcaExportPDF()">⬇️ <span data-en>Download PDF</span><span data-es>Descargar PDF</span></button>
@@ -20650,10 +20864,14 @@ function qaExportExcel(){
     var rcaRows = a.rcas.map(function(r){
       var raw = r.raw;
       return {
+        'CAR #': raw.carNo || '', 'Source': raw.carSource || '', 'Originated By': raw.originatedBy || '', 'Original Complaint / NCR': raw.origRef || '',
+        'Moquin NCR #': raw.moquinNcr || '', 'Customer NCR #': raw.customerNcr || '', 'Date Opened': raw.openDate || '', 'Target Close': raw.targetClose || '',
         'Job #': r.jobNumber, 'Product ID': raw.productNumber || '', Customer: r.customer, Station: stationLabel(r.station),
         'QA Tech': raw.qaTech || '', 'Date Found': raw.dateFound || '', Status: rcaStatusLabel(raw.status),
         'Quality Issue': raw.issueCategory || '', 'Root Cause': raw.rootCause || '', 'Root Cause Summary': raw.rcSummary || '',
-        'Corrective Action': raw.correctiveAction || '', Disposition: raw.disposition || '', 'Approval Date': raw.approvalDate || '',
+        'Corrective Action': raw.correctiveAction || '', 'Action Responsible': raw.caResp || '', 'Action Due': raw.caDue || '', 'Action Completed': raw.caDone || '',
+        'New/Revised SOP #': raw.sopRef || '', Disposition: raw.disposition || '', 'Approved By': raw.approvedBy || '', 'Approval Date': raw.approvalDate || '',
+        'Verification Method': raw.verifyMethod || '', 'Verified By': raw.verifiedBy || '', 'Verification Date': raw.verifyDate || '', 'Verification Results': raw.verifyResults || '', 'Effective': raw.effective || '',
         'Close Date': raw.closeDate || '', 'Close Notes': raw.closeNotes || '', 'Closing QA Tech': raw.closeQATech || ''
       };
     });
@@ -21111,14 +21329,20 @@ function rcaSetPath(p){
   document.getElementById('rca-path1-card').classList.toggle('active',p===1);
   document.getElementById('rca-path2-card').classList.toggle('active',p===2);
   document.getElementById('rca-form-body').classList.remove('hidden');
+  document.getElementById('rca-form-body').classList.toggle('rca-p1', p===1);
   if(p===1){
-    rcaShow('section-rca');rcaShow('section-ca');rcaShow('section-disp');
-    rcaHide('section-sendmgr');rcaHide('section-mgrfill');rcaShow('section-close');rcaHide('path1-actions');
-    document.getElementById('rca-ca-num').textContent='3';
-    document.getElementById('rca-disp-num').textContent='4';
+    rcaHide('section-sendmgr');rcaHide('section-mgrfill');rcaHide('path1-actions');
+    document.getElementById('rca-ca-num').textContent='4';
+    document.getElementById('rca-disp-num').textContent='3';
     document.getElementById('rca-disp-badge').textContent = isEs ? 'Técnico de Calidad' : 'QA Tech';
     document.getElementById('rca-close-num').textContent='5';
-    rcaSetStatus('draft', isEs ? 'Ruta 1 — Calidad completando el formulario completo' : 'Path 1 — QA completing full form');
+    if (!rcaGetVal('open-date')){
+      var _t = new Date();
+      document.getElementById('rca-open-date').value = _t.getFullYear()+'-'+String(_t.getMonth()+1).padStart(2,'0')+'-'+String(_t.getDate()).padStart(2,'0');
+      rcaOpenDateChanged();
+    }
+    rcaGoPhase(1, true);
+    rcaSetStatus('draft', isEs ? 'Ruta 1 — ACR en 3 fases: causa raíz, plan de acción, verificación' : 'Path 1 — CAR in 3 phases: root cause, action plan, verification');
   } else {
     rcaHide('section-rca');rcaHide('section-ca');rcaHide('section-disp');
     rcaShow('section-sendmgr');rcaHide('section-mgrfill');rcaHide('section-close');rcaHide('path1-actions');
@@ -21128,6 +21352,173 @@ function rcaSetPath(p){
 
 function rcaShow(id){document.getElementById('rca-'+id).classList.remove('hidden')}
 function rcaHide(id){document.getElementById('rca-'+id).classList.add('hidden')}
+
+/* ══ Path 1 = a 3-phase CAR (corrective action report) ═══════════════════
+   Phase 1 Root cause  ->  Phase 2 Corrective action plan  ->  Phase 3
+   Verification & approval. The record's status is Open (being worked),
+   Pending Verification (plan submitted, waiting to prove it worked) or
+   Closed (verified effective + approved). The CAR # (typed by QA, unique) is
+   the record's identity: every save REPLACES the local copy with the same
+   CAR # and, once the Apps Script is updated, the same Sheet row — so a CAR
+   never piles up as duplicate rows and can be reopened days later for
+   Phase 3. ═══════════════════════════════════════════════════════════════ */
+var _rcaPhase = 1;
+var _rcaCarStatus = 'Open';   // Open | Pending Verification | Closed
+var _rcaLoadedCar = '';       // CAR # this form session is editing (locks the field)
+var RCA_PHASE_SECTIONS = { 1:['section-rca','section-disp','phase-nav-1'], 2:['section-ca','phase-nav-2'], 3:['section-close'] };
+function rcaGoPhase(n, noScroll){
+  if (rcaCurrentPath !== 1) return;
+  _rcaPhase = n;
+  Object.keys(RCA_PHASE_SECTIONS).forEach(function(k){
+    RCA_PHASE_SECTIONS[k].forEach(function(id){ if (+k === n) rcaShow(id); else rcaHide(id); });
+  });
+  _rcaRefreshPhaseUi();
+  if (!noScroll){ var bar = document.getElementById('rca-phasebar'); if (bar) bar.scrollIntoView({behavior:'smooth', block:'start'}); }
+}
+function _rcaRefreshPhaseUi(){
+  [1,2,3].forEach(function(i){
+    var t = document.getElementById('rca-phasetab-'+i); if (!t) return;
+    t.classList.toggle('active', i === _rcaPhase);
+    t.classList.toggle('done', i < _rcaPhase || (_rcaCarStatus === 'Closed'));
+  });
+  var pill = document.getElementById('rca-car-status-pill');
+  if (pill){
+    pill.textContent = rcaStatusLabel(_rcaCarStatus);
+    pill.className = 'rca-carpill' + (_rcaCarStatus === 'Pending Verification' ? ' pv' : _rcaCarStatus === 'Closed' ? ' cl' : '');
+  }
+}
+function rcaOpenDateChanged(){
+  var t = document.getElementById('rca-target-close'), o = rcaGetVal('open-date');
+  if (!t || t.dataset.touched || !o) return;
+  var p = o.split('-'); if (p.length !== 3) return;
+  var d = new Date(+p[0], +p[1]-1, +p[2] + 90);   // CAR log convention: ~90 days to close
+  t.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function rcaGetVerifiedBy(){ var s = document.getElementById('rca-verified-by-select'); return s ? (s.value === 'Other' ? rcaGetVal('verified-by-other') : s.value) : ''; }
+function _rcaValidatePhase1(){
+  var isEs = isEsLang();
+  if (!rcaValidate(['car-no','open-date','car-source','originated-by','orig-ref','job-num','prod-num','station','issuecat-value','rootcause-value','rc-summary'])) return false;
+  if (!rcaGetVal('disp-value')){
+    showAlert(isEs?'Seleccione una disposición.':'Please select a disposition.');
+    var g = document.querySelector('#rca-section-disp .disposition-grid'); if (g) g.scrollIntoView({behavior:'smooth',block:'center'});
+    return false;
+  }
+  if (!_rcaDispOtherOk('rca-disp-grid')) return false;
+  if (!rcaGetQAName()){ showAlert(isEs?'Seleccione o ingrese el nombre del técnico de calidad.':'Please select or enter the QA tech name.'); _scrollToField(document.getElementById('rca-qa-name')); return false; }
+  return true;
+}
+function _rcaValidatePhase2(){
+  return _rcaValidatePhase1() && rcaValidate(['correctiveaction-value','ca-resp','ca-due']);
+}
+function _rcaValidatePhase3(){
+  var isEs = isEsLang();
+  if (!_rcaValidatePhase2()) return false;
+  if (!rcaValidate(['verify-method','verify-date','verify-results','approved-by','approval-date','close-date-p1'])) return false;
+  if (!rcaGetVerifiedBy()){ showAlert(isEs?'Seleccione quién verificó.':'Please select who verified.'); _scrollToField(document.getElementById('rca-verified-by-select')); return false; }
+  if (!rcaGetCloseQAName()){ showAlert(isEs?'Seleccione el nombre del técnico de calidad (cierre).':'Please select the closing QA tech name.'); _scrollToField(document.getElementById('rca-close-qa-name')); return false; }
+  return true;
+}
+function rcaNextPhase(from){
+  if (from === 1 && !_rcaValidatePhase1()) return;
+  rcaGoPhase(from + 1);
+}
+// A CAR # may only be reused by the very record it was issued for.
+function _rcaCarConflict(carNo){
+  if (!carNo || carNo.toLowerCase() === String(_rcaLoadedCar).toLowerCase()) return null;
+  var hit = null;
+  rcaLoadRecords().forEach(function(r){ if (!hit && r && r.carNo && String(r.carNo).toLowerCase() === carNo.toLowerCase()) hit = r; });
+  return hit;
+}
+// Shared save for every Path 1 step. `status` is the record's new status.
+function _rcaCarSave(status, done){
+  var isEs = isEsLang();
+  var carNo = rcaGetVal('car-no');
+  if (!carNo || !rcaGetVal('job-num')){
+    showAlert(isEs ? 'Escriba el # de ACR y el número de trabajo antes de guardar.' : 'Enter the CAR # and job number before saving.');
+    _scrollToField(document.getElementById(carNo ? 'rca-job-num' : 'rca-car-no'));
+    return;
+  }
+  var clash = _rcaCarConflict(carNo);
+  if (clash){
+    showAlert((isEs ? 'El # de ACR ' : 'CAR # ') + carNo + (isEs ? ' ya está en uso por el trabajo ' : ' is already used by job ') + (clash.jobNumber || '—') + (isEs ? '. Cada ACR necesita un número único.' : '. Every CAR needs its own unique number.'));
+    _scrollToField(document.getElementById('rca-car-no'));
+    return;
+  }
+  rcaSetStatus('saving', isEs ? 'Guardando...' : 'Saving...');
+  rcaSendAll(status, 'car_save', function(ok){
+    if (ok){
+      _rcaLoadedCar = carNo; _rcaCarStatus = status;
+      var c = document.getElementById('rca-car-no'); if (c) c.readOnly = true;
+      rcaRenderDraftList(); _rcaRefreshPhaseUi();
+    }
+    done(ok);
+  });
+}
+function _rcaCarFail(){
+  var isEs = isEsLang();
+  rcaSetStatus('draft', isEs?'⚠️ No se pudo guardar':'⚠️ Could not save');
+  rcaShowToast(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente de nuevo.':'⚠️ Could not save on this device (storage full?) — try again.', true);
+}
+function _rcaSaveCarProgress(){
+  var isEs = isEsLang();
+  _rcaCarSave(_rcaCarStatus === 'Closed' ? 'Pending Verification' : _rcaCarStatus, function(ok){
+    if (!ok) return _rcaCarFail();
+    rcaSetStatus(_rcaCarStatus === 'Pending Verification' ? 'pending' : 'draft', (isEs?'ACR guardada — ':'CAR saved — ') + rcaStatusLabel(_rcaCarStatus) + ' — ' + new Date().toLocaleTimeString());
+    rcaShowToast(RCA_LIVE ? (isEs?'💾 ¡ACR guardada en Google Sheets!':'💾 CAR saved to Google Sheets!') : (isEs?'💾 ¡ACR guardada localmente!':'💾 CAR saved locally!'));
+  });
+}
+function rcaSubmitPlan(){
+  if (!_rcaValidatePhase2()) return;
+  var isEs = isEsLang();
+  var btn = document.getElementById('rca-btn-submitplan'); if (btn) btn.disabled = true;
+  _rcaCarSave('Pending Verification', function(ok){
+    if (btn) btn.disabled = false;
+    if (!ok) return _rcaCarFail();
+    rcaSetStatus('pending', isEs?'Plan enviado — pendiente de verificación':'Plan submitted — pending verification');
+    rcaShowToast(isEs?'✅ Plan enviado. Regrese a la Fase 3 cuando la acción esté implementada.':'✅ Plan submitted. Come back to Phase 3 once the action is in place.');
+    rcaGoPhase(3);
+  });
+}
+function rcaCloseCar(){
+  var isEs = isEsLang();
+  if (!_rcaValidatePhase3()) return;
+  if (rcaGetVal('effective') !== 'Yes'){
+    showAlert(isEs ? 'Solo puede cerrar una ACR si la acción correctiva fue efectiva. Si no lo fue, use "No efectiva — reabrir plan".' : 'A CAR can only be closed when the corrective action was effective. If it was not, use "Not effective — reopen plan".');
+    _scrollToField(document.getElementById('rca-effective'));
+    return;
+  }
+  var btn = document.getElementById('rca-btn-closecar'); if (btn) btn.disabled = true;
+  var isVersioned = !!_rcaVersioningFrom;
+  _rcaCarSave('Closed', function(ok){
+    if (btn) btn.disabled = false;
+    if (!ok) return _rcaCarFail();
+    rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (isEs?'ACR cerrada':'CAR closed'));
+    rcaShowToast(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(isEs?'✅ ¡ACR verificada y cerrada!':'✅ CAR verified & closed!'));
+    if (isVersioned) _rcaFinishEditing();
+    _rcaRefreshPhaseUi();
+    rcaLockForm();
+  });
+}
+function rcaReopenPlan(){
+  var isEs = isEsLang();
+  if (!rcaGetVal('verify-results')){
+    showAlert(isEs ? 'Escriba en "Resultados / evidencia" qué se encontró; queda registrado en el historial.' : 'Write what was found under "Verification results / evidence" — it is kept in the record history.');
+    _scrollToField(document.getElementById('rca-verify-results'));
+    return;
+  }
+  var stamp = new Date().toISOString().slice(0,10);
+  var notes = document.getElementById('rca-close-notes');
+  notes.value = (notes.value ? notes.value + '\n' : '') + '[' + stamp + '] Verification found the action NOT effective (' + (rcaGetVerifiedBy() || 'n/a') + '): ' + rcaGetVal('verify-results');
+  // Fresh verification pass after the revised plan
+  ['verify-results','verify-date','close-date-p1','close-date','approval-date','ca-done'].forEach(function(id){ var e = document.getElementById('rca-'+id); if (e) e.value = ''; });
+  document.getElementById('rca-effective').value = '';
+  _rcaCarSave('Open', function(ok){
+    if (!ok) return _rcaCarFail();
+    rcaSetStatus('draft', isEs?'ACR reabierta — revise el plan de acción':'CAR reopened — revise the action plan');
+    rcaShowToast(isEs?'↩️ ACR reabierta. Actualice el plan de acción correctiva.':'↩️ CAR reopened. Update the corrective action plan.');
+    rcaGoPhase(2);
+  });
+}
 
 function rcaSetStatus(type,msg){
   const dot=document.querySelector('#rca-status-bar .status-dot');
@@ -21735,20 +22126,22 @@ function rcaSendAll(status, action, onDone){
    by the department hand-off picker, auto-filled from STATION_MANAGER when
    the station changes (mirrors the standalone RCA form's behavior, minus
    its unmatched-name bug — see station_manager_final.txt). ── */
-function _rcaMgrOptionsHTML(){
+function _rcaMgrOptionsHTML(withQA){
   return '<option value="">Select name</option>' +
-    RCA_MANAGER_NAMES.map(function(n){ return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>'; }).join('') +
+    (withQA ? RCA_MANAGER_NAMES.concat(['Mathias M','Anthony M']) : RCA_MANAGER_NAMES).map(function(n){ return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>'; }).join('') +
     '<option value="__other">✏️ Other</option>';
 }
 function _rcaPopulateMgrSelects(){
-  ['rca-approved-by-select','rca-mgr-name-select'].forEach(function(id){
+  ['rca-approved-by-select','rca-mgr-name-select','rca-rc-resp-select','rca-ca-resp-select'].forEach(function(id){
     var sel = document.getElementById(id);
-    if (sel && !sel.options.length) sel.innerHTML = _rcaMgrOptionsHTML();
+    if (sel && !sel.options.length) sel.innerHTML = _rcaMgrOptionsHTML(id !== 'rca-mgr-name-select');
   });
 }
 var RCA_NAME_SELECT_MAP = {
   'rca-approved-by-select': { other:'rca-approved-by-other', hidden:'rca-approved-by' },
-  'rca-mgr-name-select':    { other:'rca-mgr-name-other',    hidden:'rca-mgr-name' }
+  'rca-mgr-name-select':    { other:'rca-mgr-name-other',    hidden:'rca-mgr-name' },
+  'rca-rc-resp-select':     { other:'rca-rc-resp-other',     hidden:'rca-rc-resp' },
+  'rca-ca-resp-select':     { other:'rca-ca-resp-other',     hidden:'rca-ca-resp' }
 };
 function rcaNameSelectChange(selId){
   var m = RCA_NAME_SELECT_MAP[selId]; if (!m) return;
@@ -21915,7 +22308,7 @@ function _rcaDispositionBadgeHTML(value){
 // separate lighter-weight version to hide them.
 function _rcaBuildReport(presetData){
   var isEs = isEsLang();
-  var d = presetData || rcaCollectData(rcaCurrentPath===1 ? (rcaGetVal('close-date')?'Closed':'Draft') : 'Draft', 'export_pdf');
+  var d = presetData || rcaCollectData(rcaCurrentPath===1 ? _rcaCarStatus : 'Draft', 'export_pdf');
   var report = document.getElementById('rca-pdf-report');
   var L = isEs ? {
     title:'Análisis de Causa Raíz y Acción Correctiva', subtitle:'Moquin Press — Gestión de Calidad',
@@ -21928,7 +22321,13 @@ function _rcaBuildReport(presetData){
     immAction:'Acción inmediata tomada', approvedCA:'Acción correctiva aprobada', approvedBy:'Aprobado por',
     approvalDate:'Fecha de aprobación', disposition:'Disposición', qaCloseOut:'Cierre de Calidad',
     verifyMethod:'Método de verificación', closeDate:'Fecha de cierre', closeNotes:'Notas de cierre',
-    closeQATech:'Técnico de calidad (cierre)', photos:'Fotos'
+    closeQATech:'Técnico de calidad (cierre)', photos:'Fotos',
+    carNo:'ACR / RNC #', status:'Estado', source:'Origen', originatedBy:'Originado por', origRef:'Queja / RNC original',
+    openDate:'Fecha de apertura', targetClose:'Fecha objetivo de cierre', moquinNcr:'RNC Moquin #', customerNcr:'RNC cliente #',
+    lotQty:'Cant. lote', qtyInsp:'Cant. inspeccionada', qtyRej:'Cant. rechazada', responsible:'Responsable', dueDate:'Fecha límite', completedOn:'Completada',
+    custApproval:'Cambio de forma/ajuste/función', sopRef:'SOP nuevo/revisado #', verification:'Verificación del plan de acción',
+    verifiedBy:'Verificado por', verifyDate:'Fecha de verificación', verifyResults:'Resultados / evidencia', evidenceRef:'Documentos adjuntos',
+    effective:'¿Acción efectiva?', closureDate:'Fecha de cierre', rcInvestigation:'Investigación de causa raíz'
   } : {
     title:'Root Cause Analysis &amp; Corrective Action', subtitle:'Moquin Press — Quality Management',
     incidentInfo:'Incident information', jobNumber:'Job number', productId:'Product ID',
@@ -21940,7 +22339,13 @@ function _rcaBuildReport(presetData){
     immAction:'Immediate action taken', approvedCA:'Approved corrective action', approvedBy:'Approved by',
     approvalDate:'Approval date', disposition:'Disposition', qaCloseOut:'QA close-out',
     verifyMethod:'Verification method', closeDate:'Close-out date', closeNotes:'Close-out notes',
-    closeQATech:'QA tech (closing)', photos:'Photos'
+    closeQATech:'QA tech (closing)', photos:'Photos',
+    carNo:'CAR / NCR #', status:'Status', source:'Source', originatedBy:'Originated by', origRef:'Original complaint / NCR',
+    openDate:'Date opened', targetClose:'Target close date', moquinNcr:'Moquin NCR #', customerNcr:'Customer NCR #',
+    lotQty:'Lot qty', qtyInsp:'Qty inspected', qtyRej:'Qty rejected', responsible:'Responsible', dueDate:'Due date', completedOn:'Completed',
+    custApproval:'Form / fit / function change', sopRef:'New / revised SOP #', verification:'Action plan verification',
+    verifiedBy:'Verified by', verifyDate:'Verification date', verifyResults:'Results / evidence', evidenceRef:'Attached documents',
+    effective:'Action effective?', closureDate:'Closure date', rcInvestigation:'Root cause investigation'
   };
   // Georgia rather than the app's own UI font (IBM Plex Sans) — a serif
   // designed for comfortable on-screen reading of long paragraphs, chosen
@@ -21969,7 +22374,12 @@ function _rcaBuildReport(presetData){
     _rcaPdfField(L.jobNumber, d.jobNumber), _rcaPdfField(L.productId, d.productNumber),
     _rcaPdfField(L.customer, d.customer), _rcaPdfField(L.dateFound, d.dateFound),
     _rcaPdfField(L.station, stationLabel(d.station)), _rcaPdfField(L.qaTech, d.qaTech)
-  ]) + _rcaPdfNarrative(L.qualityIssue, d.issueDesc));
+  ]) + (d.carNo ? _rcaPdfGrid([
+    _rcaPdfField(L.carNo, d.carNo), _rcaPdfField(L.status, rcaStatusLabel(d.status)), _rcaPdfField(L.source, d.carSource),
+    _rcaPdfField(L.originatedBy, d.originatedBy), _rcaPdfField(L.openDate, d.openDate), _rcaPdfField(L.targetClose, d.targetClose),
+    _rcaPdfField(L.moquinNcr, d.moquinNcr), _rcaPdfField(L.customerNcr, d.customerNcr),
+    _rcaPdfField(L.lotQty, d.lotQty), _rcaPdfField(L.qtyInsp, d.qtyInsp), _rcaPdfField(L.qtyRej, d.qtyRej)
+  ]) + _rcaPdfNarrative(L.origRef, d.origRef) : '') + _rcaPdfNarrative(L.qualityIssue, d.issueDesc));
 
   // The 5 Whys as a numbered sequence — skipped entirely for any Why left
   // blank (they aren't required to submit a record), and renumbered so the
@@ -21983,23 +22393,27 @@ function _rcaBuildReport(presetData){
   h += _rcaPdfSection('❓', L.rootCause5,
     _rcaPdfNarrative(L.problemStmt, d.problemStmt) +
     whyChainHtml +
-    _rcaPdfNarrative(L.rcSummary, d.rcSummary));
+    _rcaPdfNarrative(L.rcSummary, d.rcSummary) +
+    ((d.rcResp || d.rcDue || d.rcDone) ? _rcaPdfGrid([_rcaPdfField(L.responsible, d.rcResp), _rcaPdfField(L.dueDate, d.rcDue), _rcaPdfField(L.completedOn, d.rcDone)]) : ''));
 
   h += _rcaPdfSection('📤', L.deptHandoff, _rcaPdfField(L.reassignedTo, d.handoffDept) + _rcaPdfField(L.notes, d.handoffNotes));
 
   h += _rcaPdfSection('🛠️', L.correctiveActionSec,
     _rcaPdfNarrative(L.immAction, d.immAction) +
     _rcaPdfNarrative(L.approvedCA, d.correctiveAction) +
+    ((d.caResp || d.caDue || d.caDone) ? _rcaPdfGrid([_rcaPdfField(L.responsible, d.caResp), _rcaPdfField(L.dueDate, d.caDue), _rcaPdfField(L.completedOn, d.caDone)]) : '') +
+    ((d.custApproval || d.sopRef) ? _rcaPdfGrid([_rcaPdfField(L.custApproval, d.custApproval), _rcaPdfField(L.sopRef, d.sopRef)]) : '') +
     _rcaPdfGrid([_rcaPdfField(L.approvedBy, d.approvedBy), _rcaPdfField(L.approvalDate, d.approvalDate)]));
 
   h += _rcaPdfSection('✅', L.disposition,
     (d.disposition ? '<div class="rca-pdf-field" style="margin-bottom:12px;"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' : '') +
     _rcaPdfField(L.notes, d.dispNotes));
 
-  h += _rcaPdfSection('🔒', L.qaCloseOut, _rcaPdfGrid([
-    _rcaPdfField(L.verifyMethod, d.verifyMethod), _rcaPdfField(L.closeDate, d.closeDate),
+  h += _rcaPdfSection('🔒', d.carNo ? L.verification : L.qaCloseOut, _rcaPdfGrid([
+    _rcaPdfField(L.verifyMethod, d.verifyMethod), _rcaPdfField(d.carNo ? L.closureDate : L.closeDate, d.closeDate),
     _rcaPdfField(L.closeQATech, d.closeQATech)
-  ]) + _rcaPdfField(L.closeNotes, d.closeNotes));
+  ]) + (d.carNo ? _rcaPdfGrid([_rcaPdfField(L.verifiedBy, d.verifiedBy), _rcaPdfField(L.verifyDate, d.verifyDate), _rcaPdfField(L.effective, d.effective)]) +
+    _rcaPdfNarrative(L.verifyResults, d.verifyResults) + _rcaPdfField(L.evidenceRef, d.evidenceRef) : '') + _rcaPdfField(L.closeNotes, d.closeNotes));
 
   if (d.photos && d.photos.length){
     h += '<div class="rca-pdf-section"><h3>📷 ' + L.photos + '</h3><div class="rca-pdf-photos">' +
@@ -22008,7 +22422,7 @@ function _rcaBuildReport(presetData){
   h += '</div>';
   report.innerHTML = h;
 
-  var filenameBase = 'RCA_' + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
+  var filenameBase = (d.carNo ? 'CAR_' + String(d.carNo).replace(/[^a-z0-9_-]+/gi,'') + '_' : 'RCA_') + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
     '_' + (d.dateFound || formatTS().slice(0,10));
   return { d: d, report: report, filenameBase: filenameBase };
 }
@@ -22223,6 +22637,16 @@ function rcaCollectData(status, action){
     photoData:rcaPhotos.length?rcaPhotos[0].src:'', photoFileName:rcaPhotos.length?(rcaPhotos[0].name||'photo.jpg'):'',
     closeDate:rcaGetVal('close-date'), closeNotes:rcaGetVal('close-notes'),
     closeQATech:rcaGetCloseQAName(), verifyMethod:rcaGetVal('verify-method'),
+    // CAR traceability / 3-phase fields (Path 1)
+    carNo:rcaGetVal('car-no'), openDate:rcaGetVal('open-date'), targetClose:rcaGetVal('target-close'),
+    carSource:rcaGetVal('car-source'), originatedBy:rcaGetVal('originated-by'), origRef:rcaGetVal('orig-ref'),
+    moquinNcr:rcaGetVal('moquin-ncr'), customerNcr:rcaGetVal('customer-ncr'),
+    lotQty:rcaGetVal('lot-qty'), qtyInsp:rcaGetVal('qty-insp'), qtyRej:rcaGetVal('qty-rej'),
+    rcResp:rcaGetVal('rc-resp'), rcDue:rcaGetVal('rc-due'), rcDone:rcaGetVal('rc-done'),
+    caResp:rcaGetVal('ca-resp'), caDue:rcaGetVal('ca-due'), caDone:rcaGetVal('ca-done'),
+    custApproval:rcaGetVal('cust-approval'), sopRef:rcaGetVal('sop-ref'),
+    verifiedBy:rcaGetVerifiedBy(), verifyDate:rcaGetVal('verify-date'), verifyResults:rcaGetVal('verify-results'),
+    evidenceRef:rcaGetVal('evidence-ref'), effective:rcaGetVal('effective'), phase:_rcaPhase,
     status:status,
     token:_rcaToken,
     // Just an audit trail, not an access-control check — editing a record
@@ -22255,6 +22679,11 @@ function _rcaMirrorLocal(data){
     var list = [];
     try { list = JSON.parse(localStorage.getItem(RCA_STORE_KEY)) || []; } catch(e) {}
     var mirrored = Object.assign({}, data, { savedAt: formatTS(), simulated: !RCA_LIVE });
+    // A CAR is ONE record keyed by its CAR # — replace the earlier copy instead of piling up duplicates.
+    if (data.carNo){
+      var _ck = String(data.carNo).toLowerCase();
+      list = list.filter(function(r){ return !(r && r.carNo && String(r.carNo).toLowerCase() === _ck); });
+    }
     list.unshift(mirrored);
     // Cap how many records this device keeps a local copy of, so the
     // accumulated photo data from old records doesn't eventually crowd out
@@ -22318,7 +22747,7 @@ function rcaLockForm(){
   // banner itself) stay usable after submit/close — a finished record still
   // needs to be printed/shared or followed by a fresh one, and locking the
   // form is only meant to stop further edits to the underlying data.
-  document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"]):not([onclick^="rcaPrintReport"]):not([onclick^="rcaResetForm"])').forEach(e=>e.disabled=true);
+  document.querySelectorAll('#view-rca input, #view-rca select, #view-rca textarea, #view-rca button:not([onclick^="rcaExportPDF"]):not([onclick^="rcaPrintReport"]):not([onclick^="rcaResetForm"]):not(.rca-phasetab)').forEach(e=>e.disabled=true);
   var isEs = isEsLang();
   document.getElementById('rca-success-banner-text').textContent = _rcaVersioningFrom
     ? (isEs ? '¡Nueva versión guardada!' : 'New version saved!')
@@ -22360,6 +22789,10 @@ function rcaResetForm(){
   _rcaToken = '';
   _rcaManagerMode = false; _rcaCloseoutMode = false;
   _rcaVersioningFrom = null;
+  _rcaPhase = 1; _rcaCarStatus = 'Open'; _rcaLoadedCar = '';
+  var _cn = document.getElementById('rca-car-no'); if (_cn) _cn.readOnly = false;
+  var _tc = document.getElementById('rca-target-close'); if (_tc) delete _tc.dataset.touched;
+  document.getElementById('rca-form-body').classList.remove('rca-p1');
   rcaCurrentPath = null;
 
   // Back to the pristine "choose a path" screen.
@@ -22521,6 +22954,7 @@ function rcaSubmitPath1(){
 }
 
 function rcaSaveDraft(){
+  if (rcaCurrentPath === 1) return _rcaSaveCarProgress();
   var isEs = isEsLang();
   rcaSetStatus('saving', isEs?'Guardando borrador...':'Saving draft...');
   rcaSendAll('Draft', undefined, ok=>{
@@ -23227,7 +23661,7 @@ function setRecordsFilter(f, btn){
 // place that resolves it to a display label in the current language.
 function rcaStatusLabel(rawStatus){
   var raw = rawStatus ? (rawStatus.charAt(0).toUpperCase()+rawStatus.slice(1)) : (isEsLang() ? 'Borrador' : 'Draft');
-  var esMap = { 'Draft': 'Borrador', 'Closed': 'Cerrado', 'Pending': 'Pendiente', 'Sent_to_manager': 'Enviado al Gerente' };
+  var esMap = { 'Draft': 'Borrador', 'Open': 'Abierta', 'Pending Verification': 'Pendiente de Verificación', 'Closed': 'Cerrado', 'Pending': 'Pendiente', 'Sent_to_manager': 'Enviado al Gerente' };
   return isEsLang() ? (esMap[raw] || raw) : raw;
 }
 // RCA path is stored as a literal English description
@@ -24003,6 +24437,11 @@ function openRecordRCA(idxKey){
   var rows = [
     [_rvrEs?'Estado':'Status', r.status ? rcaStatusLabel(r.status) : '—'],
     [_rvrEs?'Ruta':'Path', r.path ? rcaPathLabel(r.path) : '—'],
+    [_rvrEs?'ACR #':'CAR #', r.carNo || '—'],
+    [_rvrEs?'Origen':'Source', r.carSource || '—'],
+    [_rvrEs?'Originado por':'Originated by', r.originatedBy || '—'],
+    [_rvrEs?'Queja / RNC original':'Original complaint / NCR', r.origRef || '—'],
+    [_rvrEs?'Fecha de apertura':'Date opened', r.openDate || '—'],
     [_rvrEs?'Trabajo #':'Job #', {html: hlId(r.jobNumber)}],
     [_rvrEs?'Producto #':'Product #', {html: hlId(r.productNumber)}],
     [_rvrEs?'Estación':'Station', {html: hlId(stationLabel(r.station))}],
@@ -24015,20 +24454,26 @@ function openRecordRCA(idxKey){
     [_rvrEs?'Por qué 4':'Why 4', r.why4 || '—'],
     [_rvrEs?'Por qué 5':'Why 5', r.why5 || '—'],
     [_rvrEs?'Causa Raíz':'Root Cause', r.rcSummary || '—'],
+    [_rvrEs?'Responsable (causa raíz)':'Root cause responsible', [r.rcResp, r.rcDue ? (_rvrEs?'vence ':'due ')+r.rcDue : ''].filter(Boolean).join(' · ') || '—'],
     [_rvrEs?'Acción Correctiva':'Corrective Action', r.correctiveAction || '—'],
+    [_rvrEs?'Responsable (acción)':'Action responsible', [r.caResp, r.caDue ? (_rvrEs?'vence ':'due ')+r.caDue : '', r.caDone ? (_rvrEs?'completada ':'completed ')+r.caDone : ''].filter(Boolean).join(' · ') || '—'],
     [_rvrEs?'Disposición':'Disposition', r.disposition || '—'],
+    [_rvrEs?'Verificación':'Verification', (r.verifyDate || r.verifyResults) ? [r.verifyMethod, r.verifiedBy, r.verifyDate].filter(Boolean).join(' · ') + (r.verifyResults ? ' — ' + r.verifyResults : '') : '—'],
+    [_rvrEs?'¿Efectiva?':'Effective?', r.effective || '—'],
+    [_rvrEs?'Fecha de cierre':'Closure date', r.closeDate || '—'],
     [_rvrEs?'Notas de Cierre':'Closing Notes', r.closeNotes || '—'],
     [_rvrEs?'Guardado':'Saved', r.savedAt || '—']
   ];
   var canEdit = _isDataEditAllowedUser();
-  var isDraft = r.status === 'Draft';
+  var isOpenCar = !!(r.carNo && (r.status === 'Open' || r.status === 'Pending Verification'));
+  var isDraft = r.status === 'Draft' || isOpenCar;
   var actionsHtml = '<div class="action-row" style="margin-top:12px;flex-wrap:wrap;">' +
     // A Draft was never actually filed — continuing it just resumes the
     // same unfinished form (no versioned copy, no permission gate; it's
     // your own in-progress work, not a correction to something already on
     // record). A Closed/Sent/etc. record still only offers the gated
     // "Edit this record" (versioned-copy) path from here.
-    (isDraft ? '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\''+idxKey+'\')">▶️ ' + (_rvrEs?'Continuar Borrador':'Continue Draft') + '</button>' : '') +
+    (isDraft ? '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\''+idxKey+'\')">▶️ ' + (isOpenCar ? (r.status === 'Pending Verification' ? (_rvrEs?'Verificar / Continuar':'Verify / Continue') : (_rvrEs?'Continuar ACR':'Continue CAR')) : (_rvrEs?'Continuar Borrador':'Continue Draft')) + '</button>' : '') +
     '<button type="button" class="btn" onclick="rcaExportRecordPDF(\''+idxKey+'\', this)">⬇️ ' + (_rvrEs?'Descargar PDF':'Download PDF') + '</button>' +
     '<button type="button" class="btn" onclick="rcaPrintRecordReport(\''+idxKey+'\')">🖨️ ' + (_rvrEs?'Imprimir':'Print') + '</button>' +
     (!isDraft && canEdit ? '<button type="button" class="btn btn-warn" onclick="rcaOpenRecordForEdit(\''+idxKey+'\')">✏️ ' + (_rvrEs?'Editar este registro':'Edit this record') + '</button>' : '') +
@@ -24074,27 +24519,38 @@ function rcaPrintRecordReport(idxKey){
 function rcaRenderDraftList(){
   var box = document.getElementById('rca-drafts-box');
   if (!box) return;
-  var list = rcaLoadRecords(), seen = {}, rows = [];
+  var list = rcaLoadRecords(), seen = {}, rows = [], pending = [];
   list.forEach(function(r, idx){
-    if (!r || r.status !== 'Draft') return;
-    var key = (r.jobNumber||'') + '|' + (r.station||'');
+    if (!r) return;
+    var isPV = r.status === 'Pending Verification';
+    if (!isPV && r.status !== 'Draft' && !(r.carNo && r.status === 'Open')) return;
+    var key = r.carNo ? 'car|' + r.carNo : (r.jobNumber||'') + '|' + (r.station||'');
     if (seen[key]) return;
     seen[key] = true;
-    rows.push({ r: r, idx: idx });
+    (isPV ? pending : rows).push({ r: r, idx: idx });
   });
   var isEs = isEsLang();
+  var today = new Date().toISOString().slice(0,10);
   box.classList.remove('hidden');
-  box.innerHTML = '<div class="section" style="margin-bottom:1rem"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:' + (rows.length ? '10px' : '0') + '">' +
-    '<div class="section-title">' + (rows.length ? '📝 ' + (isEs ? 'Continuar un borrador guardado' : 'Continue a saved draft') + ' (' + rows.length + ')' : (isEs ? 'No hay borradores guardados' : 'No saved drafts')) + '</div>' +
-    '<button type="button" class="btn" onclick="rcaStartNewDraft()">＋ ' + (isEs ? 'Iniciar nuevo borrador' : 'Start new draft') + '</button></div>' +
-    rows.map(function(x){
-      var r = x.r;
-      var meta = [r.station ? stationLabel(r.station) : '', r.customer || '', r.savedAt ? (isEs?'guardado ':'saved ') + r.savedAt : ''].filter(Boolean).map(escHtml).join(' · ');
-      return '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border)">' +
-        '<div style="min-width:0"><div style="font-weight:700;font-size:15px">' + (isEs?'Trabajo ':'Job ') + escHtml(r.jobNumber || '—') + '</div>' +
-        '<div style="font-size:13px;color:var(--text-tertiary)">' + meta + '</div></div>' +
-        '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + (isEs?'Continuar':'Continue') + '</button></div>';
-    }).join('') + '</div>';
+  function rowHtml(x, btnLabel){
+    var r = x.r;
+    var overdue = r.status === 'Pending Verification' && r.targetClose && r.targetClose < today;
+    var meta = [r.station ? stationLabel(r.station) : '', r.customer || '',
+      r.status === 'Pending Verification' && r.targetClose ? (isEs?'cierre objetivo ':'target close ') + r.targetClose : '',
+      r.savedAt ? (isEs?'guardado ':'saved ') + r.savedAt : ''].filter(Boolean).map(escHtml).join(' · ');
+    return '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border)">' +
+      '<div style="min-width:0"><div style="font-weight:700;font-size:15px">' + (r.carNo ? (isEs?'ACR ':'CAR ') + escHtml(r.carNo) + ' · ' : '') + (isEs?'Trabajo ':'Job ') + escHtml(r.jobNumber || '—') +
+      (overdue ? ' <span style="color:var(--red);font-size:12px;font-weight:700">' + (isEs?'VENCIDA':'OVERDUE') + '</span>' : '') + '</div>' +
+      '<div style="font-size:13px;color:var(--text-tertiary)">' + meta + '</div></div>' +
+      '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + btnLabel + '</button></div>';
+  }
+  var head = '<div class="section" style="margin-bottom:1rem"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:' + (rows.length || pending.length ? '10px' : '0') + '">' +
+    '<div class="section-title">' + (rows.length ? '📝 ' + (isEs ? 'Continuar una ACR en progreso' : 'Continue an open CAR / draft') + ' (' + rows.length + ')' : (pending.length ? '' : (isEs ? 'No hay borradores guardados' : 'No saved drafts'))) + '</div>' +
+    '<button type="button" class="btn" onclick="rcaStartNewDraft()">＋ ' + (isEs ? 'Iniciar nuevo borrador' : 'Start new draft') + '</button></div>';
+  var pvHtml = pending.length ?
+    '<div class="section-title" style="margin-top:12px">🔎 ' + (isEs ? 'Pendientes de verificación' : 'Awaiting verification') + ' (' + pending.length + ')</div>' +
+    pending.map(function(x){ return rowHtml(x, isEs?'Verificar':'Verify'); }).join('') : '';
+  box.innerHTML = head + rows.map(function(x){ return rowHtml(x, isEs?'Continuar':'Continue'); }).join('') + pvHtml + '</div>';
 }
 // "Start new draft" — clears the form back to the choose-a-path screen. If a
 // form is already open, confirm first since unsaved entries would be lost.
@@ -24111,6 +24567,7 @@ function rcaContinueDraft(idxKey){
   var list = rcaLoadRecords();
   var r = list[idx];
   if (!r) return;
+  if (r.carNo) return rcaOpenCar(idxKey);
   closeRecordView();
   switchView('rca');
   rcaUnlockForm();
@@ -24192,6 +24649,11 @@ function rcaOpenRecordForEdit(idxKey){
   if (pathSel) pathSel.style.display = 'none';
   _rcaFillFullRecordForEdit(r);
   document.getElementById('rca-job-num').value = ver.newJobNumber;
+  // A versioned copy is a NEW record, so it needs its own CAR # (never the original's).
+  _rcaLoadedCar = ''; _rcaCarStatus = 'Pending Verification';
+  var _cn = document.getElementById('rca-car-no');
+  if (_cn){ _cn.readOnly = false; _cn.value = r.carNo ? String(r.carNo).replace(/s*-s*[A-Z]$/, '') + ' - ' + ver.suffix : ''; }
+  _rcaRefreshPhaseUi();
   var notice = document.getElementById('rca-editing-notice');
   if (notice){
     var isEs = isEsLang();
@@ -24337,6 +24799,58 @@ function _rcaFillFullRecordForEdit(r){
     rcaRenderCascadeGrids(true);
     _rcaSyncDispOther('rca-disp-grid');
   }
+  _rcaFillCarFields(r);
+}
+// CAR traceability + phase 2/3 fields. Runs LAST in _rcaFillFullRecordForEdit:
+// rcaOnStationChange() auto-fills the responsible-person selects from the
+// station manager, so the saved values have to be written after it.
+function _rcaFillCarFields(r){
+  function set(id, v){ var e = document.getElementById('rca-'+id); if (e) e.value = v || ''; }
+  set('car-no', r.carNo); set('open-date', r.openDate); set('target-close', r.targetClose);
+  var tc = document.getElementById('rca-target-close'); if (tc){ if (r.targetClose) tc.dataset.touched = '1'; else delete tc.dataset.touched; }
+  set('car-source', r.carSource); set('originated-by', r.originatedBy); set('orig-ref', r.origRef);
+  set('moquin-ncr', r.moquinNcr); set('customer-ncr', r.customerNcr);
+  set('lot-qty', r.lotQty); set('qty-insp', r.qtyInsp); set('qty-rej', r.qtyRej);
+  set('rc-due', r.rcDue); set('rc-done', r.rcDone);
+  set('ca-due', r.caDue); set('ca-done', r.caDone);
+  set('cust-approval', r.custApproval); set('sop-ref', r.sopRef);
+  set('verify-date', r.verifyDate); set('verify-results', r.verifyResults);
+  set('evidence-ref', r.evidenceRef); set('effective', r.effective);
+  set('close-date', r.closeDate); set('close-date-p1', r.closeDate);
+  _rcaSetNameSelect('rca-rc-resp-select', r.rcResp || '');
+  _rcaSetNameSelect('rca-ca-resp-select', r.caResp || '');
+  _rcaSetSelectOrOther('rca-verified-by-select', 'rca-verified-by-other', r.verifiedBy || '');
+}
+// Reopen a saved CAR (Open / Pending Verification) WITHOUT deleting its stored
+// copy — unlike rcaContinueDraft, this record is the system of record, and
+// the next save simply replaces it by CAR #.
+function rcaOpenCar(idxKey){
+  var idx = parseInt(String(idxKey).replace('rca-',''), 10);
+  var r = rcaLoadRecords()[idx];
+  if (!r) return;
+  closeRecordView();
+  switchView('rca');
+  rcaUnlockForm();
+  document.getElementById('rca-success-banner').classList.add('hidden');
+  document.getElementById('rca-manager-submitted-banner').classList.add('hidden');
+  _rcaVersioningFrom = null;
+  _rcaToken = r.token || '';
+  rcaSetPath(1);
+  var pathSel = document.querySelector('#view-rca .path-selector');
+  if (pathSel) pathSel.style.display = 'none';
+  _rcaFillFullRecordForEdit(r);
+  _rcaLoadedCar = r.carNo || '';
+  var cn = document.getElementById('rca-car-no'); if (cn) cn.readOnly = !!r.carNo;
+  _rcaCarStatus = (r.status === 'Pending Verification') ? 'Pending Verification' : 'Open';
+  var phase = _rcaCarStatus === 'Pending Verification' ? 3 : (+r.phase || 1);
+  rcaGoPhase(phase, true);
+  var notice = document.getElementById('rca-editing-notice');
+  if (notice){
+    notice.querySelector('[data-en]').textContent = 'Continuing CAR ' + (r.carNo || r.jobNumber || '—') + ' (' + rcaStatusLabel(_rcaCarStatus) + ') — pick up at Phase ' + phase + '.';
+    notice.querySelector('[data-es]').textContent = 'Continuando ACR ' + (r.carNo || r.jobNumber || '—') + ' (' + rcaStatusLabel(_rcaCarStatus) + ') — continúe en la Fase ' + phase + '.';
+    notice.classList.remove('hidden');
+  }
+  document.getElementById('view-rca').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 /* Same-browser, cross-tab live refresh — a stand-in for the eventual
