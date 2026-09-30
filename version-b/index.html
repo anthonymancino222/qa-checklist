@@ -21461,7 +21461,7 @@ function _rcaLoadComboIssues(rec, issueStr){
 /* ── Multi-station RCA — a job can come back with issues from more than one
    station. QA picks extra stations, then says which issue belongs to which
    station (same idea as the Pallet Tag's per-issue assignment). Saving
-   writes ONE normal RCA record per station carrying just that station's
+   writes ONE combined RCA record (station saved as "A + B") carrying each station's
    issues, so Records/PDF/manager-email flows need no changes. With no extra
    stations chosen, every function below collapses to the old single-station
    behavior. ── */
@@ -21560,7 +21560,7 @@ function rcaRenderIssueAssign(){
     (idle.length ? ' '+(isEs?'Sin problemas asignados (se omiten de este RCA): ':'No issues assigned (left out of this RCA): ')+idle.map(escHtml).join(', ')+'.' : '')+
     '</div></div>';
 }
-// Saves one record per station group; with no extra stations this is
+// Saves ONE record covering every station group (see _rcaStationValue); with no extra stations this is
 // exactly the old single rcaSendToSheets(rcaCollectData(...)) call.
 function rcaSendAll(status, action, onDone){
   // One record no matter how many stations are involved (see _rcaStationValue).
