@@ -6329,11 +6329,80 @@ function _syncPushAll(type, list) {
 // small edit was writing one D1 row per EXISTING record, not per changed
 // one.
 function _syncSnapshotKey(type){ return 'vb_qa_sync_snapshot_' + type + '_v1'; }
+// REVISED 2026-09-30: the snapshot now ALSO lives in memory for the life of
+// the page, not just in localStorage. Found via the Cloudflare D1 metrics on
+// 2026-09-29 (679k rows written in 24h against a 100k/day free cap): a
+// device whose localStorage was full silently failed every snapshot write
+// (the old catch(e){} below), so after each push "what the server holds"
+// was forgotten again, all ~360 job records read as dirty on the very next
+// 30s retry tick, and the whole store was re-fetched and re-pushed forever.
+// The memory copy keeps the diff honest for the session even when storage
+// refuses the write. The map is created lazily on the function itself (not
+// a module-level var) for the same early-page-load reason as
+// _syncPushDelta._inFlight above.
+function _syncSnapMem(){
+  if (!_syncSnapshotGet._mem) _syncSnapshotGet._mem = {};
+  return _syncSnapshotGet._mem;
+}
 function _syncSnapshotGet(type){
-  try { return JSON.parse(localStorage.getItem(_syncSnapshotKey(type))) || {}; } catch(e){ return {}; }
+  var mem = _syncSnapMem();
+  if (!mem[type]) {
+    var loaded = {};
+    try { loaded = JSON.parse(localStorage.getItem(_syncSnapshotKey(type))) || {}; } catch(e){}
+    mem[type] = loaded;
+  }
+  return Object.assign({}, mem[type]); // callers mutate their copy, then hand it back via Set
 }
 function _syncSnapshotSet(type, snap){
-  try { localStorage.setItem(_syncSnapshotKey(type), JSON.stringify(snap)); } catch(e){}
+  _syncSnapMem()[type] = Object.assign({}, snap);
+  try { localStorage.setItem(_syncSnapshotKey(type), JSON.stringify(snap)); }
+  catch(e){
+    if (!_syncSnapshotSet._warned) _syncSnapshotSet._warned = {};
+    if (!_syncSnapshotSet._warned[type]) {
+      _syncSnapshotSet._warned[type] = true;
+      try { console.warn('[sync] could not persist the ' + type + ' snapshot (storage full?) — holding it in memory for this session'); } catch(e2){}
+    }
+  }
+}
+// Per-record circuit breaker. A record being pushed more than this many
+// times inside the window is almost certainly a loop, not editing (a person
+// tapping through a form saves it a handful of times, not a dozen in ten
+// minutes). Held-back records simply stay dirty and go out once the window
+// rolls over — nothing is dropped, it just can't hammer the backend.
+function _syncPushBreaker(type, entries){
+  if (!_syncPushBreaker._log) _syncPushBreaker._log = {};
+  var log = _syncPushBreaker._log, now = Date.now(), cutoff = now - 10 * 60 * 1000, held = 0;
+  var out = entries.filter(function(d){
+    var k = type + '|' + d.id;
+    var ts = (log[k] || []).filter(function(t){ return t > cutoff; });
+    if (ts.length >= 12) { log[k] = ts; held++; return false; }
+    ts.push(now); log[k] = ts;
+    return true;
+  });
+  if (held) { try { console.warn('[sync] held back ' + held + ' ' + type + ' record(s) pushed 12+ times in 10 min — possible sync loop'); } catch(e){} }
+  return out;
+}
+// After _syncReconcileBeforePush pushes a three-way MERGED job, this device's
+// own copy still held the pre-merge version. The snapshot then said "server
+// = merged" while local said something else, so the next retry tick found it
+// dirty, saw the server unchanged from the snapshot, and pushed the
+// pre-merge local copy right back OVER the merge — silently erasing the
+// other device's edits and leaving two devices to keep re-pushing. Adopting
+// the merged copy locally (only if local hasn't been edited again in the
+// meantime) closes that loop.
+function _syncAdoptMergedLocally(entries){
+  if (typeof ipLoad !== 'function') return;
+  var jobs = ipLoad(), changed = false;
+  entries.forEach(function(e){
+    if (!e.origJson) return;
+    for (var i = 0; i < jobs.length; i++) {
+      if (jobs[i] && jobs[i].id === e.id) {
+        if (JSON.stringify(jobs[i]) === e.origJson) { jobs[i] = e.data; changed = true; }
+        break;
+      }
+    }
+  });
+  if (changed) { try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e){} }
 }
 
 // The real entry point every save/retry goes through now. Diffs `list`
@@ -6446,6 +6515,8 @@ function _syncPushDelta(type, list){
     _syncSnapshotSet(type, snap);
   }
   if (!dirty.length) return Promise.resolve(true);
+  dirty = _syncPushBreaker(type, dirty);
+  if (!dirty.length) return Promise.resolve(false); // everything held back by the circuit breaker — honest "not pushed"
 
   // Job pushes get reconciled against the server first — see
   // _syncReconcileBeforePush's own comment for why. Every other type keeps
@@ -6455,8 +6526,13 @@ function _syncPushDelta(type, list){
   return pushReady.then(function(toPush){
     return _syncPushAll(type, toPush.map(function(d){ return d.data; })).then(function(ok){
       if (!ok) return false; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
-      toPush.forEach(function(d){ snap[d.id] = d.json; });
-      _syncSnapshotSet(type, snap);
+      // Re-read instead of reusing the `snap` captured before the network
+      // round trip — a pull that finished in the meantime may have updated
+      // other ids, and writing back the stale copy would undo that.
+      var cur = _syncSnapshotGet(type);
+      toPush.forEach(function(d){ cur[d.id] = d.json; });
+      _syncSnapshotSet(type, cur);
+      if (type === 'job') _syncAdoptMergedLocally(toPush);
       return true;
     });
   });
@@ -6501,7 +6577,7 @@ function _syncReconcileBeforePush(dirty, snap){
       var base = snap[d.id] ? JSON.parse(snap[d.id]) : null;
       if (base && remoteJson === JSON.stringify(base)) return d; // server unchanged since we last confirmed — safe as-is
       var merged = _mergeJobRecord(base, d.data, remote);
-      return { id: d.id, json: JSON.stringify(merged), data: merged };
+      return { id: d.id, json: JSON.stringify(merged), data: merged, origJson: d.json };
     });
   }).catch(function(){ return dirty; });
 }
