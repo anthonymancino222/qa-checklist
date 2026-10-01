@@ -6178,6 +6178,7 @@ function _tryRestoreLocalSession() {
   _applyDataEditVisibility();
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
   setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
+  setTimeout(function(){ if (typeof rcaFlushPending === 'function') rcaFlushPending(); }, 2000);
   // Deferred to next tick — this runs very early in the script, before
   // later-declared module vars (_scheduleData, _pullScheduleInFlight) have
   // been assigned; letting the rest of the script finish first avoids
@@ -6300,6 +6301,7 @@ function _onGoogleSignIn(response) {
   _saveLocalSession(_googleIdToken);
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
   setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
+  setTimeout(function(){ if (typeof rcaFlushPending === 'function') rcaFlushPending(); }, 2000);
   setTimeout(_initScheduleAutoPull, 0);
 }
 
@@ -11519,9 +11521,9 @@ function switchView(id) {
   if (id === 'ncr')        renderNCRView();
   if (id === 'ncrprog')    renderNCRProgress();
   if (id === 'ncrpie')     renderQAData();
-  if (id === 'rca')      { rcaPopulatePrefill(); rcaRenderDraftList(); }
+  if (id === 'rca')      { rcaPopulatePrefill(); rcaRenderDraftList(); rcaCloudPull(false); rcaFlushPending(); }
   if (id === 'shipping')   renderShipping();
-  if (id === 'records')    renderRecords();
+  if (id === 'records')    { renderRecords(); rcaCloudPull(false); }
   if (id === 'qamanager')  _renderQaManagerAccess();
   document.querySelectorAll('.bnav-item').forEach(function(b){ b.classList.remove('active'); });
   var bni = document.getElementById('bnav-'+navId);
@@ -21456,6 +21458,7 @@ function _rcaCarSave(status, done){
 }
 function _rcaCarFail(){
   var isEs = isEsLang();
+  if (rcaSendToSheets.lastErr === 'blocked'){ rcaSetStatus('draft', isEs?'No guardado — resuelva el aviso':'Not saved — see the message'); return; }
   rcaSetStatus('draft', isEs?'⚠️ No se pudo guardar':'⚠️ Could not save');
   rcaShowToast(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente de nuevo.':'⚠️ Could not save on this device (storage full?) — try again.', true);
 }
@@ -21464,7 +21467,7 @@ function _rcaSaveCarProgress(){
   _rcaCarSave(_rcaCarStatus === 'Closed' ? 'Pending Verification' : _rcaCarStatus, function(ok){
     if (!ok) return _rcaCarFail();
     rcaSetStatus(_rcaCarStatus === 'Pending Verification' ? 'pending' : 'draft', (isEs?'ACR guardada — ':'CAR saved — ') + rcaStatusLabel(_rcaCarStatus) + ' — ' + new Date().toLocaleTimeString());
-    rcaShowToast(RCA_LIVE ? (isEs?'💾 ¡ACR guardada en Google Sheets!':'💾 CAR saved to Google Sheets!') : (isEs?'💾 ¡ACR guardada localmente!':'💾 CAR saved locally!'));
+    rcaShowToast(RCA_LIVE ? (isEs?'💾 ¡ACR guardada en la base de datos de QA!':'💾 CAR saved to the QA database!') : (isEs?'💾 ¡ACR guardada localmente!':'💾 CAR saved locally!'));
   });
 }
 function rcaSubmitPlan(){
@@ -21528,6 +21531,10 @@ function rcaSetStatus(type,msg){
 }
 
 function rcaShowToast(msg,isErr){
+  if (rcaSendToSheets.savedOnDeviceOnly && !isErr){
+    rcaSendToSheets.savedOnDeviceOnly = false;
+    msg = isEsLang() ? '⚠️ Guardado en este dispositivo — se subirá cuando haya conexión e inicio de sesión' : '⚠️ Saved on this device — will upload when you are online and signed in'; isErr = true;
+  }
   const t=document.getElementById('rca-toast');
   t.textContent=msg; t.className='toast'+(isErr?' error':'');
   t.classList.add('show');
@@ -22674,12 +22681,15 @@ function rcaCollectData(status, action){
 // exceeding the browser's localStorage quota over time is a real, not
 // theoretical, way for that write to fail (this app has hit this exact
 // class of storage-quota bug before).
-function _rcaMirrorLocal(data){
+function _rcaMirrorLocal(data, extra){
   try {
     var list = [];
     try { list = JSON.parse(localStorage.getItem(RCA_STORE_KEY)) || []; } catch(e) {}
-    var mirrored = Object.assign({}, data, { savedAt: formatTS(), simulated: !RCA_LIVE });
-    // A CAR is ONE record keyed by its CAR # — replace the earlier copy instead of piling up duplicates.
+    var mirrored = Object.assign({}, data, { savedAt: formatTS(), simulated: !RCA_LIVE }, extra || {});
+    // One record per cloudId (CAR # or token) — replace the earlier copy instead of piling up duplicates.
+    if (data.cloudId){
+      list = list.filter(function(r){ return !(r && r.cloudId === data.cloudId); });
+    }
     if (data.carNo){
       var _ck = String(data.carNo).toLowerCase();
       list = list.filter(function(r){ return !(r && r.carNo && String(r.carNo).toLowerCase() === _ck); });
@@ -22710,36 +22720,258 @@ function _rcaMirrorLocal(data){
     return false;
   }
 }
+/* ══ RCA storage = the same Cloudflare database as jobs/NCRs ═══════════════
+   RCA records live in the Worker's `records` table as type 'rca' (id =
+   'car-<carno>' for a Path 1 CAR, or the RCA-XXXXXXXX token for a Path 2
+   record). Saves are explicit PUTs of ONE record — no timers, no full-store
+   pushes (see the 2026-09 D1 quota incident). The Google Apps Script is now
+   an EMAIL RELAY only: it never touches a Sheet for new saves.
+     - this device's copy (RCA_STORE_KEY) is a cache; _cloudPending marks a
+       save that hasn't reached the server yet (offline / signed out) and is
+       retried when the RCA view opens, on 'online', or after sign-in.
+     - before each save we check the server copy: a CAR # already used by
+       another record blocks, and a record someone else saved since this
+       device last synced asks before overwriting (who-wins prompt).
+     - photos are uploaded to Drive first and stored as links, never embedded.
+     - manager/close-out emails are sent only AFTER the record is on the
+       server (so the emailed link always finds it). ═════════════════════ */
+var RCA_PULL_KEY = 'moquin-qa-rca-pull-at';
+var RCA_LEGACY_PURGED_KEY = 'moquin-qa-rca-legacy-purged';
+var _rcaBase = null;   // record opened via a manager/close-out link: fields the form doesn't show are inherited from it
+var _rcaPhotoUrlCache = {};
+function _rcaCloudOn(){ return RCA_LIVE && !!QA_BACKEND_URL; }
+function _rcaSlug(s){ return String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function _rcaNewToken(){
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', t = 'RCA-';
+  for (var i = 0; i < 8; i++) t += chars.charAt(Math.floor(Math.random() * chars.length));
+  return t;
+}
+function _rcaEnsureId(data){
+  if (data.carNo){ data.cloudId = 'car-' + _rcaSlug(data.carNo); }
+  else {
+    if (!data.token){ data.token = _rcaNewToken(); _rcaToken = data.token; }
+    data.cloudId = data.token;
+  }
+  return data.cloudId;
+}
+var RCA_NO_INHERIT = { action:1, status:1, savedAt:1, simulated:1, editorEmail:1, testMode:1, testEmail:1, cloudId:1 };
+function _rcaMergeBase(data){
+  if (!_rcaBase) return;
+  Object.keys(_rcaBase).forEach(function(k){
+    if (k.charAt(0) === '_' || RCA_NO_INHERIT[k]) return;
+    var v = data[k];
+    var empty = v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+    if (empty && _rcaBase[k] !== undefined) data[k] = _rcaBase[k];
+  });
+}
+function _rcaLocalById(id){
+  var hit = null;
+  rcaLoadRecords().forEach(function(r){ if (!hit && r && r.cloudId === id) hit = r; });
+  return hit;
+}
+function _rcaPatchLocal(id, patch){
+  try {
+    var list = rcaLoadRecords(), changed = false;
+    list.forEach(function(r){ if (r && r.cloudId === id){ Object.assign(r, patch); changed = true; } });
+    if (changed) localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+  } catch(e){}
+}
+function _rcaSlim(rec){
+  var out = {};
+  Object.keys(rec).forEach(function(k){ if (k.charAt(0) !== '_') out[k] = rec[k]; });
+  out.photoData = '';
+  return out;
+}
+function _rcaCloudFetch(path, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({ 'Content-Type': 'application/json' }, _authHeaders(), opts.headers || {});
+  return fetch(QA_BACKEND_URL + path, opts);
+}
+function _rcaPhotoKey(src){ return src.length + ':' + src.slice(0, 80) + src.slice(-80); }
+// Uploads any still-embedded photo to Drive and swaps in the link. Resolves
+// false if one can't be uploaded (record then stays pending — never embedded).
+function _rcaUploadPhotos(id){
+  var rec = _rcaLocalById(id);
+  if (!rec || !rec.photos || !rec.photos.length) return Promise.resolve(true);
+  var photos = rec.photos.slice(), ok = true;
+  return photos.reduce(function(chain, src, i){
+    return chain.then(function(){
+      if (!src || src.indexOf('data:') !== 0) return;
+      var key = _rcaPhotoKey(src);
+      if (_rcaPhotoUrlCache[key]){ photos[i] = _rcaPhotoUrlCache[key]; return; }
+      return _uploadPhotoToDrive(src).then(function(url){
+        if (url && url.indexOf('data:') !== 0){ _rcaPhotoUrlCache[key] = url; photos[i] = url; }
+        else ok = false;
+      });
+    });
+  }, Promise.resolve()).then(function(){
+    _rcaPatchLocal(id, { photos: photos });
+    return ok;
+  });
+}
+// 'ok' | 'offline' | 'block'. silent = background retry: never prompts.
+function _rcaPreflight(data, silent){
+  var id = data.cloudId, local = _rcaLocalById(id);
+  if (!_googleIdToken) return Promise.resolve('offline');
+  var isEs = isEsLang();
+  return _rcaCloudFetch('/records/' + encodeURIComponent(id) + '?type=rca').then(function(res){
+    if (res.status === 404) return 'ok';
+    if (res.status === 401){ _reactiveAuthRefresh(); return 'offline'; }
+    if (!res.ok) return 'offline';
+    return res.json().then(function(j){
+      var remote = j && j.record;
+      if (!remote || remote.deleted) return 'ok';
+      var known = (local && local._cloudAt) || 0;
+      if (known && remote.updatedAt <= known) return 'ok';
+      var rd = remote.data || {};
+      if (!known){
+        if (data.carNo){
+          if (!silent) showAlert((isEs ? 'El # de ACR ' : 'CAR # ') + data.carNo + (isEs ? ' ya está en uso (trabajo ' : ' is already used (job ') + (rd.jobNumber || '—') + (isEs ? '). Cada ACR necesita un número único.' : '). Every CAR needs its own unique number.'));
+          return 'block';
+        }
+        return 'ok';
+      }
+      if (silent) return 'block';
+      return new Promise(function(resolve){
+        showConfirm(
+          (isEs ? 'Otra persona guardó este registro después de que usted lo abrió (' : 'Someone else saved this record after you opened it (') + (rd.savedAt || '') + (isEs ? '). Si continúa, su versión reemplazará la de ella.' : '). If you continue, your version replaces theirs.'),
+          function(okc){ resolve(okc ? 'ok' : 'block'); },
+          { title: isEs ? '¿Sobrescribir cambios de otra persona?' : "Overwrite someone else's changes?", okLabel: isEs ? 'Sí, sobrescribir' : 'Yes, overwrite' });
+      });
+    });
+  }).catch(function(){ return 'offline'; });
+}
+function _rcaSendNotices(id){
+  var rec = _rcaLocalById(id);
+  var ev = (rec && rec._notify) || [];
+  if (!ev.length) return;
+  var slim = _rcaSlim(rec);
+  ev.forEach(function(e){
+    try {
+      fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: e, token: slim.token || slim.cloudId, data: slim }) }).catch(function(){});
+    } catch(x){}
+  });
+  _rcaPatchLocal(id, { _notify: [] });
+}
+function _rcaCloudFlushOne(id){
+  if (!_googleIdToken) return Promise.resolve({ ok: false, why: 'auth' });
+  return _rcaUploadPhotos(id).then(function(photosOk){
+    if (!photosOk) return { ok: false, why: 'photo' };
+    var rec = _rcaLocalById(id);
+    if (!rec) return { ok: true };
+    return _rcaCloudFetch('/records/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify({ type: 'rca', data: _rcaSlim(rec) }) }).then(function(res){
+      if (res.status === 401){ _reactiveAuthRefresh(); return { ok: false, why: 'auth' }; }
+      if (!res.ok) return { ok: false, why: 'server' };
+      return res.json().then(function(j){
+        _rcaPatchLocal(id, { _cloudAt: j.updatedAt, _cloudPending: false });
+        _rcaSendNotices(id);
+        return { ok: true };
+      });
+    });
+  }).catch(function(){ return { ok: false, why: 'network' }; });
+}
 function rcaSendToSheets(data, onDone){
-  var mirroredOk = _rcaMirrorLocal(data);
-  if (!RCA_LIVE){
-    // Local simulation — no network, so the mirror's own success/failure
-    // above IS the real result here (this used to always report success
-    // regardless of whether anything was actually written).
-    setTimeout(function(){ onDone(mirroredOk); }, 400);
+  var id = _rcaEnsureId(data);
+  _rcaMergeBase(data);
+  var prev = _rcaLocalById(id);
+  var ev = [], a = data.action;
+  if (a === 'send_to_manager') ev.push('manager');
+  else if (a === 'return_to_qa') ev.push('return_to_qa');
+  else if (a === 'handoff_to_dept') ev.push('handoff');
+  else if (a === 'close_out') ev.push('closed');
+  else if (a === 'car_save' && (data.status === 'Pending Verification' || data.status === 'Closed') && data.status !== (prev && prev.notifiedStatus)){
+    ev.push('car_milestone'); data.notifiedStatus = data.status;
+  } else if (prev && prev.notifiedStatus && a === 'car_save') data.notifiedStatus = prev.notifiedStatus;
+  if (!_rcaCloudOn()){
+    var okLocal = _rcaMirrorLocal(data);
+    setTimeout(function(){ onDone(okLocal); }, 400);
     return;
   }
-  // Plain no-cors fetch, not a hidden-iframe form post. The iframe technique
-  // relies on Apps Script's exec->echo redirect completing inside a
-  // cross-origin iframe, which modern Chrome's third-party-cookie/frame
-  // restrictions can outright 403 (confirmed via the Network tab: exec ->
-  // 302 -> echo?user_content_key=... -> 403). A no-cors fetch is a direct,
-  // top-level-initiated request with no iframe/redirect chain for that
-  // policy to break — doPost() still receives it via e.postData.contents.
-  // The response is opaque either way (no-cors), so onDone(true) just means
-  // "the request was sent," same as the iframe version always meant.
-  fetch(RCA_SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    body: JSON.stringify(data)
-  })
-    // Even when the network send succeeds, still report failure if the
-    // local mirror above didn't — otherwise this device shows a success
-    // toast for a record that won't actually appear in its own Records
-    // tab (the Sheet may well have it, but "it's not in my Records" is
-    // exactly the bug this is fixing).
-    .then(function(){ onDone(mirroredOk); })
-    .catch(function(){ onDone(false); });
+  _rcaPreflight(data, false).then(function(dec){
+    if (dec === 'block'){ rcaSendToSheets.lastErr = 'blocked'; onDone(false); return; }
+    var ok = _rcaMirrorLocal(data, { _cloudPending: true, _notify: ((prev && prev._notify) || []).concat(ev), _cloudAt: prev && prev._cloudAt });
+    if (!ok){ rcaSendToSheets.lastErr = 'local'; onDone(false); return; }
+    _rcaCloudFlushOne(id).then(function(r){
+      rcaSendToSheets.lastErr = '';
+      rcaSendToSheets.savedOnDeviceOnly = !r.ok;
+      onDone(true);
+    });
+  });
+}
+var _rcaFlushBusy = false;
+function rcaFlushPending(){
+  if (!_rcaCloudOn() || !_googleIdToken || _rcaFlushBusy) return;
+  var ids = rcaLoadRecords().filter(function(r){ return r && r._cloudPending && r.cloudId; }).map(function(r){ return r.cloudId; });
+  if (!ids.length) return;
+  _rcaFlushBusy = true;
+  ids.reduce(function(chain, id){
+    return chain.then(function(){
+      var rec = _rcaLocalById(id); if (!rec) return;
+      return _rcaPreflight(rec, true).then(function(dec){
+        if (dec !== 'ok') return;
+        return _rcaCloudFlushOne(id);
+      });
+    });
+  }, Promise.resolve()).then(function(){ _rcaFlushBusy = false; if (document.getElementById('rca-drafts-box')) rcaRenderDraftList(); }, function(){ _rcaFlushBusy = false; });
+}
+window.addEventListener('online', function(){ rcaFlushPending(); });
+// Pull the shared RCA list. Called when the RCA view or Records opens (never on a timer).
+function rcaCloudPull(force, cb){
+  if (!_rcaCloudOn() || !_googleIdToken){ if (cb) cb(); return; }
+  var now = Date.now();
+  if (!force && now - (rcaCloudPull._last || 0) < 120000){ if (cb) cb(); return; }
+  rcaCloudPull._last = now;
+  var since = parseInt(localStorage.getItem(RCA_PULL_KEY) || '0', 10) || 0;
+  _rcaCloudFetch('/records?type=rca&since=' + since).then(function(res){
+    if (res.status === 401){ _reactiveAuthRefresh(); return null; }
+    return res.ok ? res.json() : null;
+  }).then(function(j){
+    if (!j || !j.records){ if (cb) cb(); return; }
+    var list = rcaLoadRecords(), maxAt = since, fresh = [], changed = false;
+    if (!localStorage.getItem(RCA_LEGACY_PURGED_KEY) && j.records.some(function(r){ return r.data && r.data.legacy; })){
+      // The old Google Sheet rows were imported: this device's copies from before
+      // RCA had ids are now duplicates. Keep a backup, then drop them once.
+      try { localStorage.setItem('moquin-qa-rcas-prepurge-backup', JSON.stringify(list)); } catch(e){}
+      list = list.filter(function(r){ return r && r.cloudId; });
+      try { localStorage.setItem(RCA_LEGACY_PURGED_KEY, '1'); } catch(e){}
+      changed = true;
+    }
+    j.records.forEach(function(r){
+      if (r.updatedAt > maxAt) maxAt = r.updatedAt;
+      var i = -1;
+      list.forEach(function(l, k){ if (i < 0 && l && l.cloudId === r.id) i = k; });
+      if (r.deleted){ if (i >= 0 && !list[i]._cloudPending){ list.splice(i, 1); changed = true; } return; }
+      var rec = Object.assign({}, r.data, { cloudId: r.id, _cloudAt: r.updatedAt, _cloudPending: false });
+      if (i < 0){ fresh.push(rec); changed = true; }
+      else if (!list[i]._cloudPending && r.updatedAt > (list[i]._cloudAt || 0)){ rec._notify = list[i]._notify; list[i] = rec; changed = true; }
+    });
+    fresh.sort(function(a, b){ return b._cloudAt - a._cloudAt; });
+    list = fresh.concat(list);
+    try { localStorage.setItem(RCA_PULL_KEY, String(maxAt)); } catch(e){}
+    if (changed){
+      try { localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list)); } catch(e){ console.warn('RCA cache write failed', e); }
+      if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
+      if (document.getElementById('rca-drafts-box')) rcaRenderDraftList();
+    }
+    if (cb) cb();
+  }).catch(function(){ if (cb) cb(); });
+}
+function _rcaCloudDelete(id){
+  if (!_rcaCloudOn() || !id) return;
+  _rcaCloudFetch('/records/' + encodeURIComponent(id), { method: 'DELETE' }).catch(function(){});
+}
+// Deep-link fetch (waits briefly for sign-in; the Worker requires a Google identity).
+function _rcaCloudGetOne(id, onOk, onErr){
+  var tries = 0;
+  (function go(){
+    if (!_googleIdToken){ if (++tries > 240){ onErr(); return; } setTimeout(go, 500); return; }
+    _rcaCloudFetch('/records/' + encodeURIComponent(id) + '?type=rca').then(function(res){
+      if (res.status === 401){ _reactiveAuthRefresh(); if (++tries > 240){ onErr(); return; } setTimeout(go, 1500); return; }
+      if (res.status === 404){ onOk(null); return; }
+      if (!res.ok){ onErr(); return; }
+      return res.json().then(function(j){ onOk(j && j.record && !j.record.deleted ? j.record : null); });
+    }).catch(function(){ onErr(); });
+  })();
 }
 
 function rcaLockForm(){
@@ -22752,7 +22984,7 @@ function rcaLockForm(){
   document.getElementById('rca-success-banner-text').textContent = _rcaVersioningFrom
     ? (isEs ? '¡Nueva versión guardada!' : 'New version saved!')
     : RCA_LIVE
-    ? (isEs ? '¡Registro guardado en Google Sheets!' : 'Record saved to Google Sheets!')
+    ? (isEs ? '¡Registro guardado en la base de datos de QA!' : 'Record saved to the QA database!')
     : (isEs ? '¡Registro guardado! (local — sincronización con Apps Script desactivada)' : 'Record saved! (local — Apps Script sync off)');
   rcaShow('success-banner');
   document.getElementById('rca-status-bar').style.background='var(--green-soft)';
@@ -22789,7 +23021,7 @@ function rcaResetForm(){
   _rcaToken = '';
   _rcaManagerMode = false; _rcaCloseoutMode = false;
   _rcaVersioningFrom = null;
-  _rcaPhase = 1; _rcaCarStatus = 'Open'; _rcaLoadedCar = '';
+  _rcaPhase = 1; _rcaCarStatus = 'Open'; _rcaLoadedCar = ''; _rcaBase = null;
   var _cn = document.getElementById('rca-car-no'); if (_cn) _cn.readOnly = false;
   var _tc = document.getElementById('rca-target-close'); if (_tc) delete _tc.dataset.touched;
   document.getElementById('rca-form-body').classList.remove('rca-p1');
@@ -22903,7 +23135,7 @@ function rcaCloseOut(){
   // nothing here to "update"; this only changes the status text/toast.
   var isVersioned = !!_rcaVersioningFrom;
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
-  rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
+  rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en la base de datos de QA...':'Saving to the QA database...') : (isEs?'Guardando localmente...':'Saving locally...')));
   rcaSendAll('Closed','close_out', ok=>{
     if (!ok){
       // Previously this locked the form and showed the success banner
@@ -22915,8 +23147,8 @@ function rcaCloseOut(){
       btn.disabled=false; btn.textContent = isEs ? '🔒 Cerrar y enviar registro' : '🔒 Close & submit record';
       return;
     }
-    rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
-    rcaShowToast(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')));
+    rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en la base de datos de QA':'Record closed — saved to the QA database') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
+    rcaShowToast(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en la base de datos de QA!':'✅ Record saved to the QA database!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')));
     if (isVersioned) _rcaFinishEditing();
     rcaLockForm();
   });
@@ -22936,7 +23168,7 @@ function rcaSubmitPath1(){
   const btn=document.getElementById('rca-btn-submit1');
   var isVersioned = !!_rcaVersioningFrom;
   btn.disabled=true; btn.textContent = isEs ? 'Guardando...' : 'Saving...';
-  rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en Google Sheets...':'Saving to Google Sheets...') : (isEs?'Guardando localmente...':'Saving locally...')));
+  rcaSetStatus('saving', isVersioned ? (isEs?'Guardando nueva versión...':'Saving new version...') : (RCA_LIVE ? (isEs?'Guardando en la base de datos de QA...':'Saving to the QA database...') : (isEs?'Guardando localmente...':'Saving locally...')));
   rcaSendAll('Closed', undefined, ok=>{
     if (!ok){
       // See rcaCloseOut's identical fix — a failed save used to lock the
@@ -22946,8 +23178,8 @@ function rcaSubmitPath1(){
       btn.disabled=false; btn.textContent = isEs ? '🔒 Enviar y cerrar registro' : '🔒 Submit & close record';
       return;
     }
-    rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en Google Sheets':'Record closed — saved to Google Sheets') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
-    rcaShowToast(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en Google Sheets!':'✅ Record saved to Google Sheets!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')));
+    rcaSetStatus('closed', isVersioned ? (isEs?'Nueva versión guardada':'New version saved') : (RCA_LIVE ? (isEs?'Registro cerrado — guardado en la base de datos de QA':'Record closed — saved to the QA database') : (isEs?'Registro cerrado — guardado localmente':'Record closed — saved locally')));
+    rcaShowToast(isVersioned?(isEs?'✅ ¡Nueva versión guardada!':'✅ New version saved!'):(RCA_LIVE?(isEs?'✅ ¡Registro guardado en la base de datos de QA!':'✅ Record saved to the QA database!'):(isEs?'✅ ¡Registro guardado localmente!':'✅ Record saved locally!')));
     if (isVersioned) _rcaFinishEditing();
     rcaLockForm();
   });
@@ -22965,7 +23197,7 @@ function rcaSaveDraft(){
     // in the toast copy. Now genuinely reports a failure, and points at the
     // real cause (this device's storage) rather than staying silent.
     rcaSetStatus(ok ? 'draft' : 'draft', (ok ? (isEs?'Borrador guardado — ':'Draft saved — ')+new Date().toLocaleTimeString() : (isEs?'⚠️ No se pudo guardar el borrador':'⚠️ Could not save draft')));
-    rcaShowToast(ok?(RCA_LIVE?(isEs?'💾 ¡Borrador guardado en Google Sheets!':'💾 Draft saved to Google Sheets!'):(isEs?'💾 ¡Borrador guardado localmente!':'💾 Draft saved locally!')):(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente borrar registros antiguos.':'⚠️ Could not save on this device (storage full?) — try clearing old records.'),!ok);
+    rcaShowToast(ok?(RCA_LIVE?(isEs?'💾 ¡Borrador guardado en la base de datos de QA!':'💾 Draft saved to the QA database!'):(isEs?'💾 ¡Borrador guardado localmente!':'💾 Draft saved locally!')):(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente borrar registros antiguos.':'⚠️ Could not save on this device (storage full?) — try clearing old records.'),!ok);
   });
 }
 
@@ -23066,7 +23298,8 @@ function _rcaLoadFromToken(mode, token){
   switchView('rca');
   _rcaSetTokenLoading('loading');
   rcaSetStatus('saving', isEs ? 'Cargando registro…' : 'Loading record…');
-  _rcaJsonpGet(token, function(res){
+  _rcaCloudGetOne(token, function(cloudRec){
+    var res = cloudRec ? { result: 'success', record: Object.assign({}, cloudRec.data, { cloudId: cloudRec.id }) } : null;
     if (!res || res.result !== 'success'){
       rcaSetStatus('draft', isEs ? 'Error al cargar — el enlace puede ser inválido.' : 'Error loading record — link may be invalid.');
       _rcaSetTokenLoading('error', { message: isEs ? 'No se pudo cargar este registro. El enlace puede haber expirado o ser inválido.' : 'Could not load this record. The link may be expired or invalid.' });
@@ -23074,6 +23307,7 @@ function _rcaLoadFromToken(mode, token){
     }
     var rec = res.record;
     rec.token = token;
+    _rcaBase = rec;
     if (mode === 'manager') _rcaApplyManagerMode(rec);
     else _rcaApplyCloseoutMode(rec);
     _rcaSetTokenLoading('done');
@@ -23752,6 +23986,7 @@ function _deleteRecordById(type, id){
     var idx = parseInt(idStr.replace('rca-', ''), 10);
     var list = rcaLoadRecords();
     if (idx >= 0 && idx < list.length){
+      _rcaCloudDelete(list[idx] && list[idx].cloudId);
       list.splice(idx, 1);
       localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
     }
@@ -24589,8 +24824,11 @@ function rcaContinueDraft(idxKey){
   // Also drop older saved copies of this same job+station draft — each draft
   // save mirrors a new copy, and leaving the stale ones would make the job
   // reappear in the Continue-a-draft list right after it was picked up.
-  list = list.filter(function(x, i){ return i !== idx && !(x && x.status === 'Draft' && (x.jobNumber||'') === (r.jobNumber||'') && (x.station||'') === (r.station||'')); });
-  localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+  // A record that already lives on the server keeps its local copy (the next save replaces it by id).
+  if (!r.cloudId){
+    list = list.filter(function(x, i){ return i !== idx && !(x && x.status === 'Draft' && (x.jobNumber||'') === (r.jobNumber||'') && (x.station||'') === (r.station||'')); });
+    localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+  }
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
   rcaRenderDraftList();
   document.getElementById('view-rca').scrollIntoView({behavior:'smooth', block:'start'});
