@@ -4281,6 +4281,13 @@ try {
       </div>
     </div>
 
+    <!-- Export whatever is filled in so far, from any phase / either path.
+         Reads the live form (nothing is saved or sent); blank sections are
+         skipped in the PDF, so a half-finished record exports cleanly. -->
+    <div class="action-row" style="margin:0 0 12px">
+      <button type="button" class="btn" id="rca-btn-export-any" onclick="rcaExportPDF(null,this)">⬇️ <span data-en>Download PDF of what I have so far</span><span data-es>Descargar PDF de lo que tengo hasta ahora</span></button>
+    </div>
+
     <!-- SECTION 1 -->
     <div class="section">
       <div class="section-header">
