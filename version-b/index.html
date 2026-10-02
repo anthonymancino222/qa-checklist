@@ -6726,6 +6726,11 @@ function _syncPullAndMerge(type, currentList, saveFn) {
         var localJson = JSON.stringify(local);
         var remoteJson = JSON.stringify(r.data);
         if (localJson === remoteJson) return;
+        // Never let a plain adopt take an already-approved job back to unapproved.
+        if (type === 'job' && local.shippingApproved === true && r.data && r.data.shippingApproved !== true) {
+          updates[idStr] = _mergeJobRecord(snap[idStr] ? JSON.parse(snap[idStr]) : null, local, r.data);
+          return;
+        }
         if (snap[idStr] === localJson) { updates[idStr] = r.data; return; } // no local edit — plain adopt remote
         // Local has diverged from the last-confirmed snapshot too: a plain
         // remote overwrite would silently discard whatever changed here.
@@ -7133,6 +7138,7 @@ function ipSave(jobs, opts) {
     });
   }
   _ipMem = jobs;
+  _rememberShipApproved(jobs);
   try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e) {}
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
   // Every screen is static HTML in the DOM at all times (toggled via a CSS
@@ -7239,9 +7245,23 @@ function _isUploadedPhotoUrl(v){ return typeof v === 'string' && /^https?:\/\/[^
 function _imageEquivalent(a, b){
   return (_isImageDataUrl(a) && _isUploadedPhotoUrl(b)) || (_isUploadedPhotoUrl(a) && _isImageDataUrl(b));
 }
+// Shipping Approval is a ONE-WAY gate: once either copy of a job is approved,
+// the merged job is approved, whatever the three-way logic or lastTouchedAt
+// tie-break would otherwise say. Without this, a stale device with no sync
+// snapshot (or a later lastTouchedAt) could win the conflict with
+// shippingApproved=false and put an already-cleared job back in the queue.
+function _isShipApprovalField(k){ return k === 'shippingApproved' || k === 'shippingApprovedAt' || k === 'shipping'; }
+function _shipApprovedSide(local, remote){
+  var la = local && local.shippingApproved === true, ra = remote && remote.shippingApproved === true;
+  if (la && !ra) return local;
+  if (ra && !la) return remote;
+  if (la && ra) return (String(local.shippingApprovedAt || '') <= String(remote.shippingApprovedAt || '')) ? local : remote; // the first approval stands
+  return null;
+}
 function _mergeJobRecord(base, local, remote) {
   base = base || {};
   var equivalentFields = {};
+  var shipSide = _shipApprovedSide(local, remote);
   var keys = {};
   Object.keys(base).forEach(function(k){ keys[k] = true; });
   Object.keys(local).forEach(function(k){ keys[k] = true; });
@@ -7257,6 +7277,7 @@ function _mergeJobRecord(base, local, remote) {
   var conflicts = [];       // genuinely new this pass — get auto-tie-broken AND logged
   var stillPending = [];    // already flagged before this pass — frozen, not re-logged
   Object.keys(keys).forEach(function(k){
+    if (shipSide && _isShipApprovalField(k)) { merged[k] = shipSide[k]; equivalentFields[k] = true; return; }
     var b = JSON.stringify(base[k]), l = JSON.stringify(local[k]), r = JSON.stringify(remote[k]);
     if (l === r) { merged[k] = local[k]; return; } // both sides agree (incl. neither ever changed it)
     if (b === l) { merged[k] = remote[k]; return; } // only remote changed it
@@ -22310,7 +22331,24 @@ var SHIPPING_APPROVAL_STATIONS = ['Bindery Cutter', 'Pressroom Cutter', 'Long Gl
 // Only affects what shows in THIS queue — the underlying record, and its
 // real shipping-approval history if it ever gets approved, are untouched.
 var SHIPPING_APPROVAL_CUTOFF_DATE = new Date('2026-09-22T00:00:00');
+// Ids of jobs this device has ever seen approved. If a stale copy somehow lands
+// with shippingApproved=false, the job still must not reappear in the queue.
+// (literals, not top-level vars: ipSave can run before this part of the script has executed)
+function _shipApprovedSet(){
+  if (!_shipApprovedSet._mem){
+    try { _shipApprovedSet._mem = JSON.parse(localStorage.getItem('qa_ship_approved_ids_v1')) || {}; } catch(e){ _shipApprovedSet._mem = {}; }
+  }
+  return _shipApprovedSet._mem;
+}
+function _rememberShipApproved(jobs){
+  var set = _shipApprovedSet(), added = false;
+  (jobs || []).forEach(function(j){
+    if (j && j.shippingApproved === true && j.id != null && !set[j.id]){ set[j.id] = 1; added = true; }
+  });
+  if (added){ try { localStorage.setItem('qa_ship_approved_ids_v1', JSON.stringify(set)); } catch(e){} }
+}
 function _isJobPendingShippingApproval(j){
+  if (j.id != null && _shipApprovedSet()[j.id]) return false;
   if (j.process !== 'finished' || j.shippingApproved || _jobIsGluerFirstPass(j)) return false;
   if (SHIPPING_APPROVAL_STATIONS.indexOf(j.station) === -1) return false;
   var finishedDate = _recordsValidDate(j.finishedAt || j.packerFinishedAt);
