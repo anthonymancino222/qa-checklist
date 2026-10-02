@@ -1835,6 +1835,16 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .rca-assign-row{padding:8px 0;border-top:1px solid var(--border)}
 #view-rca .rca-assign-row:first-of-type{border-top:none}
 #view-rca .rca-assign-issue{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+/* Read-the-rest popup for RCA fields whose text is longer than the box */
+#rca-expand-pop{ display:none; position:fixed; inset:0; z-index:100000; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:16px; }
+#rca-expand-pop.open{ display:flex; }
+#rca-expand-pop .rca-expand-card{ width:min(720px,100%); max-height:88vh; display:flex; flex-direction:column; gap:10px; background:var(--surface,#fff); color:var(--text-primary,#111); border:1px solid var(--border-mid,#999); border-radius:14px; padding:14px 16px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+#rca-expand-pop .rca-expand-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+#rca-expand-pop .rca-expand-title{ font-weight:700; font-size:15px; line-height:1.3; }
+#rca-expand-pop .rca-expand-x{ flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:1.5px solid var(--border-mid,#999); background:transparent; color:inherit; font-size:16px; line-height:1; cursor:pointer; }
+#rca-expand-pop .rca-expand-x:hover{ background:var(--brand,#73a600); color:#fff; border-color:var(--brand,#73a600); }
+#rca-expand-pop .rca-expand-ta{ width:100%; min-height:38vh; flex:1 1 auto; resize:vertical; font:inherit; font-size:16px; line-height:1.5; padding:10px 12px; border-radius:10px; border:1.5px solid var(--border-mid,#999); background:var(--surface-raised,#fafafa); color:inherit; }
+#rca-expand-pop .rca-expand-hint{ font-size:12px; color:var(--text-tertiary,#777); }
 /* Quick actions (Start new draft / Download PDF) — styled as obvious buttons, shown at the top AND bottom */
 #view-rca .rca-quickbar{ margin:4px 0 14px; }
 #view-rca .rca-quickbar-label{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px; }
@@ -23503,6 +23513,99 @@ _rcaPopulateMgrSelects();
 _rcaPopulateHandoffDept();
 rcaWirePhotoInput();
 rcaRenderCascadeGrids(true);
+/* ── Read-the-rest popup for RCA text fields ──────────────────────────────
+   Click/tap into any RCA text box whose content is longer than the box can
+   show and a window opens with the FULL text (editable — changes go straight
+   back into the field). It stays open until the small ✕ is pressed. Handled
+   by event delegation, so fields added later (extra Product IDs, extra Whys)
+   work too. Short text never triggers it. ── */
+(function(){
+  var root = document.getElementById('view-rca');
+  if (!root) return;
+  var pop = null, ta = null, src = null, titleEl = null, suppressUntil = 0;
+  function isTextField(el){
+    if (!el || !el.tagName) return false;
+    if (el.tagName === 'TEXTAREA') return true;
+    if (el.tagName !== 'INPUT') return false;
+    var t = (el.getAttribute('type') || 'text').toLowerCase();
+    return t === 'text';
+  }
+  function overflows(el){
+    if (el.tagName === 'TEXTAREA') return el.scrollHeight > el.clientHeight + 2;
+    return el.scrollWidth > el.clientWidth + 1;
+  }
+  function labelFor(el){
+    var g = el.closest('.field-group'), l = g && g.querySelector('label');
+    var isEs = (typeof isEsLang === 'function') && isEsLang(), txt = '';
+    if (l){
+      // labels hold an English and a Spanish span side by side — use only the active language's first one
+      Array.prototype.some.call(l.children, function(c){
+        if (c.hasAttribute(isEs ? 'data-es' : 'data-en')){ txt = c.textContent; return true; }
+        return false;
+      });
+      if (!txt) txt = l.textContent;
+    } else txt = el.getAttribute('placeholder') || '';
+    return String(txt).replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+  }
+  function build(){
+    pop = document.createElement('div');
+    pop.id = 'rca-expand-pop';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-modal', 'true');
+    pop.innerHTML =
+      '<div class="rca-expand-card">' +
+        '<div class="rca-expand-head"><div class="rca-expand-title"></div>' +
+        '<button type="button" class="rca-expand-x" aria-label="Close" title="Close">✕</button></div>' +
+        '<textarea class="rca-expand-ta" spellcheck="true"></textarea>' +
+        '<div class="rca-expand-hint"></div>' +
+      '</div>';
+    document.body.appendChild(pop);
+    titleEl = pop.querySelector('.rca-expand-title');
+    ta = pop.querySelector('.rca-expand-ta');
+    pop.querySelector('.rca-expand-x').addEventListener('click', close);
+    // edits in the popup go straight back to the real field (and fire its own input handlers)
+    ta.addEventListener('input', function(){
+      if (!src) return;
+      src.value = ta.value;
+      src.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    ta.addEventListener('change', function(){ if (src) src.dispatchEvent(new Event('change', { bubbles: true })); });
+  }
+  function open(el){
+    if (!pop) build();
+    if (pop.classList.contains('open')) return;
+    src = el;
+    var isEs = (typeof isEsLang === 'function') && isEsLang();
+    titleEl.textContent = labelFor(el) || (isEs ? 'Campo' : 'Field');
+    pop.querySelector('.rca-expand-hint').textContent = isEs
+      ? 'Los cambios se guardan en el campo al escribir. Cierre con ✕.'
+      : 'Changes go into the field as you type. Close with the ✕.';
+    pop.querySelector('.rca-expand-x').setAttribute('aria-label', isEs ? 'Cerrar' : 'Close');
+    ta.value = el.value;
+    ta.readOnly = !!el.readOnly;
+    pop.classList.add('open');
+    var pos = el.selectionStart || 0;
+    try { ta.focus({ preventScroll: true }); ta.setSelectionRange(pos, pos); } catch(e){ ta.focus(); }
+  }
+  function close(){
+    if (!pop) return;
+    pop.classList.remove('open');
+    suppressUntil = Date.now() + 600;      // refocusing the field must not instantly reopen it
+    var back = src; src = null;
+    if (back){ try { back.focus({ preventScroll: true }); } catch(e){} }
+  }
+  function maybeOpen(e){
+    var el = e.target;
+    if (Date.now() < suppressUntil) return;
+    if (pop && pop.contains(el)) return;
+    if (!isTextField(el) || el.readOnly || el.disabled) return;
+    if (!el.value || !overflows(el)) return;
+    open(el);
+  }
+  root.addEventListener('focusin', maybeOpen);
+  root.addEventListener('click', maybeOpen);
+})();
+
 
 /* ══════════════════════════════════
    SHIPPING APPROVAL MODULE
