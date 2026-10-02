@@ -2156,13 +2156,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    content with no padding at all, so its content sat flush against the
    physical page edge ("white bleeding out of the page border," reported
    directly). Kept small here since it's cosmetic-only for Print now. */
-.rca-pdf-page{ background:#f7f8fb; padding:8px; border-radius:14px; }
+.rca-pdf-page{ background:#ffffff; padding:8px; }
 /* break-inside:avoid only helps the real Print path (window.print() uses
    actual browser pagination, which respects it) — the Download-PDF path
    rasterizes then slices the image manually and needs its own break-point
    logic in JS (see rcaExportPDF), since a slice cut has no concept of CSS
    page-break rules at all. */
-.rca-pdf-section{ background:#ffffff; border:1px solid #e6e9f2; border-radius:12px; padding:16px 20px; margin-bottom:14px; break-inside:avoid; }
+.rca-pdf-section{ background:transparent; border:none; padding:2px 0 0; margin-bottom:22px; }
+.rca-pdf-section > *{ break-inside:avoid; }
+.rca-pdf-section h3{ break-after:avoid; }
 /* display:flex here (for the emoji-icon + label) combined with
    text-transform:uppercase corrupted html2canvas's text layout — it split
    the first letter of the label from the rest of the word with a stray gap
@@ -4317,6 +4319,7 @@ try {
           <div class="field-group">
             <label><span data-en>CAR / NCR #</span><span data-es>ACR / RNC #</span><span class="req">*</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(<span data-en>unique — e.g. 2026-17</span><span data-es>único — ej. 2026-17</span>)</span></label>
             <input type="text" placeholder="2026-17" id="rca-car-no">
+            <label id="rca-tbd-row" style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:13px;text-transform:none;font-weight:500;cursor:pointer"><input type="checkbox" id="rca-car-tbd" onchange="rcaCarTbdChange()" style="width:auto;margin:0"> <span><span data-en>No CAR/NCR # yet — show as TBD</span><span data-es>Aún sin # de ACR/RNC — mostrar como TBD</span></span></label>
           </div>
           <div class="field-group">
             <label><span data-en>Date opened</span><span data-es>Fecha de apertura</span><span class="req">*</span></label>
@@ -20937,7 +20940,7 @@ function qaExportExcel(){
     var rcaRows = a.rcas.map(function(r){
       var raw = r.raw;
       return {
-        'CAR #': raw.carNo || '', 'Source': raw.carSource || '', 'Originated By': raw.originatedBy || '', 'Original Complaint / NCR': raw.origRef || '',
+        'CAR #': _rcaCarLabel(raw), 'Source': raw.carSource || '', 'Originated By': raw.originatedBy || '', 'Original Complaint / NCR': raw.origRef || '',
         'Moquin NCR #': raw.moquinNcr || '', 'Customer NCR #': raw.customerNcr || '', 'Date Opened': raw.openDate || '', 'Target Close': raw.targetClose || '',
         'Job #': r.jobNumber, 'Product ID': raw.productNumber || '', Customer: r.customer, Station: stationLabel(r.station),
         'QA Tech': raw.qaTech || '', 'Date Found': raw.dateFound || '', Status: rcaStatusLabel(raw.status),
@@ -21435,6 +21438,19 @@ function rcaHide(id){document.getElementById('rca-'+id).classList.add('hidden')}
    CAR # and, once the Apps Script is updated, the same Sheet row — so a CAR
    never piles up as duplicate rows and can be reopened days later for
    Phase 3. ═══════════════════════════════════════════════════════════════ */
+var _rcaTbdId = '';           // cloud id used while the CAR/NCR # is still "TBD"
+function _rcaCarTbd(){ var c = document.getElementById('rca-car-tbd'); return !!(c && c.checked); }
+function _rcaCarLabel(r){ return (r && (r.carNo || (r.carTbd ? 'TBD' : ''))) || ''; }
+function rcaCarTbdChange(){
+  var inp = document.getElementById('rca-car-no');
+  if (!inp) return;
+  if (_rcaCarTbd()){
+    inp.value = ''; inp.disabled = true; inp.placeholder = 'TBD';
+    if (!_rcaTbdId) _rcaTbdId = 'car-tbd-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+  } else {
+    inp.disabled = false; inp.placeholder = '2026-17'; inp.focus();
+  }
+}
 var _rcaPhase = 1;
 var _rcaCarStatus = 'Open';   // Open | Pending Verification | Closed
 var _rcaLoadedCar = '';       // CAR # this form session is editing (locks the field)
@@ -21470,7 +21486,9 @@ function rcaOpenDateChanged(){
 function rcaGetVerifiedBy(){ var s = document.getElementById('rca-verified-by-select'); return s ? (s.value === 'Other' ? rcaGetVal('verified-by-other') : s.value) : ''; }
 function _rcaValidatePhase1(){
   var isEs = isEsLang();
-  if (!rcaValidate(['car-no','open-date','car-source','originated-by','orig-ref','job-num','prod-num','station','issuecat-value','rootcause-value','rc-summary'])) return false;
+  var p1ids = ['car-no','open-date','car-source','originated-by','orig-ref','job-num','prod-num','station','issuecat-value','rootcause-value','rc-summary'];
+  if (_rcaCarTbd()) p1ids.shift(); // CAR/NCR # may be TBD until it is assigned
+  if (!rcaValidate(p1ids)) return false;
   if (!rcaGetVal('disp-value')){
     showAlert(isEs?'Seleccione una disposición.':'Please select a disposition.');
     var g = document.querySelector('#rca-section-disp .disposition-grid'); if (g) g.scrollIntoView({behavior:'smooth',block:'center'});
@@ -21486,6 +21504,11 @@ function _rcaValidatePhase2(){
 function _rcaValidatePhase3(){
   var isEs = isEsLang();
   if (!_rcaValidatePhase2()) return false;
+  if (_rcaCarTbd() || !rcaGetVal('car-no')){
+    showAlert(isEs ? 'Asigne el # de ACR/RNC antes de cerrar (la trazabilidad lo requiere).' : 'Assign the CAR/NCR # before closing — it is required for traceability.');
+    _scrollToField(document.getElementById('rca-car-no'));
+    return false;
+  }
   if (!rcaValidate(['verify-method','verify-date','verify-results','approved-by','approval-date','close-date-p1'])) return false;
   if (!rcaGetVerifiedBy()){ showAlert(isEs?'Seleccione quién verificó.':'Please select who verified.'); _scrollToField(document.getElementById('rca-verified-by-select')); return false; }
   if (!rcaGetCloseQAName()){ showAlert(isEs?'Seleccione el nombre del técnico de calidad (cierre).':'Please select the closing QA tech name.'); _scrollToField(document.getElementById('rca-close-qa-name')); return false; }
@@ -21505,8 +21528,8 @@ function _rcaCarConflict(carNo){
 // Shared save for every Path 1 step. `status` is the record's new status.
 function _rcaCarSave(status, done){
   var isEs = isEsLang();
-  var carNo = rcaGetVal('car-no');
-  if (!carNo || !rcaGetVal('job-num')){
+  var carNo = _rcaCarTbd() ? '' : rcaGetVal('car-no');
+  if ((!carNo && !_rcaCarTbd()) || !rcaGetVal('job-num')){
     showAlert(isEs ? 'Escriba el # de ACR y el número de trabajo antes de guardar.' : 'Enter the CAR # and job number before saving.');
     _scrollToField(document.getElementById(carNo ? 'rca-job-num' : 'rca-car-no'));
     return;
@@ -21521,7 +21544,7 @@ function _rcaCarSave(status, done){
   rcaSendAll(status, 'car_save', function(ok){
     if (ok){
       _rcaLoadedCar = carNo; _rcaCarStatus = status;
-      var c = document.getElementById('rca-car-no'); if (c) c.readOnly = true;
+      var c = document.getElementById('rca-car-no'); if (c && carNo){ c.readOnly = true; var tr = document.getElementById('rca-tbd-row'); if (tr) tr.style.display = 'none'; _rcaTbdId = ''; }
       rcaRenderDraftList(); _rcaRefreshPhaseUi();
     }
     done(ok);
@@ -22452,8 +22475,8 @@ function _rcaBuildReport(presetData){
     _rcaPdfField(L.jobNumber, d.jobNumber), _rcaPdfField(L.productId, d.productNumber),
     _rcaPdfField(L.customer, d.customer), _rcaPdfField(L.dateFound, d.dateFound),
     _rcaPdfField(L.station, stationLabel(d.station)), _rcaPdfField(L.qaTech, d.qaTech)
-  ]) + (d.carNo ? _rcaPdfGrid([
-    _rcaPdfField(L.carNo, d.carNo), _rcaPdfField(L.status, rcaStatusLabel(d.status)), _rcaPdfField(L.source, d.carSource),
+  ]) + ((d.carNo || d.carTbd) ? _rcaPdfGrid([
+    _rcaPdfField(L.carNo, _rcaCarLabel(d)), _rcaPdfField(L.status, rcaStatusLabel(d.status)), _rcaPdfField(L.source, d.carSource),
     _rcaPdfField(L.originatedBy, d.originatedBy), _rcaPdfField(L.openDate, d.openDate), _rcaPdfField(L.targetClose, d.targetClose),
     _rcaPdfField(L.moquinNcr, d.moquinNcr), _rcaPdfField(L.customerNcr, d.customerNcr),
     _rcaPdfField(L.lotQty, d.lotQty), _rcaPdfField(L.qtyInsp, d.qtyInsp), _rcaPdfField(L.qtyRej, d.qtyRej)
@@ -22487,10 +22510,10 @@ function _rcaBuildReport(presetData){
     (d.disposition ? '<div class="rca-pdf-field" style="margin-bottom:12px;"><b>'+escHtml(L.disposition)+'</b>'+_rcaDispositionBadgeHTML(d.disposition)+'</div>' : '') +
     _rcaPdfField(L.notes, d.dispNotes));
 
-  h += _rcaPdfSection('🔒', d.carNo ? L.verification : L.qaCloseOut, _rcaPdfGrid([
-    _rcaPdfField(L.verifyMethod, d.verifyMethod), _rcaPdfField(d.carNo ? L.closureDate : L.closeDate, d.closeDate),
+  h += _rcaPdfSection('🔒', (d.carNo || d.carTbd) ? L.verification : L.qaCloseOut, _rcaPdfGrid([
+    _rcaPdfField(L.verifyMethod, d.verifyMethod), _rcaPdfField((d.carNo || d.carTbd) ? L.closureDate : L.closeDate, d.closeDate),
     _rcaPdfField(L.closeQATech, d.closeQATech)
-  ]) + (d.carNo ? _rcaPdfGrid([_rcaPdfField(L.verifiedBy, d.verifiedBy), _rcaPdfField(L.verifyDate, d.verifyDate), _rcaPdfField(L.effective, d.effective)]) +
+  ]) + ((d.carNo || d.carTbd) ? _rcaPdfGrid([_rcaPdfField(L.verifiedBy, d.verifiedBy), _rcaPdfField(L.verifyDate, d.verifyDate), _rcaPdfField(L.effective, d.effective)]) +
     _rcaPdfNarrative(L.verifyResults, d.verifyResults) + _rcaPdfField(L.evidenceRef, d.evidenceRef) : '') + _rcaPdfField(L.closeNotes, d.closeNotes));
 
   if (d.photos && d.photos.length){
@@ -22500,8 +22523,8 @@ function _rcaBuildReport(presetData){
   h += '</div>';
   report.innerHTML = h;
 
-  var filenameBase = (d.carNo ? 'CAR_' + String(d.carNo).replace(/[^a-z0-9_-]+/gi,'') + '_' : 'RCA_') + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
-    '_' + (d.dateFound || formatTS().slice(0,10));
+  var filenameBase = (_rcaCarLabel(d) ? 'CAR_' + String(_rcaCarLabel(d)).replace(/[^a-z0-9_-]+/gi,'') + '_' : 'RCA_') + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
+    '_' + (d.dateFound || new Date().toISOString().slice(0,10));
   return { d: d, report: report, filenameBase: filenameBase };
 }
 
@@ -22568,27 +22591,31 @@ function rcaExportPDF(presetData, btnEl){
     report.style.top = '0';
     report.style.width = '800px';
 
-    // Where page breaks are allowed to fall — every direct child of the
-    // report (header, "at a glance" strip, each section card) is one
-    // candidate boundary, except the 5-Whys section, which is broken down
-    // into ITS OWN children (each Why, plus the problem-statement/root-
-    // cause-summary callouts) since that section is the one most likely to
-    // run long enough to need a break partway through it. Measured while
-    // the report is laid out exactly as html2canvas will capture it (same
-    // forced width), in CSS px, then scaled to canvas px below.
+    // Where page breaks are allowed to fall. Sections are FLAT (no card box) in
+    // the PDF, so a section can continue onto the next page without looking
+    // cut open: every piece inside a section (each field grid, narrative, Why
+    // step, photo strip...) is its own break candidate, with the section's
+    // heading kept together with its FIRST piece (never a heading alone at
+    // the bottom of a page). Top-level pieces outside sections (title
+    // header, "at a glance" strip) are single blocks. Measured while the
+    // report is laid out exactly as html2canvas will capture it (same forced
+    // width), in CSS px, then scaled to canvas px below.
     var pageWrap = report.querySelector('.rca-pdf-page');
     var reportTop = report.getBoundingClientRect().top;
     var breakBlocks = [];
-    Array.prototype.forEach.call(pageWrap.children, function(child){
-      var h3 = child.querySelector ? child.querySelector('h3') : null;
-      if (h3 && h3.textContent.indexOf('❓') !== -1){
-        Array.prototype.forEach.call(child.children, function(sub){
-          var r = sub.getBoundingClientRect();
-          breakBlocks.push({ top: r.top - reportTop, bottom: r.bottom - reportTop });
-        });
+    function addBlock(el, topEl, secKey, secTitle){
+      var r = el.getBoundingClientRect(), t = (topEl || el).getBoundingClientRect();
+      breakBlocks.push({ top: t.top - reportTop, bottom: r.bottom - reportTop, section: secKey || '', title: secTitle || '' });
+    }
+    Array.prototype.forEach.call(pageWrap.children, function(child, ci){
+      var h3 = null;
+      Array.prototype.forEach.call(child.children || [], function(k){ if (!h3 && k.tagName === 'H3') h3 = k; });
+      if (h3 && child.children.length > 1){
+        var title = h3.textContent.replace(/^[^A-Za-z0-9À-ſ]+/, '').trim();
+        var kids = Array.prototype.filter.call(child.children, function(k){ return k !== h3; });
+        kids.forEach(function(k, ki){ addBlock(k, ki === 0 ? h3 : k, 's' + ci, title); });
       } else {
-        var r = child.getBoundingClientRect();
-        breakBlocks.push({ top: r.top - reportTop, bottom: r.bottom - reportTop });
+        addBlock(child, null, '', '');
       }
     });
 
@@ -22596,45 +22623,44 @@ function rcaExportPDF(presetData, btnEl){
       var jsPDF = window.jspdf.jsPDF;
       var pageW = 8.5, pageH = 11; // inches, US Letter
       var pdf = new jsPDF({ unit: 'in', format: 'letter' });
-      // A uniform margin, identical on every page (including the first),
-      // filled with the same light page background — the actual fix for
-      // "white bleeding out of the page border." Before this, page 1 only
-      // looked properly framed because .rca-pdf-page's own CSS padding
-      // happened to be baked into that one crop (the only one starting at
-      // the true top of the document); every later page's crop starts and
-      // ends at arbitrary mid-content boundaries with no padding baked in
-      // at all, so its content sat flush against the raw page edge —
-      // uneven page-to-page instead of consistently framed. Reserving this
-      // margin in the page-layout math itself (not relying on whatever
-      // padding a particular crop happens to include) makes every page's
-      // frame identical.
-      var pageMargin = 0.35; // inches
+      // A uniform margin, identical on every page, so no page has content
+      // flush against the physical edge.
+      var pageMargin = 0.4; // inches
+      var contHeader = 0.34; // inches reserved for the "(continued)" line on a continuation page
       var imgW = pageW - pageMargin * 2;
-      var pageCanvasH = ((pageH - pageMargin * 2) * canvas.width) / imgW; // canvas px of CONTENT per page
       var canvasScale = canvas.width / 800; // matches html2canvas's `scale` option above
-      var blocksCanvasPx = breakBlocks.map(function(b){ return { top: b.top * canvasScale, bottom: b.bottom * canvasScale }; });
+      var blocks = breakBlocks.map(function(b){ return { top: b.top * canvasScale, bottom: b.bottom * canvasScale, section: b.section, title: b.title }; });
+      var secStart = {};
+      blocks.forEach(function(b){ if (b.section && (secStart[b.section] === undefined || b.top < secStart[b.section])) secStart[b.section] = b.top; });
+      var contentEnd = blocks.length ? blocks[blocks.length - 1].bottom : canvas.height;
 
-      // Greedily packs whole blocks onto each page; a block straddling the
-      // naive page-height boundary pushes the break back to just before it
-      // (onto the next page) instead of slicing through its middle — this
-      // is the fix for a Why step (or any section) getting visibly cut in
-      // half across a page break, with the bottom half's content bleeding
-      // into whatever sits below it on the next page.
-      var renderedH = 0, first = true;
-      while (renderedH < canvas.height){
+      // Fill each page with whole blocks; a block straddling the page bottom
+      // moves to the next page instead of being sliced through its middle.
+      // If a page would be left nearly empty by that (or the block alone is
+      // taller than a page) fall back to a plain cut at the page bottom.
+      // A page that starts inside a section gets a small "<SECTION>
+      // (continued)" line at its top so the continuation reads as intentional.
+      var renderedH = 0, first = true, guard = 0;
+      while (renderedH < contentEnd - 2 && guard++ < 60){
+        var startBlk = null;
+        for (var s = 0; s < blocks.length; s++){ if (blocks[s].bottom > renderedH + 1){ startBlk = blocks[s]; break; } }
+        var cont = !first && startBlk && startBlk.section && secStart[startBlk.section] < renderedH - 2;
+        var headerH = cont ? contHeader : 0;
+        var pageCanvasH = ((pageH - pageMargin * 2 - headerH) * canvas.width) / imgW;
         var naiveEnd = renderedH + pageCanvasH;
         var cut = Math.min(naiveEnd, canvas.height);
-        for (var i = 0; i < blocksCanvasPx.length; i++){
-          var b = blocksCanvasPx[i];
-          if (b.top < naiveEnd && b.bottom > naiveEnd){
-            // This block straddles the naive cut. Back up to its top,
-            // unless that leaves this page with (near) nothing on it, in
-            // which case the block is simply taller than a full page and
-            // there's no safe break — fall back to the naive hard cut.
-            cut = (b.top - renderedH > pageCanvasH * 0.15) ? b.top : naiveEnd;
-            break;
+        if (naiveEnd >= contentEnd){
+          cut = canvas.height; // the rest fits on this page
+        } else {
+          for (var i = 0; i < blocks.length; i++){
+            var b = blocks[i];
+            if (b.top < naiveEnd && b.bottom > naiveEnd){
+              cut = (b.top - renderedH > pageCanvasH * 0.18) ? b.top : naiveEnd;
+              break;
+            }
           }
         }
+        if (cut <= renderedH + 1) cut = Math.min(naiveEnd, canvas.height);
         var sliceH = cut - renderedH;
         var pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
@@ -22645,18 +22671,18 @@ function rcaExportPDF(presetData, btnEl){
         ctx.drawImage(canvas, 0, renderedH, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
         var sliceImgH = (sliceH * imgW) / canvas.width;
         if (!first) pdf.addPage();
-        // A page whose break got backed up to avoid cutting through a block
-        // (see above) — or that simply has less content than a full page —
-        // ends up shorter than the content area's full height; the image
-        // only covers part of it, and jsPDF's default blank page underneath
-        // is white, not this report's light page background (#f7f8fb).
-        // Painting the ENTIRE physical page with that color first (under
-        // the margin fix above too) means both the reserved margin and any
-        // leftover space below a short page's content read as the same
-        // consistent light frame, never blank white.
-        pdf.setFillColor(247, 248, 251);
+        pdf.setFillColor(255, 255, 255);
         pdf.rect(0, 0, pageW, pageH, 'F');
-        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', pageMargin, pageMargin, imgW, sliceImgH);
+        if (cont){
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(9);
+          pdf.setTextColor(29, 78, 216);
+          pdf.text((startBlk.title || '').toUpperCase() + (isEs ? ' (continuación)' : ' (continued)'), pageMargin, pageMargin + 0.14);
+          pdf.setDrawColor(29, 78, 216);
+          pdf.setLineWidth(0.012);
+          pdf.line(pageMargin, pageMargin + 0.2, pageW - pageMargin, pageMargin + 0.2);
+        }
+        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', pageMargin, pageMargin + headerH, imgW, sliceImgH);
         renderedH += sliceH;
         first = false;
       }
@@ -22716,7 +22742,7 @@ function rcaCollectData(status, action){
     closeDate:rcaGetVal('close-date'), closeNotes:rcaGetVal('close-notes'),
     closeQATech:rcaGetCloseQAName(), verifyMethod:rcaGetVal('verify-method'),
     // CAR traceability / 3-phase fields (Path 1)
-    carNo:rcaGetVal('car-no'), openDate:rcaGetVal('open-date'), targetClose:rcaGetVal('target-close'),
+    carNo:(_rcaCarTbd() ? '' : rcaGetVal('car-no')), carTbd:_rcaCarTbd(), tbdId:_rcaTbdId, openDate:rcaGetVal('open-date'), targetClose:rcaGetVal('target-close'),
     carSource:rcaGetVal('car-source'), originatedBy:rcaGetVal('originated-by'), origRef:rcaGetVal('orig-ref'),
     moquinNcr:rcaGetVal('moquin-ncr'), customerNcr:rcaGetVal('customer-ncr'),
     lotQty:rcaGetVal('lot-qty'), qtyInsp:rcaGetVal('qty-insp'), qtyRej:rcaGetVal('qty-rej'),
@@ -22759,7 +22785,7 @@ function _rcaMirrorLocal(data, extra){
     var mirrored = Object.assign({}, data, { savedAt: formatTS(), simulated: !RCA_LIVE }, extra || {});
     // One record per cloudId (CAR # or token) — replace the earlier copy instead of piling up duplicates.
     if (data.cloudId){
-      list = list.filter(function(r){ return !(r && r.cloudId === data.cloudId); });
+      list = list.filter(function(r){ return !(r && (r.cloudId === data.cloudId || (data.replacesId && r.cloudId === data.replacesId))); });
     }
     if (data.carNo){
       var _ck = String(data.carNo).toLowerCase();
@@ -22818,8 +22844,11 @@ function _rcaNewToken(){
   return t;
 }
 function _rcaEnsureId(data){
-  if (data.carNo){ data.cloudId = 'car-' + _rcaSlug(data.carNo); }
-  else {
+  if (data.carNo){ data.cloudId = 'car-' + _rcaSlug(data.carNo); if (data.tbdId) data.replacesId = data.tbdId; }
+  else if (data.carTbd){
+    if (!data.tbdId){ data.tbdId = 'car-tbd-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4); _rcaTbdId = data.tbdId; }
+    data.cloudId = data.tbdId;
+  } else {
     if (!data.token){ data.token = _rcaNewToken(); _rcaToken = data.token; }
     data.cloudId = data.token;
   }
@@ -22917,6 +22946,7 @@ function _rcaSendNotices(id){
   var ev = (rec && rec._notify) || [];
   if (!ev.length) return;
   var slim = _rcaSlim(rec);
+  slim.carNo = slim.carNo || (slim.carTbd ? 'TBD' : '');   // emails show TBD, never a blank number
   ev.forEach(function(e){
     try {
       fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: e, token: slim.token || slim.cloudId, data: slim }) }).catch(function(){});
@@ -22935,6 +22965,7 @@ function _rcaCloudFlushOne(id){
       if (!res.ok) return { ok: false, why: 'server' };
       return res.json().then(function(j){
         _rcaPatchLocal(id, { _cloudAt: j.updatedAt, _cloudPending: false });
+        if (rec.replacesId){ _rcaCloudDelete(rec.replacesId); _rcaPatchLocal(id, { replacesId: '', tbdId: '' }); if (_rcaTbdId === rec.replacesId) _rcaTbdId = ''; }
         _rcaSendNotices(id);
         return { ok: true };
       });
@@ -23092,8 +23123,10 @@ function rcaResetForm(){
   _rcaToken = '';
   _rcaManagerMode = false; _rcaCloseoutMode = false;
   _rcaVersioningFrom = null;
-  _rcaPhase = 1; _rcaCarStatus = 'Open'; _rcaLoadedCar = ''; _rcaBase = null;
-  var _cn = document.getElementById('rca-car-no'); if (_cn) _cn.readOnly = false;
+  _rcaPhase = 1; _rcaCarStatus = 'Open'; _rcaLoadedCar = ''; _rcaBase = null; _rcaTbdId = '';
+  var _cn = document.getElementById('rca-car-no'); if (_cn){ _cn.readOnly = false; _cn.disabled = false; _cn.placeholder = '2026-17'; }
+  var _tb = document.getElementById('rca-car-tbd'); if (_tb) _tb.checked = false;
+  var _tr = document.getElementById('rca-tbd-row'); if (_tr) _tr.style.display = '';
   var _tc = document.getElementById('rca-target-close'); if (_tc) delete _tc.dataset.touched;
   document.getElementById('rca-form-body').classList.remove('rca-p1');
   rcaCurrentPath = null;
@@ -24760,7 +24793,7 @@ function openRecordRCA(idxKey){
   var rows = [
     [_rvrEs?'Estado':'Status', r.status ? rcaStatusLabel(r.status) : '—'],
     [_rvrEs?'Ruta':'Path', r.path ? rcaPathLabel(r.path) : '—'],
-    [_rvrEs?'ACR #':'CAR #', r.carNo || '—'],
+    [_rvrEs?'ACR #':'CAR #', _rcaCarLabel(r) || '—'],
     [_rvrEs?'Origen':'Source', r.carSource || '—'],
     [_rvrEs?'Originado por':'Originated by', r.originatedBy || '—'],
     [_rvrEs?'Queja / RNC original':'Original complaint / NCR', r.origRef || '—'],
@@ -24788,7 +24821,7 @@ function openRecordRCA(idxKey){
     [_rvrEs?'Guardado':'Saved', r.savedAt || '—']
   ];
   var canEdit = _isDataEditAllowedUser();
-  var isOpenCar = !!(r.carNo && (r.status === 'Open' || r.status === 'Pending Verification'));
+  var isOpenCar = !!((r.carNo || r.carTbd) && (r.status === 'Open' || r.status === 'Pending Verification'));
   var isDraft = r.status === 'Draft' || isOpenCar;
   var actionsHtml = '<div class="action-row" style="margin-top:12px;flex-wrap:wrap;">' +
     // A Draft was never actually filed — continuing it just resumes the
@@ -24846,8 +24879,8 @@ function rcaRenderDraftList(){
   list.forEach(function(r, idx){
     if (!r) return;
     var isPV = r.status === 'Pending Verification';
-    if (!isPV && r.status !== 'Draft' && !(r.carNo && r.status === 'Open')) return;
-    var key = r.carNo ? 'car|' + r.carNo : (r.jobNumber||'') + '|' + (r.station||'');
+    if (!isPV && r.status !== 'Draft' && !((r.carNo || r.carTbd) && r.status === 'Open')) return;
+    var key = (r.carNo || r.carTbd) ? 'car|' + (r.cloudId || r.carNo) : (r.jobNumber||'') + '|' + (r.station||'');
     if (seen[key]) return;
     seen[key] = true;
     (isPV ? pending : rows).push({ r: r, idx: idx });
@@ -24862,7 +24895,7 @@ function rcaRenderDraftList(){
       r.status === 'Pending Verification' && r.targetClose ? (isEs?'cierre objetivo ':'target close ') + r.targetClose : '',
       r.savedAt ? (isEs?'guardado ':'saved ') + r.savedAt : ''].filter(Boolean).map(escHtml).join(' · ');
     return '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border)">' +
-      '<div style="min-width:0"><div style="font-weight:700;font-size:15px">' + (r.carNo ? (isEs?'ACR ':'CAR ') + escHtml(r.carNo) + ' · ' : '') + (isEs?'Trabajo ':'Job ') + escHtml(r.jobNumber || '—') +
+      '<div style="min-width:0"><div style="font-weight:700;font-size:15px">' + (_rcaCarLabel(r) ? (isEs?'ACR ':'CAR ') + escHtml(_rcaCarLabel(r)) + ' · ' : '') + (isEs?'Trabajo ':'Job ') + escHtml(r.jobNumber || '—') +
       (overdue ? ' <span style="color:var(--red);font-size:12px;font-weight:700">' + (isEs?'VENCIDA':'OVERDUE') + '</span>' : '') + '</div>' +
       '<div style="font-size:13px;color:var(--text-tertiary)">' + meta + '</div></div>' +
       '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + btnLabel + '</button></div>';
@@ -24890,7 +24923,7 @@ function rcaContinueDraft(idxKey){
   var list = rcaLoadRecords();
   var r = list[idx];
   if (!r) return;
-  if (r.carNo) return rcaOpenCar(idxKey);
+  if (r.carNo || r.carTbd) return rcaOpenCar(idxKey);
   closeRecordView();
   switchView('rca');
   rcaUnlockForm();
@@ -24976,7 +25009,9 @@ function rcaOpenRecordForEdit(idxKey){
   _rcaFillFullRecordForEdit(r);
   document.getElementById('rca-job-num').value = ver.newJobNumber;
   // A versioned copy is a NEW record, so it needs its own CAR # (never the original's).
-  _rcaLoadedCar = ''; _rcaCarStatus = 'Pending Verification';
+  _rcaLoadedCar = ''; _rcaCarStatus = 'Pending Verification'; _rcaTbdId = '';
+  var _tb2 = document.getElementById('rca-car-tbd'); if (_tb2) _tb2.checked = false;
+  var _tr2 = document.getElementById('rca-tbd-row'); if (_tr2) _tr2.style.display = '';
   var _cn = document.getElementById('rca-car-no');
   if (_cn){ _cn.readOnly = false; _cn.value = r.carNo ? String(r.carNo).replace(/s*-s*[A-Z]$/, '') + ' - ' + ver.suffix : ''; }
   _rcaRefreshPhaseUi();
@@ -25132,7 +25167,12 @@ function _rcaFillFullRecordForEdit(r){
 // station manager, so the saved values have to be written after it.
 function _rcaFillCarFields(r){
   function set(id, v){ var e = document.getElementById('rca-'+id); if (e) e.value = v || ''; }
-  set('car-no', r.carNo); set('open-date', r.openDate); set('target-close', r.targetClose);
+  set('car-no', r.carNo);
+  var tb = document.getElementById('rca-car-tbd'), tbOn = !!(r.carTbd && !r.carNo);
+  if (tb) tb.checked = tbOn;
+  _rcaTbdId = tbOn ? (r.tbdId || r.cloudId || '') : '';
+  var cin = document.getElementById('rca-car-no'); if (cin){ cin.disabled = tbOn; cin.placeholder = tbOn ? 'TBD' : '2026-17'; }
+  set('open-date', r.openDate); set('target-close', r.targetClose);
   var tc = document.getElementById('rca-target-close'); if (tc){ if (r.targetClose) tc.dataset.touched = '1'; else delete tc.dataset.touched; }
   set('car-source', r.carSource); set('originated-by', r.originatedBy); set('orig-ref', r.origRef);
   set('moquin-ncr', r.moquinNcr); set('customer-ncr', r.customerNcr);
@@ -25167,6 +25207,7 @@ function rcaOpenCar(idxKey){
   _rcaFillFullRecordForEdit(r);
   _rcaLoadedCar = r.carNo || '';
   var cn = document.getElementById('rca-car-no'); if (cn) cn.readOnly = !!r.carNo;
+  var tbdRow = document.getElementById('rca-tbd-row'); if (tbdRow) tbdRow.style.display = r.carNo ? 'none' : '';
   _rcaCarStatus = (r.status === 'Pending Verification') ? 'Pending Verification' : 'Open';
   var phase = _rcaCarStatus === 'Pending Verification' ? 3 : (+r.phase || 1);
   rcaGoPhase(phase, true);
