@@ -22525,7 +22525,10 @@ function _rcaBuildReport(presetData){
   h += '</div>';
   report.innerHTML = h;
 
-  var filenameBase = (_rcaCarLabel(d) ? 'CAR_' + String(_rcaCarLabel(d)).replace(/[^a-z0-9_-]+/gi,'') + '_' : 'RCA_') + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
+  // A TBD record gets a short unique tag in its file name (TBD-K3F9Q), so two TBD reports
+  // for the same job/day never collide into "...(1).pdf". The on-page label stays plain "TBD".
+  var _carFileLabel = d.carNo ? String(d.carNo) : (d.carTbd ? 'TBD-' + String(d.tbdId || d.cloudId || Date.now().toString(36)).replace(/^car-tbd-/, '').replace(/[^a-z0-9]/gi, '').slice(0, 5).toUpperCase() : '');
+  var filenameBase = (_carFileLabel ? 'CAR_' + _carFileLabel.replace(/[^a-z0-9_-]+/gi,'') + '_' : 'RCA_') + (d.jobNumber || 'draft').replace(/[^a-z0-9_-]+/gi,'') +
     '_' + (d.dateFound || new Date().toISOString().slice(0,10));
   return { d: d, report: report, filenameBase: filenameBase };
 }
