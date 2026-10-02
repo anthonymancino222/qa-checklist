@@ -23634,8 +23634,18 @@ rcaRenderCascadeGrids(true);
     if (!el.value || !overflows(el)) return;
     open(el);
   }
-  root.addEventListener('focusin', maybeOpen);
-  root.addEventListener('click', maybeOpen);
+  // Open ONLY for a real click/tap that lands on that field itself. Plain focus
+  // (the page regaining focus, a label forwarding focus, code calling .focus(),
+  // tabbing) must never open it — that made the last long field touched, e.g.
+  // Problem statement or Root cause summary, pop up when clicking somewhere else.
+  root.addEventListener('click', function(e){
+    var el = e.target;
+    if (!el || !el.getBoundingClientRect) return;
+    if (!e.detail) return;                       // keyboard/programmatic/label-forwarded click
+    var r = el.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+    maybeOpen(e);
+  });
 })();
 
 
