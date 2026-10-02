@@ -7560,8 +7560,19 @@ function _mergeStageHistory(local, remote) {
 // merge keeps the uploaded link and flags nothing.
 function _isImageDataUrl(v){ return typeof v === 'string' && v.indexOf('data:image') === 0; }
 function _isUploadedPhotoUrl(v){ return typeof v === 'string' && /^https?:\/\/[^\s]+\/photo\/[A-Za-z0-9_-]+$/.test(v); }
+function _isImageValue(v){ return _isImageDataUrl(v) || _isUploadedPhotoUrl(v); }
+function _isBlankValue(v){ return v === undefined || v === null || v === ''; }
+// Same image stored two ways, OR a photo present on one device and not yet
+// (or no longer) on the other — a photo is never silently dropped by a sync.
 function _imageEquivalent(a, b){
-  return (_isImageDataUrl(a) && _isUploadedPhotoUrl(b)) || (_isUploadedPhotoUrl(a) && _isImageDataUrl(b));
+  return (_isImageDataUrl(a) && _isUploadedPhotoUrl(b)) || (_isUploadedPhotoUrl(a) && _isImageDataUrl(b)) ||
+         (_isBlankValue(a) && _isImageValue(b)) || (_isImageValue(a) && _isBlankValue(b));
+}
+// Which side to keep for an equivalent pair: the uploaded link, else the embedded image.
+function _pickImageValue(a, b){
+  if (_isUploadedPhotoUrl(a)) return a;
+  if (_isUploadedPhotoUrl(b)) return b;
+  return _isImageValue(a) ? a : b;
 }
 // Shipping Approval is a ONE-WAY gate: once either copy of a job is approved,
 // the merged job is approved, whatever the three-way logic or lastTouchedAt
@@ -7600,7 +7611,7 @@ function _mergeJobRecord(base, local, remote) {
     if (l === r) { merged[k] = local[k]; return; } // both sides agree (incl. neither ever changed it)
     if (b === l) { merged[k] = remote[k]; return; } // only remote changed it
     if (b === r) { merged[k] = local[k]; return; } // only local changed it
-    if (_imageEquivalent(local[k], remote[k])) { equivalentFields[k] = true; merged[k] = _isUploadedPhotoUrl(local[k]) ? local[k] : remote[k]; return; }
+    if (_imageEquivalent(local[k], remote[k])) { equivalentFields[k] = true; merged[k] = _pickImageValue(local[k], remote[k]); return; }
     // both changed it, to different values — genuine conflict
     if (localReview[k] && remoteReview[k]) {
       // Already an unresolved conflict on this field BEFORE this merge even
@@ -7684,7 +7695,7 @@ function _pruneEquivalentImageConflicts(){
     Object.keys(j._conflictReview).forEach(function(field){
       var c = j._conflictReview[field];
       if (c && _imageEquivalent(c.localValue, c.remoteValue)){
-        j[field] = _isUploadedPhotoUrl(c.localValue) ? c.localValue : c.remoteValue;
+        j[field] = _pickImageValue(c.localValue, c.remoteValue);
         delete j._conflictReview[field];
         changed++;
       }
