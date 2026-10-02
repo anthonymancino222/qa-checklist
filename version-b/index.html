@@ -7229,8 +7229,19 @@ function _mergeStageHistory(local, remote) {
 //
 // stageHistory and checklist are excluded from the plain field loop and
 // merged with their own by-id/union logic instead of a raw overwrite.
+// A photo/signature that exists on one device as an embedded data: URL and on
+// the other as its uploaded Drive link (/photo/<id>) is the SAME image — the
+// upload just finished on one side first. That is not a real edit conflict
+// (it produced 137 of them for two signature fields on test jobs), so the
+// merge keeps the uploaded link and flags nothing.
+function _isImageDataUrl(v){ return typeof v === 'string' && v.indexOf('data:image') === 0; }
+function _isUploadedPhotoUrl(v){ return typeof v === 'string' && /^https?:\/\/[^\s]+\/photo\/[A-Za-z0-9_-]+$/.test(v); }
+function _imageEquivalent(a, b){
+  return (_isImageDataUrl(a) && _isUploadedPhotoUrl(b)) || (_isUploadedPhotoUrl(a) && _isImageDataUrl(b));
+}
 function _mergeJobRecord(base, local, remote) {
   base = base || {};
+  var equivalentFields = {};
   var keys = {};
   Object.keys(base).forEach(function(k){ keys[k] = true; });
   Object.keys(local).forEach(function(k){ keys[k] = true; });
@@ -7250,6 +7261,7 @@ function _mergeJobRecord(base, local, remote) {
     if (l === r) { merged[k] = local[k]; return; } // both sides agree (incl. neither ever changed it)
     if (b === l) { merged[k] = remote[k]; return; } // only remote changed it
     if (b === r) { merged[k] = local[k]; return; } // only local changed it
+    if (_imageEquivalent(local[k], remote[k])) { equivalentFields[k] = true; merged[k] = _isUploadedPhotoUrl(local[k]) ? local[k] : remote[k]; return; }
     // both changed it, to different values — genuine conflict
     if (localReview[k] && remoteReview[k]) {
       // Already an unresolved conflict on this field BEFORE this merge even
@@ -7289,7 +7301,7 @@ function _mergeJobRecord(base, local, remote) {
   // review UI shows current data, without re-logging or re-flipping it.
   var mergedReview = {};
   Object.keys(Object.assign({}, localReview, remoteReview)).forEach(function(k){
-    if (localReview[k] && remoteReview[k]) mergedReview[k] = localReview[k];
+    if (localReview[k] && remoteReview[k] && !equivalentFields[k]) mergedReview[k] = localReview[k];
   });
   stillPending.forEach(function(c){
     mergedReview[c.field] = { localValue: c.localValue, remoteValue: c.remoteValue, at: formatTS() };
@@ -7321,6 +7333,25 @@ function _mergeJobRecord(base, local, remote) {
 ══════════════════════════════════ */
 function _conflictReviewJobs(){
   return ipLoad().filter(function(j){ return j._conflictReview && Object.keys(j._conflictReview).length; });
+}
+// One-time-style cleanup of conflicts that were only ever "data: image vs its
+// own uploaded link": keep the uploaded link, drop the review entry. Runs at
+// startup; only rewrites the jobs that actually had such entries.
+function _pruneEquivalentImageConflicts(){
+  var jobs, changed = 0;
+  try { jobs = ipLoad(); } catch(e){ return; }
+  jobs.forEach(function(j){
+    if (!j || !j._conflictReview) return;
+    Object.keys(j._conflictReview).forEach(function(field){
+      var c = j._conflictReview[field];
+      if (c && _imageEquivalent(c.localValue, c.remoteValue)){
+        j[field] = _isUploadedPhotoUrl(c.localValue) ? c.localValue : c.remoteValue;
+        delete j._conflictReview[field];
+        changed++;
+      }
+    });
+  });
+  if (changed){ try { ipSave(jobs); } catch(e){} }
 }
 function updateConflictBadge(){
   var btn = document.getElementById('header-conflict-btn');
@@ -17501,6 +17532,7 @@ checkDraftBanner();
 // only shows up once you've already visited Job in Progress or QA Release,
 // since it's normally refreshed by those views' own render functions.
 updateQAReleaseBadge();
+_pruneEquivalentImageConflicts();
 updateConflictBadge();
 
 // Pull in anything created on another device since this one last loaded —
