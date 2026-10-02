@@ -1835,6 +1835,14 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .rca-assign-row{padding:8px 0;border-top:1px solid var(--border)}
 #view-rca .rca-assign-row:first-of-type{border-top:none}
 #view-rca .rca-assign-issue{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+/* Quick actions (Start new draft / Download PDF) — styled as obvious buttons, shown at the top AND bottom */
+#view-rca .rca-quickbar{ margin:4px 0 14px; }
+#view-rca .rca-quickbar-label{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px; }
+#view-rca .rca-quickbar-row{ display:flex; gap:10px; flex-wrap:wrap; }
+#view-rca .rca-quickbtn{ flex:1 1 220px; display:flex; align-items:center; justify-content:center; gap:8px; padding:13px 14px; min-height:48px; border:2px solid var(--brand); background:var(--brand-soft); color:var(--brand-dark); border-radius:12px; font:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.28); transition:transform .08s, box-shadow .08s, background .15s; }
+#view-rca .rca-quickbtn:hover{ background:var(--brand); color:#fff; }
+#view-rca .rca-quickbtn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.28); }
+#view-rca .rca-quickbtn:disabled{ opacity:.6; cursor:wait; }
 /* Path 1 is a 3-phase CAR: Root cause -> Corrective action plan -> Verification & approval */
 #rca-form-body:not(.rca-p1) .rca-p1-only{display:none !important}
 #rca-form-body.rca-p1 .rca-p2-only{display:none !important}
@@ -4283,13 +4291,6 @@ try {
       </div>
     </div>
 
-    <!-- Export whatever is filled in so far, from any phase / either path.
-         Reads the live form (nothing is saved or sent); blank sections are
-         skipped in the PDF, so a half-finished record exports cleanly. -->
-    <div class="action-row" style="margin:0 0 12px">
-      <button type="button" class="btn" id="rca-btn-export-any" onclick="rcaExportPDF(null,this)">⬇️ <span data-en>Download PDF of what I have so far</span><span data-es>Descargar PDF de lo que tengo hasta ahora</span></button>
-    </div>
-
     <!-- SECTION 1 -->
     <div class="section">
       <div class="section-header">
@@ -4882,6 +4883,9 @@ try {
     </div>
 
     <!-- Path 1 submit -->
+    <!-- Same quick actions as the top of the page (see rcaQuickBarHtml) -->
+    <div id="rca-quickbar-bottom"></div>
+
     <div id="rca-path1-actions" class="hidden">
       <div class="action-row">
         <button class="btn btn-primary" id="rca-btn-submit1" onclick="rcaSubmitPath1()">🔒 <span data-en>Submit &amp; close record</span><span data-es>Enviar y cerrar registro</span></button>
@@ -24880,6 +24884,25 @@ function rcaPrintRecordReport(idxKey){
 // draft records the Records tab's Continue Draft button uses. One row per
 // job+station (each draft save mirrors a fresh copy, newest first, so older
 // copies of the same job are hidden here rather than listed twice).
+// Two real buttons, rendered at the top (inside the drafts box) and the bottom
+// of the RCA page, so neither is hiding in the middle of a long form.
+function _rcaQuickBarHtml(){
+  var isEs = isEsLang();
+  return '<div class="rca-quickbar"><div class="rca-quickbar-label">' + (isEs ? 'Acciones rápidas' : 'Quick actions') + '</div><div class="rca-quickbar-row">' +
+    '<button type="button" class="rca-quickbtn" onclick="rcaStartNewDraft()"><span aria-hidden="true">＋</span> ' + (isEs ? 'Iniciar nuevo borrador' : 'Start new draft') + '</button>' +
+    '<button type="button" class="rca-quickbtn" onclick="rcaExportSoFar(this)"><span aria-hidden="true">⬇️</span> ' + (isEs ? 'Descargar PDF de lo que tengo hasta ahora' : 'Download PDF of what I have so far') + '</button>' +
+    '</div></div>';
+}
+// Exports whatever is filled in right now (nothing is saved or sent); blank
+// sections are skipped, so a half-finished record exports cleanly.
+function rcaExportSoFar(btn){
+  var body = document.getElementById('rca-form-body');
+  if (!body || body.classList.contains('hidden')){
+    showAlert(isEsLang() ? 'Primero inicie o continúe una ACR; luego podrá descargar el PDF de lo que tiene.' : 'Start or continue a CAR first, then you can download a PDF of what you have so far.');
+    return;
+  }
+  rcaExportPDF(null, btn);
+}
 function rcaRenderDraftList(){
   var box = document.getElementById('rca-drafts-box');
   if (!box) return;
@@ -24908,13 +24931,15 @@ function rcaRenderDraftList(){
       '<div style="font-size:13px;color:var(--text-tertiary)">' + meta + '</div></div>' +
       '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + btnLabel + '</button></div>';
   }
-  var head = '<div class="section" style="margin-bottom:1rem"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:' + (rows.length || pending.length ? '10px' : '0') + '">' +
-    '<div class="section-title">' + (rows.length ? '📝 ' + (isEs ? 'Continuar una ACR en progreso' : 'Continue an open CAR / draft') + ' (' + rows.length + ')' : (pending.length ? '' : (isEs ? 'No hay borradores guardados' : 'No saved drafts'))) + '</div>' +
-    '<button type="button" class="btn" onclick="rcaStartNewDraft()">＋ ' + (isEs ? 'Iniciar nuevo borrador' : 'Start new draft') + '</button></div>';
+  var head = '<div class="section" style="margin-bottom:1rem">' + _rcaQuickBarHtml() +
+    ((rows.length || pending.length) ? '' : '<div class="section-title">' + (isEs ? 'No hay borradores guardados' : 'No saved drafts') + '</div>') +
+    (rows.length ? '<div class="section-title" style="margin-bottom:6px">📝 ' + (isEs ? 'Continuar una ACR en progreso' : 'Continue an open CAR / draft') + ' (' + rows.length + ')</div>' : '');
   var pvHtml = pending.length ?
     '<div class="section-title" style="margin-top:12px">🔎 ' + (isEs ? 'Pendientes de verificación' : 'Awaiting verification') + ' (' + pending.length + ')</div>' +
     pending.map(function(x){ return rowHtml(x, isEs?'Verificar':'Verify'); }).join('') : '';
   box.innerHTML = head + rows.map(function(x){ return rowHtml(x, isEs?'Continuar':'Continue'); }).join('') + pvHtml + '</div>';
+  var bottom = document.getElementById('rca-quickbar-bottom');
+  if (bottom) bottom.innerHTML = _rcaQuickBarHtml();
 }
 // "Start new draft" — clears the form back to the choose-a-path screen. If a
 // form is already open, confirm first since unsaved entries would be lost.
