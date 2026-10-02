@@ -21439,6 +21439,7 @@ function rcaHide(id){document.getElementById('rca-'+id).classList.add('hidden')}
    never piles up as duplicate rows and can be reopened days later for
    Phase 3. ═══════════════════════════════════════════════════════════════ */
 var _rcaTbdId = '';           // cloud id used while the CAR/NCR # is still "TBD"
+var _rcaOriginId = '';        // cloud id this form session started from — a changed CAR # moves the record to its new id
 function _rcaCarTbd(){ var c = document.getElementById('rca-car-tbd'); return !!(c && c.checked); }
 function _rcaCarLabel(r){ return (r && (r.carNo || (r.carTbd ? 'TBD' : ''))) || ''; }
 function rcaCarTbdChange(){
@@ -21544,7 +21545,8 @@ function _rcaCarSave(status, done){
   rcaSendAll(status, 'car_save', function(ok){
     if (ok){
       _rcaLoadedCar = carNo; _rcaCarStatus = status;
-      var c = document.getElementById('rca-car-no'); if (c && carNo){ c.readOnly = true; var tr = document.getElementById('rca-tbd-row'); if (tr) tr.style.display = 'none'; _rcaTbdId = ''; }
+      _rcaOriginId = carNo ? ('car-' + _rcaSlug(carNo)) : _rcaTbdId;
+      var c = document.getElementById('rca-car-no'); if (c && carNo){ var tr = document.getElementById('rca-tbd-row'); if (tr) tr.style.display = 'none'; _rcaTbdId = ''; }
       rcaRenderDraftList(); _rcaRefreshPhaseUi();
     }
     done(ok);
@@ -22844,7 +22846,10 @@ function _rcaNewToken(){
   return t;
 }
 function _rcaEnsureId(data){
-  if (data.carNo){ data.cloudId = 'car-' + _rcaSlug(data.carNo); if (data.tbdId) data.replacesId = data.tbdId; }
+  if (data.carNo){
+    data.cloudId = 'car-' + _rcaSlug(data.carNo);
+    data.replacesId = data.tbdId || ((_rcaOriginId && _rcaOriginId !== data.cloudId) ? _rcaOriginId : '');
+  }
   else if (data.carTbd){
     if (!data.tbdId){ data.tbdId = 'car-tbd-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4); _rcaTbdId = data.tbdId; }
     data.cloudId = data.tbdId;
@@ -23123,7 +23128,7 @@ function rcaResetForm(){
   _rcaToken = '';
   _rcaManagerMode = false; _rcaCloseoutMode = false;
   _rcaVersioningFrom = null;
-  _rcaPhase = 1; _rcaCarStatus = 'Open'; _rcaLoadedCar = ''; _rcaBase = null; _rcaTbdId = '';
+  _rcaPhase = 1; _rcaCarStatus = 'Open'; _rcaLoadedCar = ''; _rcaBase = null; _rcaTbdId = ''; _rcaOriginId = '';
   var _cn = document.getElementById('rca-car-no'); if (_cn){ _cn.readOnly = false; _cn.disabled = false; _cn.placeholder = '2026-17'; }
   var _tb = document.getElementById('rca-car-tbd'); if (_tb) _tb.checked = false;
   var _tr = document.getElementById('rca-tbd-row'); if (_tr) _tr.style.display = '';
@@ -25009,7 +25014,7 @@ function rcaOpenRecordForEdit(idxKey){
   _rcaFillFullRecordForEdit(r);
   document.getElementById('rca-job-num').value = ver.newJobNumber;
   // A versioned copy is a NEW record, so it needs its own CAR # (never the original's).
-  _rcaLoadedCar = ''; _rcaCarStatus = 'Pending Verification'; _rcaTbdId = '';
+  _rcaLoadedCar = ''; _rcaOriginId = ''; _rcaCarStatus = 'Pending Verification'; _rcaTbdId = '';
   var _tb2 = document.getElementById('rca-car-tbd'); if (_tb2) _tb2.checked = false;
   var _tr2 = document.getElementById('rca-tbd-row'); if (_tr2) _tr2.style.display = '';
   var _cn = document.getElementById('rca-car-no');
@@ -25206,7 +25211,8 @@ function rcaOpenCar(idxKey){
   if (pathSel) pathSel.style.display = 'none';
   _rcaFillFullRecordForEdit(r);
   _rcaLoadedCar = r.carNo || '';
-  var cn = document.getElementById('rca-car-no'); if (cn) cn.readOnly = !!r.carNo;
+  _rcaOriginId = r.cloudId || '';
+  var cn = document.getElementById('rca-car-no'); if (cn) cn.readOnly = false;   // the number stays editable; saving a changed one moves the record to the new id
   var tbdRow = document.getElementById('rca-tbd-row'); if (tbdRow) tbdRow.style.display = r.carNo ? 'none' : '';
   _rcaCarStatus = (r.status === 'Pending Verification') ? 'Pending Verification' : 'Open';
   var phase = _rcaCarStatus === 'Pending Verification' ? 3 : (+r.phase || 1);
