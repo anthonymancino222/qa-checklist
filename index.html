@@ -4616,6 +4616,8 @@ try {
         <div class="disp-option" onclick="rcaSetDisp(this,'100% Inspect — Remove Defects')"><div class="disp-icon">🔎</div><span data-en>100% Inspect — Remove Defects</span><span data-es>Inspeccionar 100% — Remover Defectos</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Pull &amp; Discard When Found')"><div class="disp-icon">🗑️</div><span data-en>Pull &amp; Discard When Found</span><span data-es>Retirar y Descartar al Encontrar</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Rework Before Use')"><div class="disp-icon">🔧</div><span data-en>Rework Before Use</span><span data-es>Reprocesar Antes de Usar</span></div>
+        <div class="disp-option" onclick="rcaSetDisp(this,'Relabel Case — Correct Label')"><div class="disp-icon">🏷️</div><span data-en>Relabel Case — Correct Label</span><span data-es>Reetiquetar Caja — Etiqueta Correcta</span></div>
+        <div class="disp-option" onclick="rcaSetDisp(this,'Repack — Remove Mixed Items')"><div class="disp-icon">🔀</div><span data-en>Repack — Remove Mixed Items</span><span data-es>Reempacar — Retirar Producto Mezclado</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Rework Perfs Before Use')"><div class="disp-icon">✂️</div><span data-en>Rework Perfs Before Use</span><span data-es>Reprocesar Perforados Antes de Usar</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Sort — Remove Bad Perfs')"><div class="disp-icon">🗂️</div><span data-en>Sort — Remove Bad Perfs</span><span data-es>Clasificar — Retirar Perforados Malos</span></div>
         <div class="disp-option" onclick="rcaSetDisp(this,'Re-Perf — Rerun Through Die Cutter')"><div class="disp-icon">🔁</div><span data-en>Re-Perf — Rerun Through Die Cutter</span><span data-es>Re-Perforar — Repasar por la Troqueladora</span></div>
@@ -4741,6 +4743,8 @@ try {
         <div class="disp-option" onclick="rcaSetDisp2(this,'100% Inspect — Remove Defects')"><div class="disp-icon">🔎</div><span data-en>100% Inspect — Remove Defects</span><span data-es>Inspeccionar 100% — Remover Defectos</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Pull &amp; Discard When Found')"><div class="disp-icon">🗑️</div><span data-en>Pull &amp; Discard When Found</span><span data-es>Retirar y Descartar al Encontrar</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Rework Before Use')"><div class="disp-icon">🔧</div><span data-en>Rework Before Use</span><span data-es>Reprocesar Antes de Usar</span></div>
+        <div class="disp-option" onclick="rcaSetDisp2(this,'Relabel Case — Correct Label')"><div class="disp-icon">🏷️</div><span data-en>Relabel Case — Correct Label</span><span data-es>Reetiquetar Caja — Etiqueta Correcta</span></div>
+        <div class="disp-option" onclick="rcaSetDisp2(this,'Repack — Remove Mixed Items')"><div class="disp-icon">🔀</div><span data-en>Repack — Remove Mixed Items</span><span data-es>Reempacar — Retirar Producto Mezclado</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Rework Perfs Before Use')"><div class="disp-icon">✂️</div><span data-en>Rework Perfs Before Use</span><span data-es>Reprocesar Perforados Antes de Usar</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Sort — Remove Bad Perfs')"><div class="disp-icon">🗂️</div><span data-en>Sort — Remove Bad Perfs</span><span data-es>Clasificar — Retirar Perforados Malos</span></div>
         <div class="disp-option" onclick="rcaSetDisp2(this,'Re-Perf — Rerun Through Die Cutter')"><div class="disp-icon">🔁</div><span data-en>Re-Perf — Rerun Through Die Cutter</span><span data-es>Re-Perforar — Repasar por la Troqueladora</span></div>
@@ -17997,6 +18001,8 @@ var DISPOSITION_OPTIONS = [
   '100% Inspect — Remove Defects',
   'Pull & Discard When Found',
   'Rework Before Use',
+  'Relabel Case — Correct Label',
+  'Repack — Remove Mixed Items',
   'Rework Perfs Before Use',
   'Sort — Remove Bad Perfs',
   'Re-Perf — Rerun Through Die Cutter',
@@ -18209,6 +18215,22 @@ var QUALITY_DATA = {
   "Inventory": {
     rootCauses: ["Stock not updated in system","Physical count mismatch","Material received not logged","Wrong location in warehouse system","Expired or on-hold material used"],
     correctiveActions: ["Update system immediately after any material movement","Conduct physical count and reconcile with system","Log all received materials upon arrival","Quarantine and flag any expired or on-hold material"]
+  },
+  // Case/box mix-up issues: wrong label on a case, a different item inside a case,
+  // or a box whose label doesn't say what is inside. Offered at Packing, both
+  // Gluers, both Cutters and Vendor (see STATION_ISSUES). Packaging Press keeps
+  // its own more specific "Packaging Press|..." overrides.
+  "Wrong Label on Case": {
+    rootCauses: ["Cases or labels for different jobs staged close together without clear separation","Packer handoff did not pass on which cases/labels belong to the active job","Case label not checked against the job ticket or packing slip","Inventory or leftover cases reused without confirming the label"],
+    correctiveActions: ["Keep only active-job cases and labels in the packing area; mark next-job materials NEXT JOB - DO NOT USE","Outgoing packer tells incoming packer which cases belong to the active job; incoming packer confirms before continuing","Check the first case label against the job ticket or packing slip before packing continues","Verify label and product at every changeover and record it"]
+  },
+  "Mixed Product": {
+    rootCauses: ["Visually similar items packed or staged together","Boxes or cases for different items not clearly separated","Inventory boxes not clearly labeled with what is inside","Leftover product from a prior job packed into the next job's case"],
+    correctiveActions: ["Store and pack visually similar items separately","Label inventory boxes with item number and description before they are stored","Confirm box contents match the job ticket before packing out","Clear the packing area of prior-job product at every changeover"]
+  },
+  "Box Contents Not Clearly Labeled": {
+    rootCauses: ["Inventory box missing item number or description on its label","Label too small or unclear to tell visually similar items apart","Leftover box never received an official job label","Box reused without removing or covering the old label"],
+    correctiveActions: ["Label every inventory box with item number, description and job before storing","Use a clear, readable label that tells visually similar items apart","Verify box contents against the box label before using it to complete an order","Remove or cover old labels when a box is reused"]
   }
 };
 
@@ -19000,11 +19022,13 @@ var STATION_ISSUES = {
   ],
   "Long Gluer": [
     "Folder gluer issue","Over glue","Cracking / bursting","Delamination","Short / quantity",
+    "Wrong Label on Case","Mixed Product","Box Contents Not Clearly Labeled",
     "Scuffing","Damaged","Process not followed","Documentation / job ticket",
     "Equipment issue","5S","Safety","Other"
   ],
   "Short Gluer": [
     "Folder gluer issue","Over glue","Cracking / bursting","Delamination","Short / quantity",
+    "Wrong Label on Case","Mixed Product","Box Contents Not Clearly Labeled",
     "Scuffing","Damaged","Process not followed","Documentation / job ticket",
     "Equipment issue","5S","Safety","Other"
   ],
@@ -19015,6 +19039,7 @@ var STATION_ISSUES = {
   ],
   "Bindery Cutter": [
     "Short / quantity","Damaged","Scuffing","Bad Cut","Cutter Draw","Box Label / Quantity Mismatch",
+    "Wrong Label on Case","Mixed Product","Box Contents Not Clearly Labeled",
     "Process not followed","Documentation / job ticket","Equipment issue","5S","Safety","Other"
   ],
   "Label Press": [
@@ -19029,7 +19054,8 @@ var STATION_ISSUES = {
     "Documentation / job ticket","Process not followed","Equipment issue","5S","Safety","Other"
   ],
   "Packing": [
-    "Packing / shipping issue","Damaged","Short / quantity","Scuffing","Inventory",
+    "Packing / shipping issue","Wrong Label on Case","Mixed Product","Box Contents Not Clearly Labeled",
+    "Damaged","Short / quantity","Scuffing","Inventory",
     "Documentation / job ticket","5S","Safety","SQF","Other"
   ],
   "Samples": [
@@ -19037,7 +19063,8 @@ var STATION_ISSUES = {
     "Inventory","5S","Safety","Other"
   ],
   "Vendor": [
-    "Damaged","Short / quantity","Paper mix / wrong material","Documentation / job ticket",
+    "Damaged","Short / quantity","Paper mix / wrong material",
+    "Wrong Label on Case","Mixed Product","Box Contents Not Clearly Labeled","Documentation / job ticket",
     "Inventory","Process not followed","Other"
   ]
 };
@@ -22408,7 +22435,7 @@ function _rcaDispositionBadgeHTML(value){
   var v = value.toLowerCase();
   var bg = '#eceff4', fg = '#4a5b7a'; // neutral default
   if (/scrap|discard|do not use/.test(v)) { bg = '#fbeaea'; fg = '#9c2c2e'; }
-  else if (/hold|inspect|sort|rework|rerun/.test(v)) { bg = '#fbf1dc'; fg = '#8a5e0e'; }
+  else if (/hold|inspect|sort|rework|rerun|relabel|repack/.test(v)) { bg = '#fbf1dc'; fg = '#8a5e0e'; }
   else if (/continue|use with approval/.test(v)) { bg = '#e7f3ec'; fg = '#1c6b42'; }
   return '<span class="rca-pdf-badge" style="background:'+bg+';color:'+fg+';">'+escHtml(value)+'</span>';
 }
@@ -25539,6 +25566,8 @@ window.addEventListener('storage', function(e){
       "100% Inspect — Remove Defects":"Inspección 100% — Retirar Defectos",
       "Pull & Discard When Found":"Retirar y Desechar al Encontrarlo",
       "Rework Before Use":"Reprocesar Antes de Usar",
+      "Relabel Case — Correct Label":"Reetiquetar Caja — Etiqueta Correcta",
+      "Repack — Remove Mixed Items":"Reempacar — Retirar Producto Mezclado",
       "Rework Perfs Before Use":"Reprocesar Perforados Antes de Usar",
       "Sort — Remove Bad Perfs":"Clasificar — Retirar Perforados Malos",
       "Re-Perf — Rerun Through Die Cutter":"Re-Perforar — Repasar por la Troqueladora",
