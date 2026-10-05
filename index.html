@@ -4450,6 +4450,8 @@ try {
             <option value="Short Gluer">Short Gluer</option>
             <option value="Label Press">Label Press</option>
             <option value="Packaging Press">Packaging Press</option>
+            <option value="Prepress">Prepress</option>
+            <option value="CSR">CSR</option>
             <option value="Packing">Packing</option>
             <option value="Samples">Samples</option>
             <option value="Vendor">Vendor</option>
@@ -11707,6 +11709,8 @@ var STATION_LABELS = {
   'Short Gluer':      ['Short Gluer', 'Pegadora Corta'],
   'Label Press':      ['Label Press', 'Prensa de Etiquetas'],
   'Packaging Press':  ['Packaging Press', 'Prensa de Empaque'],
+  'Prepress':         ['Prepress', 'Preprensa'],
+  'CSR':              ['CSR', 'Servicio al Cliente (CSR)'],
   'Packing':          ['Packing', 'Empaque'],
   'Samples':          ['Samples', 'Trabajos de Muestra'],
   'Vendor':           ['Vendor', 'Trabajos de Vendedor']
@@ -18001,7 +18005,7 @@ function ncrNextId() {
   return 'NCR-' + String(max+1).padStart(3,'0');
 }
 
-var NCR_STATIONS = ['Bindery Cutter','Pressroom Cutter','Kama Foil Press','New Die Cutter','Old Die Cutter','Long Gluer','Short Gluer','Label Press','Packaging Press','Packing','Samples','Vendor'];
+var NCR_STATIONS = ['Bindery Cutter','Pressroom Cutter','Kama Foil Press','New Die Cutter','Old Die Cutter','Long Gluer','Short Gluer','Label Press','Packaging Press','Prepress','CSR','Packing','Samples','Vendor'];
 var NCR_PATHS = {
   finding: { title:['Quality Issue Pallet Tag','Etiqueta de Pallet — Problema de Calidad'], sub:['Tag and hold flagged product — no NCR record needed.','Etiquete y retenga el producto marcado — no se necesita registro de RNC.'] },
   ncr:     { title:['Document an NCR','Documentar un RNC'],    sub:['Full record: issue, root cause, corrective action, disposition.','Registro completo: problema, causa raíz, acción correctiva, disposición.'] },
@@ -18250,6 +18254,31 @@ var QUALITY_DATA = {
   "Mixed Product": {
     rootCauses: ["Visually similar items packed or staged together","Boxes or cases for different items not clearly separated","Inventory boxes not clearly labeled with what is inside","Leftover product from a prior job packed into the next job's case"],
     correctiveActions: ["Store and pack visually similar items separately","Label inventory boxes with item number and description before they are stored","Confirm box contents match the job ticket before packing out","Clear the packing area of prior-job product at every changeover"]
+  },
+  // Order-entry and prepress issues, offered at the CSR and Prepress stations.
+  "Order Entry Error": {
+    rootCauses: ["Item number or description entered incorrectly","Quantity entered incorrectly","Ship-to or bill-to address entered incorrectly","Order not double-checked against the customer's PO"],
+    correctiveActions: ["Verify item number and description against the PO before releasing the order","Confirm quantity and ship-to against the customer PO before release","Require a second-person check on order entry","Update the order entry checklist"]
+  },
+  "Customer Spec Mismatch": {
+    rootCauses: ["Size, color, finish or material entered differently from the customer's spec","Customer spec change not carried into the order","Previous order's spec reused without checking","Spec not confirmed with the customer"],
+    correctiveActions: ["Confirm size, color, finish and material against the customer's current spec before release","Record spec changes on the order and job ticket right away","Do not reuse a previous order's spec without confirming it","Get written customer confirmation for any spec change"]
+  },
+  "Proof / Artwork Approval Error": {
+    rootCauses: ["Proof sent or approved without a full review","Customer approval not on file before release","Wrong proof version approved","Artwork changed after approval"],
+    correctiveActions: ["Do not release a job to production until the approved proof is on file","Confirm the approved proof version matches the file being run","Get re-approval for any artwork changed after approval","Add a proof approval check to the job ticket"]
+  },
+  "PO Discrepancy": {
+    rootCauses: ["PO quantity or pricing differs from the order entered","PO missing at order entry","PO revision not applied to the order","PO details not compared to the order"],
+    correctiveActions: ["Compare PO quantity, pricing and item numbers to the order before release","Hold the order until a missing PO is received","Apply PO revisions to the order and job ticket right away","Add a PO-to-order check at entry"]
+  },
+  "Wrong File Version Used": {
+    rootCauses: ["Outdated file used for the job","Wrong revision approved","File versions not clearly named or archived","Latest revision not confirmed before output"],
+    correctiveActions: ["Confirm the latest approved file version before plate or file output","Archive old versions and name files clearly by revision","Check the file version against the approved proof","Require a second-person file check before release"]
+  },
+  "Imposition / Layout Error": {
+    rootCauses: ["Wrong step-and-repeat or gang-up","Wrong orientation","Template or layout not checked against the job spec","Layout not proofed before output"],
+    correctiveActions: ["Check imposition against the job spec before output","Proof the layout before plates or files are released","Use verified templates","Require a second-person layout check"]
   },
   "Box Contents Not Clearly Labeled": {
     rootCauses: ["Inventory box missing item number or description on its label","Label too small or unclear to tell visually similar items apart","Leftover box never received an official job label","Box reused without removing or covering the old label"],
@@ -19076,6 +19105,14 @@ var STATION_ISSUES = {
     "Wrong Label on Case","Mixed Product","Marking from Press","Water Issue",
     "Documentation / job ticket","Process not followed","Equipment issue","5S","Safety","Other"
   ],
+  "Prepress": [
+    "Prepress / CAD issue","Wrong File Version Used","Proof / Artwork Approval Error","Imposition / Layout Error",
+    "Scratch on plate","Documentation / job ticket","Process not followed","5S","Safety","Other"
+  ],
+  "CSR": [
+    "Order Entry Error","Customer Spec Mismatch","Proof / Artwork Approval Error","PO Discrepancy",
+    "Documentation / job ticket","Process not followed","Other"
+  ],
   "Packing": [
     "Packing / shipping issue","Wrong Label on Case","Mixed Product","Box Contents Not Clearly Labeled",
     "Damaged","Short / quantity","Scuffing","Inventory",
@@ -19286,7 +19323,7 @@ function ncrIssueCategoriesFor(station){
   // straight to STATION_ISSUES (curated per-station list) instead of falling
   // through to the "no mapped bucket" branch below, which would otherwise
   // dump every category from every other station on them.
-  if (station === 'Label Press' || station === 'Packaging Press') return STATION_ISSUES[station] || [];
+  if (station === 'Label Press' || station === 'Packaging Press' || station === 'Prepress' || station === 'CSR') return STATION_ISSUES[station] || [];
   if (typeof PT_DATA === 'undefined') return qualityIssueCategoriesFor(station);
   var ptStation = NCR_TO_PT_STATION[station];
   if (ptStation && PT_DATA[ptStation]) return Object.keys(PT_DATA[ptStation].categories);
