@@ -4449,7 +4449,7 @@ try {
             <option>Anthony M</option>
             <option>Norma S</option>
             <option>Mariah G</option>
-            <option>Mathias M</option>
+            <option>Mathias H</option>
             <option value="Other">Other</option>
           </select>
           <input type="text" class="hidden other-input" id="rca-qa-name-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre">
@@ -4816,7 +4816,7 @@ try {
               <option>Anthony M</option>
               <option>Norma S</option>
               <option>Mariah G</option>
-              <option>Mathias M</option>
+              <option>Mathias H</option>
               <option value="Other">Other</option>
             </select>
             <input type="text" class="hidden other-input" id="rca-verified-by-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre">
@@ -4879,7 +4879,7 @@ try {
             <option>Anthony M</option>
             <option>Norma S</option>
             <option>Mariah G</option>
-            <option>Mathias M</option>
+            <option>Mathias H</option>
             <option value="Other">Other</option>
           </select>
           <input type="text" class="hidden other-input" id="rca-close-qa-name-other" placeholder="Enter name" data-ph-en="Enter name" data-ph-es="Ingrese el nombre">
@@ -18074,7 +18074,9 @@ var NCR_ISSUE_CATEGORIES = (function(){
 // Single source of truth for the "who reported/reviewed this" name list —
 // used by RCA's QA tech name dropdowns (open + close) and NCR's "Reported
 // by" dropdown, so adding/removing a name here updates every one of them.
-var QA_TECH_NAMES = ['Anthony M','Norma S','Mariah G','Mathias M','Jorge','Jayro'];
+var QA_TECH_NAMES = ['Anthony M','Norma S','Mariah G','Mathias H','Jorge','Jayro'];
+// Saved records from before the rename still say "Mathias M"; show them as the picker's "Mathias H".
+function _legacyName(v){ return v === 'Mathias M' ? 'Mathias H' : v; }
 function _nameOptionsHTML(selected){
   return '<option value="">Select name</option>' +
     QA_TECH_NAMES.map(function(n){ return '<option'+(n===selected?' selected':'')+'>'+n+'</option>'; }).join('') +
@@ -22277,7 +22279,7 @@ function rcaSendAll(status, action, onDone){
    its unmatched-name bug — see station_manager_final.txt). ── */
 function _rcaMgrOptionsHTML(withQA){
   return '<option value="">Select name</option>' +
-    (withQA ? RCA_MANAGER_NAMES.concat(['Mathias M','Anthony M']) : RCA_MANAGER_NAMES).map(function(n){ return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>'; }).join('') +
+    (withQA ? RCA_MANAGER_NAMES.concat(['Mathias H','Anthony M']) : RCA_MANAGER_NAMES).map(function(n){ return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>'; }).join('') +
     '<option value="__other">✏️ Other</option>';
 }
 function _rcaPopulateMgrSelects(){
@@ -23396,12 +23398,13 @@ function _rcaFillIncidentInfo(rec){
   var hasStation = Array.prototype.some.call(stationSel.options, function(o){ return o.value === rec.station; });
   stationSel.value = hasStation ? rec.station : '';
   var qaSel = document.getElementById('rca-qa-name');
-  var hasQA = Array.prototype.some.call(qaSel.options, function(o){ return o.value === rec.qaTech; });
+  var _qaTech = _legacyName(rec.qaTech);
+  var hasQA = Array.prototype.some.call(qaSel.options, function(o){ return o.value === _qaTech; });
   if (hasQA) {
-    qaSel.value = rec.qaTech;
-  } else if (rec.qaTech) {
+    qaSel.value = _qaTech;
+  } else if (_qaTech) {
     qaSel.value = 'Other';
-    document.getElementById('rca-qa-name-other').value = rec.qaTech;
+    document.getElementById('rca-qa-name-other').value = _qaTech;
     document.getElementById('rca-qa-name-other').classList.remove('hidden');
   }
   // issueDesc was composed as "Category — Detail" by _rcaCompose; split back apart for display.
@@ -25218,6 +25221,7 @@ function rcaUnlockForm(){
 function _rcaSetSelectOrOther(selId, otherId, value){
   var sel = document.getElementById(selId), other = document.getElementById(otherId);
   if (!sel) return;
+  value = _legacyName(value);
   var has = Array.prototype.some.call(sel.options, function(o){ return o.value === value; });
   if (has){ sel.value = value; if (other) other.classList.add('hidden'); }
   else if (value){
@@ -25232,6 +25236,7 @@ function _rcaSetNameSelect(selId, value){
   var m = RCA_NAME_SELECT_MAP[selId]; if (!m) return;
   var sel = document.getElementById(selId);
   if (!sel) return;
+  value = _legacyName(value);
   var has = Array.prototype.some.call(sel.options, function(o){ return o.value === value; });
   sel.value = has ? value : (value ? '__other' : '');
   if (!has && value){ var other = document.getElementById(m.other); if (other) other.value = value; }
