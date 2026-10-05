@@ -2223,6 +2223,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 .rca-why-item b{ font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#4a5b7a; font-weight:700; vertical-align:middle; }
 .rca-why-text{ display:block; margin-top:4px; margin-left:28px; font-size:14.5px; line-height:1.6; }
 .rca-pdf-badge{ display:inline-block; padding:5px 14px; border-radius:20px; font-weight:700; font-size:13.5px; }
+#qa-photo-lightbox{ display:none; position:fixed; inset:0; z-index:300000; background:rgba(0,0,0,.9); align-items:center; justify-content:center; flex-direction:column; gap:10px; padding:12px; }
+#qa-photo-lightbox.open{ display:flex; }
+#qa-photo-lightbox img{ max-width:96vw; max-height:82vh; object-fit:contain; border-radius:6px; background:#fff; touch-action:pinch-zoom; }
+#qa-photo-lightbox .qa-lb-x{ position:fixed; top:12px; right:12px; width:42px; height:42px; border-radius:50%; border:2px solid #fff; background:rgba(0,0,0,.6); color:#fff; font-size:20px; line-height:1; cursor:pointer; }
+#qa-photo-lightbox .qa-lb-open{ color:#fff; font-size:14px; text-decoration:underline; }
 .rca-pdf-photos{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 /* A plain <img> with object-fit:cover + border-radius produces a visible
    seam artifact in html2canvas's rendering (the PDF-download path) — the
@@ -9110,7 +9115,7 @@ function openContinueModal(id) {
     if (job.mrPhoto) {
       opPhoto.src = job.mrPhoto; opPhoto.style.display = 'block';
       opPhoto.style.cursor = 'zoom-in'; opPhoto.title = 'Click to view full size';
-      opPhoto.onclick = function(){ window.open(this.src, '_blank'); };
+      opPhoto.onclick = function(){ qaOpenPhoto(this.src); };
     }
     else { opPhoto.style.display = 'none'; }
     // cm-op-photo-new is shared across every job opened in this session —
@@ -9218,7 +9223,7 @@ function openContinueModal(id) {
     if (job.mrPhoto) {
       qaPhoto.src = job.mrPhoto; qaPhoto.style.display = 'block';
       qaPhoto.style.cursor = 'zoom-in'; qaPhoto.title = 'Click to view full size';
-      qaPhoto.onclick = function(){ window.open(this.src, '_blank'); };
+      qaPhoto.onclick = function(){ qaOpenPhoto(this.src); };
     }
     else { qaPhoto.style.display = 'none'; }
 
@@ -13096,7 +13101,7 @@ function _renderProdSummary(job) {
   };
   if (job.station === 'Packing' && job.customer === 'Veritiv') {
     var _pkQtyLines = _jobQtySummaryLines(job);
-    var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="window.open(this.src,\'_blank\')" title="Click to view full size">' : '') +
+    var _pkHtml = (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="qaOpenPhoto(this.src)" title="Click to view full size">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '         + hlId(job.jobNumber)           + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> Veritiv</div>' +
@@ -13133,7 +13138,7 @@ function _renderProdSummary(job) {
     // (the actual order changing after the job started running).
     var _qtyExecEditable = _dataEditMode && cmIsGluer && !_jobIsGluerFirstPass(job);
     var _prodSumHtml =
-      (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="window.open(this.src,\'_blank\')" title="Click to view full size">' : '') +
+      (job.mrPhoto ? '<img src="' + job.mrPhoto + '" style="width:100%;border-radius:8px;margin-bottom:10px;cursor:zoom-in" alt="" onclick="qaOpenPhoto(this.src)" title="Click to view full size">' : '') +
       '<div style="font-size:14px;line-height:1.8;">' +
       '<div><strong>' + (_prodSumEs?'Trabajo:':'Job:') + '</strong> '      + hlId(job.jobNumber)        + '</div>' +
       '<div><strong>' + (_prodSumEs?'Cliente:':'Customer:') + '</strong> ' + escHtml(job.customer||'—')     + '</div>' +
@@ -19820,7 +19825,7 @@ function ncrThumbsHTML(d){
     // uploaded photo (full resolution, whatever _uploadPhotoToDrive/
     // ncrCompress produced) in a new tab, so it's never stuck looking
     // low-res/unreadable just because the preview box is small.
-    return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size">' +
+    return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="qaOpenPhoto(this.src)" style="cursor:zoom-in" title="Click to view full size">' +
       '<button type="button" class="ncr-thumb-edit" onclick="ncrEditPhoto('+p.id+')" title="Markup / edit photo">✏️</button>' +
       '<button type="button" onclick="ncrRemovePhoto('+p.id+')">✕</button></div>';
   }).join('');
@@ -19970,7 +19975,7 @@ function ncrSummaryHTML(d, isNew){
   var h = (isNew ? '<button class="ncr-back" onclick="ncrState.mode=\'form\';renderNCRView()">← ' + (isEs?'Volver a editar':'Back to edit') + '</button>' : '') +
     '<div class="card"><div class="card-label">'+(d.ncrId||(isEs?'Resumen':'Summary'))+ (d.status? ' <span class="ncr-status '+(d.status==='Closed'?'closed':d.status==='In Progress'?'inprog':'open')+'">'+ncrStatusLabel(d.status)+'</span>':'') +'</div>' +
     ncrSummaryRows(d).map(function(r){ return '<div class="ncr-sumrow"><b>'+_ncrEsc(r[0])+'</b><span>'+_rowVal(r[1])+'</span></div>'; }).join('') +
-    ((d.photos&&d.photos.length) ? '<div class="ncr-photo-grid" style="margin-top:12px;">'+d.photos.map(function(p){ return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size"></div>'; }).join('')+'</div>' : '') +
+    ((d.photos&&d.photos.length) ? '<div class="ncr-photo-grid" style="margin-top:12px;">'+d.photos.map(function(p){ return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="qaOpenPhoto(this.src)" style="cursor:zoom-in" title="Click to view full size"></div>'; }).join('')+'</div>' : '') +
     (d.collage ? '<div style="margin-top:10px"><img src="'+d.collage+'" style="width:100%;border-radius:10px;border:1px solid var(--border)"></div>' : '') +
     (d.dispositionNote ? '<div class="ncr-sumrow"><b>' + (isEs?'Nota de cierre':'Closing note') + '</b><span>'+_ncrEsc(d.dispositionNote)+'</span></div>' : '') +
     '</div>';
@@ -22338,11 +22343,30 @@ function rcaWirePhotoInput(){
     });
   });
 }
+/* Photo viewer: tap/click any photo to see it bigger, in the page itself (no new tab, so it also
+   works for photos stored inside the record, which browsers refuse to open in a new tab).
+   Stays open until the X is pressed, the dark area is tapped, or Esc. */
+function qaOpenPhoto(src){
+  if (!src) return;
+  var ov = document.getElementById('qa-photo-lightbox');
+  if (!ov){
+    ov = document.createElement('div');
+    ov.id = 'qa-photo-lightbox';
+    ov.innerHTML = '<button type="button" class="qa-lb-x" aria-label="Close">\u2715</button><img alt=""><a class="qa-lb-open" target="_blank" rel="noopener">Open in new tab \u2197</a>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function(e){ if (e.target === ov || e.target.classList.contains('qa-lb-x')) ov.classList.remove('open'); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') ov.classList.remove('open'); });
+  }
+  ov.querySelector('img').src = src;
+  var a = ov.querySelector('.qa-lb-open');
+  if (/^https?:/i.test(src)){ a.href = src; a.style.display = ''; } else { a.removeAttribute('href'); a.style.display = 'none'; }
+  ov.classList.add('open');
+}
 function rcaRenderPhotoGrid(){
   var grid = document.getElementById('rca-photo-grid');
   if (!grid) return;
   grid.innerHTML = rcaPhotos.map(function(p){
-    return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size"><button type="button" onclick="rcaRemovePhoto('+p.id+')">✕</button></div>';
+    return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="qaOpenPhoto(this.src)" style="cursor:zoom-in" title="Click to view full size"><button type="button" onclick="rcaRemovePhoto('+p.id+')">✕</button></div>';
   }).join('');
 }
 function rcaRemovePhoto(id){
@@ -23956,7 +23980,7 @@ function openShippingModal(jobId){
   var _shipPhotoPreview = document.getElementById('ship-photo-preview');
   _shipPhotoPreview.style.cursor = 'zoom-in';
   _shipPhotoPreview.title = 'Click to view full size';
-  _shipPhotoPreview.onclick = function(){ window.open(this.src, '_blank'); };
+  _shipPhotoPreview.onclick = function(){ qaOpenPhoto(this.src); };
   if (existing && existing.cutterPicture){
     document.getElementById('ship-photo-preview').style.display = 'block';
     document.getElementById('ship-photo-preview').src = existing.cutterPicture;
@@ -24787,7 +24811,7 @@ function openRecordJob(jobId){
     '</div>';
   }
   if (job.mrPhoto && !(job.stageHistory && job.stageHistory.length)){
-    h += '<div class="card"><div class="card-label">' + (_rvjEs?'Foto':'Photo') + '</div><img src="'+job.mrPhoto+'" style="width:100%;border-radius:10px;cursor:zoom-in" onclick="window.open(this.src,\'_blank\')" title="Click to view full size"></div>';
+    h += '<div class="card"><div class="card-label">' + (_rvjEs?'Foto':'Photo') + '</div><img src="'+job.mrPhoto+'" style="width:100%;border-radius:10px;cursor:zoom-in" onclick="qaOpenPhoto(this.src)" title="Click to view full size"></div>';
   }
   if (job.qaSignature){
     h += '<div class="card"><div class="card-label">' + (_rvjEs?'Firma de Calidad':'QA Signature') + '</div><img src="'+job.qaSignature+'" style="width:100%;border-radius:10px;background:#fff;border:1px solid var(--border);"></div>';
@@ -25002,7 +25026,7 @@ function openRecordRCA(idxKey){
   // actually produced/uploaded), not just a small thumbnail.
   var photosHtml = (r.photos && r.photos.length) ?
     '<div class="ncr-photo-grid" style="margin-top:12px;">' + r.photos.map(function(src){
-      return '<div class="ncr-thumb"><img src="'+escHtml(src)+'" onclick="window.open(this.src,\'_blank\')" style="cursor:zoom-in" title="Click to view full size"></div>';
+      return '<div class="ncr-thumb"><img src="'+escHtml(src)+'" onclick="qaOpenPhoto(this.src)" style="cursor:zoom-in" title="Click to view full size"></div>';
     }).join('') + '</div>' : '';
   document.getElementById('rv-body').innerHTML = '<div class="card">' + rows.map(function(x){
     return '<div class="ncr-sumrow"><b>'+escHtml(x[0])+'</b><span>'+_rowVal(x[1])+'</span></div>';
