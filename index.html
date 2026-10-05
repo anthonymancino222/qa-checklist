@@ -1844,6 +1844,37 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .rca-assign-row{padding:8px 0;border-top:1px solid var(--border)}
 #view-rca .rca-assign-row:first-of-type{border-top:none}
 #view-rca .rca-assign-issue{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+/* CAR contacts editor (QA Manager -> CAR Contacts) */
+#cc-pop{ display:none; position:fixed; inset:0; z-index:100001; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:12px; }
+#cc-pop.open{ display:flex; }
+#cc-pop .cc-card{ width:min(860px,100%); max-height:92vh; display:flex; flex-direction:column; background:var(--surface,#fff); color:var(--text-primary,#111); border:1px solid var(--border-mid,#999); border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+#cc-pop .cc-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border,#ddd); }
+#cc-pop .cc-title{ font-weight:700; font-size:16px; }
+#cc-pop .cc-x{ width:34px; height:34px; border-radius:50%; border:1.5px solid var(--border-mid,#999); background:transparent; color:inherit; font-size:16px; cursor:pointer; }
+#cc-pop .cc-body{ overflow:auto; padding:12px 16px; flex:1 1 auto; }
+#cc-pop .cc-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 16px; border-top:1px solid var(--border,#ddd); }
+#cc-pop .cc-actions{ display:flex; gap:8px; }
+#cc-pop .cc-msg{ font-size:13px; }
+#cc-pop .cc-sec{ margin-bottom:18px; }
+#cc-pop .cc-h{ font-size:13px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:var(--text-secondary,#555); margin-bottom:8px; }
+#cc-pop .cc-st{ display:grid; grid-template-columns:150px minmax(0,1fr); gap:10px; align-items:center; padding:7px 0; border-top:1px solid var(--border,#e5e5e5); }
+#cc-pop .cc-stname{ font-weight:600; font-size:14px; }
+#cc-pop .cc-chip{ display:inline-flex; align-items:center; gap:4px; background:var(--brand-soft,#eaf5d6); color:var(--brand-dark,#2f5200); border-radius:999px; padding:3px 6px 3px 10px; font-size:13px; font-weight:600; margin:2px 4px 2px 0; }
+#cc-pop .cc-chip button{ border:none; background:transparent; color:inherit; cursor:pointer; padding:0 4px; font-size:15px; }
+#cc-pop .cc-none{ font-size:12px; color:var(--text-tertiary,#888); margin-right:6px; }
+#cc-pop select{ width:auto; max-width:100%; }
+#cc-pop .cc-phead, #cc-pop .cc-prow{ display:grid; grid-template-columns:1.2fr .9fr 1.6fr 34px; gap:8px; align-items:center; }
+#cc-pop .cc-phead{ font-size:11px; color:var(--text-tertiary,#888); text-transform:uppercase; margin-bottom:4px; }
+#cc-pop .cc-prow{ padding:4px 0; border-top:1px solid var(--border,#e5e5e5); }
+#cc-pop .cc-prow input{ width:100%; min-width:0; }
+#cc-pop .cc-del{ border:none; background:transparent; color:var(--text-tertiary,#888); font-size:20px; cursor:pointer; }
+#cc-pop .cc-del:hover{ color:var(--red,#c0392b); }
+#cc-pop .cc-addrow{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+#cc-pop .cc-addrow input{ flex:1 1 220px; min-width:0; }
+#cc-pop .cc-addrow select{ flex:1 1 260px; }
+#cc-pop .cc-lbl{ font-size:13px; color:var(--text-secondary,#555); min-width:210px; }
+#cc-pop .cc-note{ font-size:12px; color:var(--text-tertiary,#888); margin-top:6px; }
+@media (max-width:640px){ #cc-pop .cc-st{ grid-template-columns:1fr; } #cc-pop .cc-phead{ display:none; } #cc-pop .cc-prow{ grid-template-columns:1fr 1fr 34px; } #cc-pop .cc-prow input:nth-child(3){ grid-column:1 / 3; } }
 /* Read-the-rest popup for RCA fields whose text is longer than the box */
 #rca-expand-pop{ display:none; position:fixed; inset:0; z-index:100000; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:16px; }
 #rca-expand-pop.open{ display:flex; }
@@ -4235,6 +4266,7 @@ try {
         <button id="qamgr-data-edit-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="toggleDataEditMode()" title="Show edit pencils on job fields (passcode required)">✏️ DATA EDIT</button>
         <button id="qamgr-deleted-items-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openDeletedItemsView()" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
         <button id="qamgr-names-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openRosterManager()" title="Delete or add customer / operator names">👥 <span data-en>Manage Names</span><span data-es>Administrar Nombres</span></button>
+        <button id="qamgr-contacts-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openCarContacts()" title="Who gets each CAR email — edit names, emails and stations">📧 <span data-en>CAR Contacts</span><span data-es>Contactos de ACR</span></button>
       </div>
     </div>
     <div id="view-ncr" class="screen">
@@ -11635,7 +11667,7 @@ function switchView(id) {
   if (id === 'ncr')        renderNCRView();
   if (id === 'ncrprog')    renderNCRProgress();
   if (id === 'ncrpie')     renderQAData();
-  if (id === 'rca')      { rcaPopulatePrefill(); rcaRenderDraftList(); rcaCloudPull(false); rcaFlushPending(); }
+  if (id === 'rca')      { rcaPopulatePrefill(); rcaRenderDraftList(); rcaCloudPull(false); rcaFlushPending(); carContactsPull(false); }
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    { renderRecords(); rcaCloudPull(false); }
   if (id === 'qamanager')  _renderQaManagerAccess();
@@ -22353,7 +22385,7 @@ function rcaSendAll(status, action, onDone){
    its unmatched-name bug — see station_manager_final.txt). ── */
 function _rcaMgrOptionsHTML(withQA){
   return '<option value="">Select name</option>' +
-    (withQA ? RCA_MANAGER_NAMES.concat(['Mathias H','Anthony M']) : RCA_MANAGER_NAMES).map(function(n){ return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>'; }).join('') +
+    _ccUniq(withQA ? RCA_MANAGER_NAMES.concat(['Mathias H','Anthony M']) : RCA_MANAGER_NAMES).map(function(n){ return '<option value="'+escHtml(n)+'">'+escHtml(n)+'</option>'; }).join('') +
     '<option value="__other">✏️ Other</option>';
 }
 function _rcaPopulateMgrSelects(){
@@ -22445,14 +22477,17 @@ function rcaRemovePhoto(id){
 
 /* ── Manager department hand-off — local-only simulation (no email/Sheets
    call), consistent with RCA_LIVE=false everywhere else in this module. ── */
-function _rcaPopulateHandoffDept(){
+function _rcaPopulateHandoffDept(force){
   var sel = document.getElementById('rca-handoff-dept');
-  if (!sel || sel.options.length > 1) return;
+  if (!sel || (!force && sel.options.length > 1)) return;
+  var keep = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
   Object.keys(STATION_MANAGER).forEach(function(st){
-    var o = document.createElement('option');
-    o.value = st; o.textContent = st + ' (' + _stationMgrText(st) + ')';
+    var o = document.createElement('option'), mt = _stationMgrText(st);
+    o.value = st; o.textContent = st + (mt ? ' (' + mt + ')' : '');
     sel.appendChild(o);
   });
+  if (keep) sel.value = keep;
 }
 function rcaHandoffDeptChange(){
   var v = rcaGetVal('handoff-dept');
@@ -23119,7 +23154,7 @@ function _rcaSendNotices(id){
   slim.carNo = slim.carNo || (slim.carTbd ? 'TBD' : '');   // emails show TBD, never a blank number
   ev.forEach(function(e){
     try {
-      fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: e, token: slim.token || slim.cloudId, data: slim }) }).catch(function(){});
+      fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: e, token: slim.token || slim.cloudId, data: slim, recipients: _ccRecipientsFor(slim), idToken: _googleIdToken || '' }) }).catch(function(){});
     } catch(x){}
   });
   _rcaPatchLocal(id, { _notify: [] });
@@ -23765,6 +23800,240 @@ rcaRenderCascadeGrids(true);
   });
 })();
 
+
+
+
+/* ══ CAR contacts — who gets which email, editable in the app ═══════════════
+   One record in the database (type 'carcontacts', id 'carcontacts-main'):
+     people:    [{ id, name (full), label (shown in dropdowns, e.g. "Jorge P"), email }]
+     stations:  { "Packing": [personId, ...], ... }     (several people per station is fine)
+     qaTeam:    [emails]   qaCc: email                    (closure / milestone emails)
+     directory: [{ name, email }]                         (company address list to pick from)
+   The app applies it to the manager dropdowns (STATION_MANAGER / RCA_MANAGER_NAMES) and sends the
+   resolved email addresses with every notification; the Google script only accepts company
+   addresses and only trusts them from a verified company sign-in (it falls back to its own built-in
+   list otherwise). Edited from QA Manager -> CAR Contacts (DATA EDIT accounts only). ═══════════════ */
+var CAR_CONTACTS_KEY = 'qa_car_contacts_v1';
+var CAR_CONTACTS_ID = 'carcontacts-main';
+var _carContacts = null;
+var _ccWork = null, _ccDirty = false;
+function _carStationNames(){
+  var sel = document.getElementById('rca-station');
+  if (!sel) return Object.keys(STATION_MANAGER);
+  return Array.prototype.map.call(sel.options, function(o){ return o.value; }).filter(function(v){ return v && v !== 'Combination'; });
+}
+function _ccUniq(list){ var seen = {}; return list.filter(function(x){ if (seen[x]) return false; seen[x] = 1; return true; }); }
+function _ccEmailOk(e){ return /^[A-Za-z0-9._%+'\-]+@moquinpress\.com$/i.test(String(e || '').trim()); }
+function _ccAutoLabel(name){
+  var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  if (parts.length === 1) return parts[0];
+  return parts[0] + ' ' + parts[parts.length - 1].charAt(0).toUpperCase();
+}
+function _ccById(c){ var m = {}; ((c && c.people) || []).forEach(function(p){ m[p.id] = p; }); return m; }
+function _ccLoadCache(){
+  try { var raw = localStorage.getItem(CAR_CONTACTS_KEY); if (raw) _carContacts = JSON.parse(raw); } catch(e){ _carContacts = null; }
+}
+function _ccSaveCache(){
+  try {
+    var copy = Object.assign({}, _carContacts);
+    if (typeof _isDataEditAllowedUser === 'function' && !_isDataEditAllowedUser()) delete copy.directory;   // only editors need the address list
+    localStorage.setItem(CAR_CONTACTS_KEY, JSON.stringify(copy));
+  } catch(e){}
+}
+// Pushes the saved contacts into the app's own manager lists/dropdowns.
+function _carContactsApply(){
+  var c = _carContacts;
+  if (!c || !c.people || !c.people.length) return;
+  var byId = _ccById(c);
+  RCA_MANAGER_NAMES.length = 0;
+  c.people.forEach(function(p){ if (p.label && RCA_MANAGER_NAMES.indexOf(p.label) === -1) RCA_MANAGER_NAMES.push(p.label); });
+  _carStationNames().concat(Object.keys(STATION_MANAGER)).forEach(function(st){
+    var labels = ((c.stations && c.stations[st]) || []).map(function(id){ return byId[id]; }).filter(Boolean).map(function(p){ return p.label; });
+    STATION_MANAGER[st] = labels.length === 1 ? labels[0] : labels;
+  });
+  if (typeof _rcaRefreshMgrSelects === 'function') _rcaRefreshMgrSelects();
+}
+function _rcaRefreshMgrSelects(){
+  ['rca-approved-by-select','rca-mgr-name-select','rca-rc-resp-select','rca-ca-resp-select'].forEach(function(id){
+    var sel = document.getElementById(id); if (!sel) return;
+    var keep = sel.value;
+    sel.innerHTML = _rcaMgrOptionsHTML(id !== 'rca-mgr-name-select');
+    if (keep && Array.prototype.some.call(sel.options, function(o){ return o.value === keep; })) sel.value = keep;
+  });
+  if (typeof _rcaPopulateHandoffDept === 'function') _rcaPopulateHandoffDept(true);
+}
+// Pulls the shared record (one single-row read; at most once per 10 minutes unless forced).
+function carContactsPull(force, cb){
+  if (!QA_BACKEND_URL || !_googleIdToken){ if (cb) cb(); return; }
+  var now = Date.now();
+  if (!force && now - (carContactsPull._t || 0) < 600000){ if (cb) cb(); return; }
+  carContactsPull._t = now;
+  fetch(QA_BACKEND_URL + '/records/' + CAR_CONTACTS_ID + '?type=carcontacts', { headers: _authHeaders() }).then(function(res){
+    if (res.status === 401){ _reactiveAuthRefresh(); return null; }
+    if (res.status === 404) return { none: true };
+    return res.ok ? res.json() : null;
+  }).then(function(j){
+    if (j && j.record && !j.record.deleted && j.record.data){
+      _carContacts = Object.assign({}, j.record.data, { _srvAt: j.record.updatedAt });
+      _ccSaveCache(); _carContactsApply();
+    }
+    if (cb) cb(j);
+  }).catch(function(){ if (cb) cb(); });
+}
+// Email addresses to use for one notification, resolved from the saved contacts.
+function _ccRecipientsFor(rec){
+  var c = _carContacts;
+  if (!c || !c.people || !c.people.length) return null;     // not set up yet -> the script uses its built-in list
+  var byId = _ccById(c);
+  function emailsFor(st){ return ((c.stations && c.stations[st]) || []).map(function(id){ return byId[id]; }).filter(Boolean).map(function(p){ return p.email; }); }
+  var stations = {};
+  String(rec.station || '').split(' + ').forEach(function(s){ s = s.trim(); if (s) stations[s] = emailsFor(s); });
+  if (rec.rootCauseDept) stations[rec.rootCauseDept] = emailsFor(rec.rootCauseDept);
+  return { stations: stations, qa: c.qaTeam || [], qaCc: c.qaCc || '' };
+}
+
+/* ── editor window ── */
+function openCarContacts(){
+  var isEs = isEsLang();
+  if (!_isDataEditAllowedUser()){ showAlert(isEs ? 'Solo las cuentas autorizadas pueden editar los contactos.' : 'Only authorized accounts can edit CAR contacts.'); return; }
+  carContactsPull(true, function(){
+    var base = _carContacts ? JSON.parse(JSON.stringify(_carContacts)) : { people: [], stations: {}, qaTeam: [], qaCc: '', directory: [] };
+    base.people = base.people || []; base.stations = base.stations || {}; base.qaTeam = base.qaTeam || []; base.directory = base.directory || [];
+    _ccWork = base; _ccDirty = false;
+    _ccBuildWindow(); _ccRender();
+    document.getElementById('cc-pop').classList.add('open');
+  });
+}
+function _ccBuildWindow(){
+  if (document.getElementById('cc-pop')) return;
+  var pop = document.createElement('div');
+  pop.id = 'cc-pop';
+  pop.innerHTML = '<div class="cc-card"><div class="cc-head"><div class="cc-title"></div><button type="button" class="cc-x" aria-label="Close">✕</button></div>' +
+    '<div class="cc-body" id="cc-body"></div>' +
+    '<div class="cc-foot"><span id="cc-msg" class="cc-msg"></span><span class="cc-actions"><button type="button" class="btn" id="cc-discard"></button><button type="button" class="btn btn-primary" id="cc-save"></button></span></div></div>';
+  document.body.appendChild(pop);
+  pop.querySelector('.cc-x').addEventListener('click', _ccClose);
+  document.getElementById('cc-discard').addEventListener('click', _ccClose);
+  document.getElementById('cc-save').addEventListener('click', _ccSave);
+  pop.addEventListener('input', function(e){
+    var t = e.target; if (!t.dataset) return;
+    if (t.dataset.pk){ var p = _ccWork.people[+t.dataset.pi]; p[t.dataset.pk] = t.value; _ccMark(); }
+    else if (t.id === 'cc-qacc'){ _ccWork.qaCc = t.value; _ccMark(); }
+  });
+  pop.addEventListener('change', function(e){
+    var t = e.target; if (!t.dataset) return;
+    if (t.dataset.addst !== undefined && t.value !== ''){ var l = _ccWork.stations[t.dataset.addst] = _ccWork.stations[t.dataset.addst] || []; if (l.indexOf(t.value) === -1) l.push(t.value); _ccMark(); _ccRender(); }
+    else if (t.id === 'cc-adddir' && t.value !== ''){ _ccAddFromDirectory(t.value); }
+  });
+  pop.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b || !b.dataset) return;
+    if (b.dataset.rmst !== undefined){ var l = _ccWork.stations[b.dataset.rmst] || []; var ix = l.indexOf(b.dataset.pid); if (ix > -1) l.splice(ix, 1); _ccMark(); _ccRender(); }
+    else if (b.dataset.delp !== undefined){ _ccDeletePerson(+b.dataset.delp); }
+    else if (b.dataset.rmqa !== undefined){ _ccWork.qaTeam.splice(+b.dataset.rmqa, 1); _ccMark(); _ccRender(); }
+    else if (b.id === 'cc-addqa'){ var inp = document.getElementById('cc-qanew'); var v = (inp.value || '').trim(); if (!_ccEmailOk(v)){ _ccSay('Enter a company email address (name@moquinpress.com).', true); return; } if (_ccWork.qaTeam.indexOf(v) === -1) _ccWork.qaTeam.push(v); inp.value = ''; _ccMark(); _ccRender(); }
+    else if (b.id === 'cc-newperson'){ _ccWork.people.push({ id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: '', label: '', email: '' }); _ccMark(); _ccRender(); var ins = document.querySelectorAll('#cc-body input[data-pk="name"]'); if (ins.length) ins[ins.length - 1].focus(); }
+  });
+}
+function _ccMark(){ _ccDirty = true; _ccSay(isEsLang() ? 'Cambios sin guardar' : 'Unsaved changes', false); }
+function _ccSay(msg, isErr){ var m = document.getElementById('cc-msg'); if (!m) return; m.textContent = msg; m.style.color = isErr ? 'var(--red,#c0392b)' : 'var(--text-tertiary,#777)'; }
+function _ccClose(){
+  var pop = document.getElementById('cc-pop'); if (!pop) return;
+  var isEs = isEsLang();
+  if (_ccDirty){
+    showConfirm(isEs ? 'Tiene cambios sin guardar. ¿Cerrar y descartarlos?' : 'You have unsaved changes. Close and discard them?', function(ok){ if (ok){ _ccDirty = false; pop.classList.remove('open'); } }, { title: isEs ? '¿Descartar cambios?' : 'Discard changes?', okLabel: isEs ? 'Descartar' : 'Discard' });
+  } else pop.classList.remove('open');
+}
+function _ccAddFromDirectory(idx){
+  var d = _ccWork.directory[+idx]; if (!d) return;
+  if (!_ccWork.people.some(function(p){ return String(p.email).toLowerCase() === String(d.email).toLowerCase(); })){
+    _ccWork.people.push({ id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: d.name, label: _ccAutoLabel(d.name), email: d.email });
+  }
+  _ccMark(); _ccRender();
+}
+function _ccDeletePerson(i){
+  var p = _ccWork.people[i]; if (!p) return;
+  var used = Object.keys(_ccWork.stations).filter(function(st){ return (_ccWork.stations[st] || []).indexOf(p.id) > -1; });
+  var isEs = isEsLang();
+  function go(){
+    Object.keys(_ccWork.stations).forEach(function(st){ _ccWork.stations[st] = (_ccWork.stations[st] || []).filter(function(id){ return id !== p.id; }); });
+    _ccWork.people.splice(i, 1); _ccMark(); _ccRender();
+  }
+  if (used.length) showConfirm((isEs ? 'Esta persona está asignada a: ' : 'This person is assigned to: ') + used.join(', ') + (isEs ? '. Se quitará de esas estaciones.' : '. They will be removed from those stations.'), function(ok){ if (ok) go(); }, { title: (isEs ? 'Quitar a ' : 'Remove ') + (p.label || p.name || ''), okLabel: isEs ? 'Quitar' : 'Remove' });
+  else go();
+}
+function _ccRender(){
+  var isEs = isEsLang(), c = _ccWork, esc = escHtml;
+  var pop = document.getElementById('cc-pop');
+  pop.querySelector('.cc-title').textContent = isEs ? 'Contactos de ACR — quién recibe cada correo' : 'CAR contacts — who gets each email';
+  document.getElementById('cc-discard').textContent = isEs ? 'Cerrar' : 'Close';
+  document.getElementById('cc-save').textContent = isEs ? 'Guardar cambios' : 'Save changes';
+  var byId = _ccById(c);
+  var stationsHtml = _carStationNames().map(function(st){
+    var chips = (c.stations[st] || []).map(function(id){ var p = byId[id]; return p ? '<span class="cc-chip" title="' + esc(p.email) + '">' + esc(p.label || p.name) + '<button type="button" data-rmst="' + esc(st) + '" data-pid="' + esc(id) + '" aria-label="Remove">×</button></span>' : ''; }).join('');
+    var opts = '<option value="">' + (isEs ? '+ agregar persona' : '+ add person') + '</option>' + c.people.filter(function(p){ return (c.stations[st] || []).indexOf(p.id) === -1 && p.label; }).map(function(p){ return '<option value="' + esc(p.id) + '">' + esc(p.label) + '</option>'; }).join('');
+    return '<div class="cc-st"><div class="cc-stname">' + esc(st) + '</div><div>' + (chips || '<span class="cc-none">' + (isEs ? 'Sin asignar (los correos van al equipo de Calidad)' : 'Nobody assigned (emails go to the QA team)') + '</span>') + ' <select data-addst="' + esc(st) + '">' + opts + '</select></div></div>';
+  }).join('');
+  var peopleHtml = c.people.map(function(p, i){
+    return '<div class="cc-prow"><input data-pi="' + i + '" data-pk="name" value="' + esc(p.name) + '" placeholder="' + (isEs ? 'Nombre completo' : 'Full name') + '"><input data-pi="' + i + '" data-pk="label" value="' + esc(p.label) + '" placeholder="' + (isEs ? 'Nombre corto (ej. Jorge P)' : 'Short name (e.g. Jorge P)') + '"><input data-pi="' + i + '" data-pk="email" value="' + esc(p.email) + '" placeholder="name@moquinpress.com"><button type="button" class="cc-del" data-delp="' + i + '" aria-label="Remove">×</button></div>';
+  }).join('');
+  var dir = (c.directory || []).map(function(d, i){ return { d: d, i: i }; }).filter(function(x){ return !c.people.some(function(p){ return String(p.email).toLowerCase() === String(x.d.email).toLowerCase(); }); });
+  var dirOpts = '<option value="">' + (isEs ? 'Agregar desde la lista de la empresa…' : 'Add from the company list…') + '</option>' + dir.map(function(x){ return '<option value="' + x.i + '">' + esc(x.d.name) + ' — ' + esc(x.d.email) + '</option>'; }).join('');
+  var qaHtml = (c.qaTeam || []).map(function(e, i){ return '<span class="cc-chip">' + esc(e) + '<button type="button" data-rmqa="' + i + '" aria-label="Remove">×</button></span>'; }).join('');
+  document.getElementById('cc-body').innerHTML =
+    '<div class="cc-sec"><div class="cc-h">' + (isEs ? '1. Quién recibe el correo de cada estación' : '1. Who gets the email for each station') + '</div>' + stationsHtml + '<div class="cc-note">' + (isEs ? 'Una estación puede tener varias personas. Para cambiar de gerente, quite el nombre y agregue el nuevo.' : 'A station can have several people. To swap a manager, remove the name and add the new one.') + '</div></div>' +
+    '<div class="cc-sec"><div class="cc-h">' + (isEs ? '2. Personas y correos' : '2. People and emails') + '</div><div class="cc-phead"><span>' + (isEs ? 'Nombre' : 'Full name') + '</span><span>' + (isEs ? 'Nombre corto (en listas)' : 'Short name (in lists)') + '</span><span>Email</span><span></span></div>' + peopleHtml +
+      '<div class="cc-addrow"><select id="cc-adddir">' + dirOpts + '</select><button type="button" class="btn" id="cc-newperson">+ ' + (isEs ? 'Persona nueva (escribir)' : 'New person (type in)') + '</button></div></div>' +
+    '<div class="cc-sec"><div class="cc-h">' + (isEs ? '3. Equipo de Calidad (cierres y avances de ACR)' : '3. QA team (closures and CAR milestones)') + '</div><div>' + qaHtml + '</div><div class="cc-addrow"><input id="cc-qanew" placeholder="name@moquinpress.com"><button type="button" class="btn" id="cc-addqa">+ ' + (isEs ? 'Agregar' : 'Add') + '</button></div>' +
+      '<div class="cc-addrow"><label class="cc-lbl">' + (isEs ? 'Copia (CC) en correos a gerentes' : 'CC on manager emails') + '</label><input id="cc-qacc" value="' + esc(c.qaCc || '') + '" placeholder="name@moquinpress.com"></div></div>';
+}
+function _ccValidate(){
+  var isEs = isEsLang(), c = _ccWork, seenL = {}, seenE = {};
+  for (var i = 0; i < c.people.length; i++){
+    var p = c.people[i], who = p.label || p.name || (isEs ? 'una persona' : 'a person');
+    p.name = (p.name || '').trim(); p.label = (p.label || '').trim(); p.email = (p.email || '').trim();
+    if (!p.name || !p.label) return (isEs ? 'Falta nombre o nombre corto: ' : 'Name and short name are required: ') + who;
+    if (!_ccEmailOk(p.email)) return (isEs ? 'Correo no válido (debe ser @moquinpress.com): ' : 'Not a valid company email (@moquinpress.com): ') + who;
+    if (seenL[p.label.toLowerCase()]) return (isEs ? 'Nombre corto repetido: ' : 'Two people share the short name: ') + p.label;
+    if (seenE[p.email.toLowerCase()]) return (isEs ? 'Correo repetido: ' : 'Email listed twice: ') + p.email;
+    seenL[p.label.toLowerCase()] = 1; seenE[p.email.toLowerCase()] = 1;
+  }
+  if (!(c.qaTeam || []).length) return isEs ? 'Agregue al menos un correo del equipo de Calidad.' : 'Add at least one QA team email.';
+  c.qaCc = (c.qaCc || '').trim();
+  if (c.qaCc && !_ccEmailOk(c.qaCc)) return isEs ? 'El correo de copia (CC) no es válido.' : 'The CC email is not a valid company address.';
+  return '';
+}
+function _ccSave(){
+  var isEs = isEsLang();
+  var err = _ccValidate(); if (err){ _ccSay(err, true); return; }
+  if (!_googleIdToken){ _ccSay(isEs ? 'Inicie sesión para guardar.' : 'Sign in to save.', true); return; }
+  var btn = document.getElementById('cc-save'); btn.disabled = true; _ccSay(isEs ? 'Guardando…' : 'Saving…', false);
+  var payload = Object.assign({}, _ccWork); delete payload._srvAt;
+  payload.savedBy = _signedInUser ? _signedInUser.email : ''; payload.savedAt = formatTS();
+  function put(){
+    fetch(QA_BACKEND_URL + '/records/' + CAR_CONTACTS_ID, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()), body: JSON.stringify({ type: 'carcontacts', data: payload }) })
+      .then(function(res){ return res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)); })
+      .then(function(j){
+        _carContacts = Object.assign({}, payload, { _srvAt: j.updatedAt }); _ccWork._srvAt = j.updatedAt;
+        _ccSaveCache(); _carContactsApply(); _ccDirty = false; btn.disabled = false;
+        _ccSay(isEs ? 'Guardado ✓' : 'Saved ✓', false);
+        if (typeof showToast === 'function') showToast(isEs ? 'Contactos guardados' : 'Contacts saved', 'pass');
+      }).catch(function(){ btn.disabled = false; _ccSay(isEs ? 'No se pudo guardar — revise la conexión e intente de nuevo.' : 'Could not save — check your connection and try again.', true); });
+  }
+  // who-wins check: if someone saved since this window loaded, ask first
+  fetch(QA_BACKEND_URL + '/records/' + CAR_CONTACTS_ID + '?type=carcontacts', { headers: _authHeaders() }).then(function(res){
+    if (res.status === 404) return put();
+    if (!res.ok) return put();
+    return res.json().then(function(j){
+      var srv = j && j.record && j.record.updatedAt, known = (_ccWork._srvAt || 0);
+      if (srv && known && srv > known){
+        showConfirm(isEs ? 'Otra persona guardó estos contactos después de que usted los abrió. Si continúa, su versión reemplaza la de ella.' : 'Someone else saved these contacts after you opened them. If you continue, your version replaces theirs.', function(ok){ if (ok) put(); else { btn.disabled = false; _ccSay('', false); } }, { title: isEs ? '¿Sobrescribir?' : 'Overwrite?', okLabel: isEs ? 'Sí, sobrescribir' : 'Yes, overwrite' });
+      } else put();
+    });
+  }).catch(function(){ put(); });
+}
+_ccLoadCache();
+_carContactsApply();
 
 /* ══════════════════════════════════
    SHIPPING APPROVAL MODULE
