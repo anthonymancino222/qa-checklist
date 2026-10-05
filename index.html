@@ -2229,6 +2229,9 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #qa-photo-lightbox .qa-lb-x{ position:fixed; top:12px; right:12px; width:42px; height:42px; border-radius:50%; border:2px solid #fff; background:rgba(0,0,0,.6); color:#fff; font-size:20px; line-height:1; cursor:pointer; }
 #qa-photo-lightbox .qa-lb-open{ color:#fff; font-size:14px; text-decoration:underline; }
 .rca-pdf-photos{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.rca-pdf-bigphoto{ margin:0 0 16px; break-inside:avoid; }
+.rca-pdf-bigphoto img{ display:block; max-width:100%; max-height:560px; width:auto; height:auto; border:1px solid #d5d9e3; }
+.rca-pdf-bigphoto .cap{ font-size:11px; color:#5b6b8c; margin-top:4px; }
 /* A plain <img> with object-fit:cover + border-radius produces a visible
    seam artifact in html2canvas's rendering (the PDF-download path) — the
    crop and the rounded-corner clip mask don't line up, leaving a thin stray
@@ -22591,8 +22594,15 @@ function _rcaBuildReport(presetData){
     _rcaPdfNarrative(L.verifyResults, d.verifyResults) + _rcaPdfField(L.evidenceRef, d.evidenceRef) : '') + _rcaPdfField(L.closeNotes, d.closeNotes));
 
   if (d.photos && d.photos.length){
-    h += '<div class="rca-pdf-section"><h3>📷 ' + L.photos + '</h3><div class="rca-pdf-photos">' +
-      d.photos.map(function(src){ return '<div class="rca-pdf-photo" style="background-image:url(&quot;'+escHtml(src)+'&quot;)"></div>'; }).join('') + '</div></div>';
+    // Large photos, one per block (so a page break never cuts one in half). A photo that has a web
+    // address is also a clickable link to the full-size image in the exported PDF.
+    h += '<div class="rca-pdf-section"><h3>📷 ' + L.photos + '</h3>' +
+      d.photos.map(function(src, pi){
+        var linked = /^https?:/i.test(src);
+        return '<div class="rca-pdf-bigphoto"' + (linked ? ' data-photo-url="' + escHtml(src) + '"' : '') + '>' +
+          '<img src="' + escHtml(src) + '" alt="">' +
+          '<div class="cap">' + (isEs ? 'Foto ' : 'Photo ') + (pi + 1) + (linked ? (isEs ? ' — clic en la foto para verla en tamaño completo' : ' — click the photo to open it full size') : '') + '</div></div>';
+      }).join('') + '</div>';
   }
   h += '</div>';
   report.innerHTML = h;
@@ -22680,7 +22690,13 @@ function rcaExportPDF(presetData, btnEl){
     var pageWrap = report.querySelector('.rca-pdf-page');
     var reportTop = report.getBoundingClientRect().top;
     var breakBlocks = [];
+    var photoLinks = [];
     function addBlock(el, topEl, secKey, secTitle){
+      var pu = el.getAttribute && el.getAttribute('data-photo-url');
+      if (pu){
+        var im = el.querySelector('img'), ir = (im || el).getBoundingClientRect();
+        photoLinks.push({ url: pu, top: ir.top - reportTop, left: ir.left - report.getBoundingClientRect().left, w: ir.width, h: ir.height });
+      }
       var r = el.getBoundingClientRect(), t = (topEl || el).getBoundingClientRect();
       breakBlocks.push({ top: t.top - reportTop, bottom: r.bottom - reportTop, section: secKey || '', title: secTitle || '' });
     }
@@ -22760,6 +22776,14 @@ function rcaExportPDF(presetData, btnEl){
           pdf.line(pageMargin, pageMargin + 0.2, pageW - pageMargin, pageMargin + 0.2);
         }
         pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', pageMargin, pageMargin + headerH, imgW, sliceImgH);
+        // clickable photos: a link over each photo that sits on this page
+        photoLinks.forEach(function(pl){
+          var topC = pl.top * canvasScale, botC = (pl.top + pl.h) * canvasScale;
+          if (topC >= renderedH - 2 && botC <= cut + 2){
+            var k = imgW / canvas.width;
+            try { pdf.link(pageMargin + pl.left * canvasScale * k, pageMargin + headerH + (topC - renderedH) * k, pl.w * canvasScale * k, pl.h * canvasScale * k, { url: pl.url }); } catch(e){}
+          }
+        });
         renderedH += sliceH;
         first = false;
       }
