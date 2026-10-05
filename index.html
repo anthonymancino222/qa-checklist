@@ -385,7 +385,8 @@ body.sidebar-expanded .nav-status {
    span everywhere. */
 .id-hl {
   background: #fef08a; color: #713f12; font-weight: 700;
-  padding: 1px 6px; border-radius: 5px; white-space: nowrap;
+  padding: 1px 6px; border-radius: 5px; white-space: normal; overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 
 /* ── View header ── */
@@ -1091,11 +1092,14 @@ textarea.input {
 .ncr-list-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ncr-list-id { font-family: var(--mono); font-weight: 600; font-size: 15px; }
 .ncr-list-meta { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
-.ncr-sumrow { display: flex; justify-content: space-between; gap: 12px;
-  padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+/* Label column + value column, both left-aligned: long values (root cause, corrective action...)
+   read as normal paragraphs instead of a right-aligned ribbon, and never get cut off. */
+.ncr-sumrow { display: grid; grid-template-columns: minmax(110px, 34%) minmax(0, 1fr); gap: 4px 16px; align-items: start;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
 .ncr-sumrow b { color: var(--text-secondary); font-weight: 600; font-size: 13.5px;
   text-transform: uppercase; letter-spacing: .03em; min-width: 0; white-space: normal; word-break: break-word; }
-.ncr-sumrow span { text-align: right; word-break: break-word; flex-shrink: 0; max-width: 48%; }
+.ncr-sumrow span { text-align: left; word-break: break-word; overflow-wrap: anywhere; white-space: pre-line; min-width: 0; line-height: 1.5; }
+@media (max-width: 420px){ .ncr-sumrow { grid-template-columns: 1fr; } }
 /* ══════════════════════════════════
    QA DATA & EXPORT dashboard (view-ncrpie's new content, added 2026-09-19)
    Prefixed qad- throughout so nothing here collides with the QA home
