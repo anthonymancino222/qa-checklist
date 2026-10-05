@@ -6262,6 +6262,7 @@ function _tryRestoreLocalSession() {
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
   setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
   setTimeout(function(){ if (typeof rcaFlushPending === 'function') rcaFlushPending(); }, 2000);
+  setTimeout(function(){ if (typeof carContactsPull === 'function') carContactsPull(false); }, 2500);   // one single-record read per app load
   // Deferred to next tick — this runs very early in the script, before
   // later-declared module vars (_scheduleData, _pullScheduleInFlight) have
   // been assigned; letting the rest of the script finish first avoids
@@ -6385,6 +6386,7 @@ function _onGoogleSignIn(response) {
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
   setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
   setTimeout(function(){ if (typeof rcaFlushPending === 'function') rcaFlushPending(); }, 2000);
+  setTimeout(function(){ if (typeof carContactsPull === 'function') carContactsPull(false); }, 2500);   // one single-record read per app load
   setTimeout(_initScheduleAutoPull, 0);
 }
 
@@ -10030,7 +10032,7 @@ function _sendGlrNotifyEmail(job, glrReleaseNotes) {
   var isEs = isEsLang();
   var missing = [];
   var emails = glrReleaseNotes.notify.map(function(name){
-    var opt = GLR_NOTIFY_OPTIONS.filter(function(o){ return o.name === name; })[0];
+    var opt = _notifyOptions().concat(GLR_NOTIFY_OPTIONS).filter(function(o){ return o.name === name; })[0];
     if (!opt || !opt.email) { missing.push(name); return null; }
     return opt.email;
   }).filter(Boolean);
@@ -14092,7 +14094,7 @@ function buildChecklistItem(item, prefix) {
   if (type === 'packing-shortage') {
     div.style.display = 'none';
     var pkShortageOpts = ['Printing','Die Cut','Kama','Gluer','Vendor','Other'];
-    var pkNotifyRows = GLR_NOTIFY_OPTIONS.map(function(o) {
+    var pkNotifyRows = _notifyOptions().map(function(o) {
       var eid = prefix + '-pk-notify-' + o.name.replace(/\s+/g, '-');
       return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;background:rgba(0,0,0,.03);border:1px solid transparent;" onclick="this.style.background=this.querySelector(\'input\').checked?\'rgba(220,38,127,.15)\':\'rgba(0,0,0,.03)\';this.style.borderColor=this.querySelector(\'input\').checked?\'var(--brand)\':\'transparent\';">' +
         '<input type="checkbox" id="'+eid+'" value="'+escHtml(o.name)+'" data-email="'+escHtml(o.email)+'" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer;flex-shrink:0;">' +
@@ -14136,7 +14138,7 @@ function buildChecklistItem(item, prefix) {
     };
     var _notify = function(selectId) {
       return '<div id="'+prefix+'-'+selectId+'" style="display:flex;flex-direction:column;gap:2px;">' +
-        GLR_NOTIFY_OPTIONS.map(function(o){
+        _notifyOptions().map(function(o){
           var eid = prefix+'-'+selectId+'-'+o.name.replace(/\s+/g,'-');
           return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;background:rgba(77,124,0,.04);border:1px solid transparent;transition:background .12s;" onclick="this.style.background=this.querySelector(\'input\').checked?\'rgba(77,124,0,.15)\':\' rgba(77,124,0,.04)\';this.style.borderColor=this.querySelector(\'input\').checked?\'var(--brand)\':\' transparent\';">' +
             '<input type="checkbox" id="'+eid+'" value="'+escHtml(o.name)+'" data-email="'+escHtml(o.email)+'" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer;flex-shrink:0;">' +
@@ -14518,7 +14520,7 @@ function _glrReasonPickerHTML(groupPrefix, notifyPrefix, borderColor, bgColor, h
   var whyBtns = GLR_WHY_SHORT_OPTIONS.map(function(o) {
     return '<button type="button" class="tgl" style="flex:1;min-width:130px;" onclick="toggleGluerMulti(\''+groupPrefix+'\',\''+escHtml(o)+'\',this)">'+escHtml(o)+'</button>';
   }).join('');
-  var notifyRows = GLR_NOTIFY_OPTIONS.map(function(o) {
+  var notifyRows = _notifyOptions().map(function(o) {
     var eid = notifyPrefix + '-' + o.name.replace(/\s+/g, '-');
     return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;background:rgba(0,0,0,.03);border:1px solid transparent;" onclick="this.style.background=this.querySelector(\'input\').checked?\'rgba(220,38,127,.15)\':\'rgba(0,0,0,.03)\';this.style.borderColor=this.querySelector(\'input\').checked?\'var(--brand)\':\'transparent\';">' +
       '<input type="checkbox" id="'+eid+'" value="'+escHtml(o.name)+'" data-email="'+escHtml(o.email)+'" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer;flex-shrink:0;">' +
@@ -23816,6 +23818,16 @@ rcaRenderCascadeGrids(true);
 var CAR_CONTACTS_KEY = 'qa_car_contacts_v1';
 var CAR_CONTACTS_ID = 'carcontacts-main';
 var _carContacts = null;
+// Everyone who can be picked in a "who should we notify?" list (shortage / overs alerts today). Comes from
+// the CAR Contacts people list; falls back to the old built-in list until contacts exist.
+function _notifyOptions(){
+  var c = _carContacts;
+  if (c && c.people && c.people.length){
+    return c.people.map(function(p){ return { name: p.name, email: p.email }; })
+      .sort(function(a, b){ return String(a.name).toLowerCase() < String(b.name).toLowerCase() ? -1 : 1; });
+  }
+  return GLR_NOTIFY_OPTIONS;
+}
 var _ccWork = null, _ccDirty = false;
 function _carStationNames(){
   var sel = document.getElementById('rca-station');
