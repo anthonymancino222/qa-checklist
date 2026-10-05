@@ -19149,7 +19149,7 @@ STATION_ISSUES['Pressroom Cutter'] = STATION_ISSUES['Bindery Cutter'];
 // here must exist in RCA_MANAGER_NAMES below or the auto-fill falls back to
 // "Other" with the name typed in instead of a matched selection.
 // A station can have more than one manager (an array): the pickers auto-fill the
-// first, and the hand-off list shows all of them. Prepress has none assigned yet.
+// first, and the hand-off list shows all of them.
 var STATION_MANAGER = {
   "Bindery Cutter":    "Jayro M",
   "Pressroom Cutter":  "Jayro M",
@@ -19160,6 +19160,7 @@ var STATION_MANAGER = {
   "Short Gluer":       "Jayro M",
   "Label Press":       "Danny R",
   "Packaging Press":   "Danny R",
+  "Prepress":          "Tiago S",
   "CSR":               "Bao L",
   "Packing":           "Jayro M",
   "Shipping":          "Shipping Dept",
@@ -19175,7 +19176,7 @@ function _stationMgrText(st){ return _stationMgrList(st).join(' & '); }
 // department managers. Edit this list freely; STATION_MANAGER above should
 // only ever point at names that exist here, or the auto-fill falls back to
 // "Other" instead of a matched selection.
-var RCA_MANAGER_NAMES = ['Jayro M','Jorge P','Johana R','Bao L','Josue R','Jeff L','Danny R','Armando P','Shipping Dept'];
+var RCA_MANAGER_NAMES = ['Jayro M','Jorge P','Johana R','Bao L','Josue R','Jeff L','Danny R','Armando P','Shipping Dept','Tiago S'];
 
 // Looks up the root-cause/corrective-action option lists for a given
 // station + quality-issue-category pair â€” station-specific override first,
