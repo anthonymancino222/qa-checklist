@@ -4203,9 +4203,9 @@ try {
           <div class="qa-dash-icon-tile" style="background:var(--brand);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
           <span class="qa-dash-icon-label"><span data-en>QA Data &amp; Export</span><span data-es>Datos y Exportación de Calidad</span></span>
         </div>
-        <div class="qa-dash-icon" onclick="switchView('rca')" title="RCA">
+        <div class="qa-dash-icon" onclick="switchView('rca')" title="CAR">
           <div class="qa-dash-icon-tile" style="background:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-          <span class="qa-dash-icon-label"><span data-en>RCA</span><span data-es>ACR</span></span>
+          <span class="qa-dash-icon-label"><span data-en>CAR</span><span data-es>ACR</span></span>
         </div>
         <div class="qa-dash-icon" onclick="switchView('records')" title="Records">
           <div class="qa-dash-icon-tile" style="background:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
@@ -4250,7 +4250,7 @@ try {
       <div id="ncrpie-body"></div>
     </div>
     <div id="view-rca" class="screen">
-      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>RCA</span><span data-es>ACR</span></div><div class="view-sub"><span data-en>Root cause analysis &amp; corrective action</span><span data-es>Análisis de causa raíz y acción correctiva</span></div></div><div class="rca-page-wrap">
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>CAR</span><span data-es>ACR</span></div><div class="view-sub"><span data-en>Corrective Action Report — root cause, action plan, verification</span><span data-es>Informe de Acción Correctiva — causa raíz, plan de acción, verificación</span></div></div><div class="rca-page-wrap">
   <div class="toast" id="rca-toast"></div>
 
   <!-- Full-screen loading overlay for the ?mode=manager|closeout&token=...
@@ -4265,10 +4265,10 @@ try {
 
   <div class="form-header">
     <div>
-      <div class="form-title"><span data-en>Root Cause Analysis &amp; Corrective Action</span><span data-es>Análisis de Causa Raíz y Acción Correctiva</span></div>
+      <div class="form-title"><span data-en>Corrective Action Report (CAR)</span><span data-es>Informe de Acción Correctiva (ACR)</span></div>
       <div class="form-subtitle"><span data-en>Quality Management — Moquin Press</span><span data-es>Gestión de Calidad — Moquin Press</span></div>
     </div>
-    <span class="badge-rca">RCA-FORM</span>
+    <span class="badge-rca">CAR-FORM</span>
   </div>
 
   <div class="test-banner" id="rca-test-banner">
@@ -4927,7 +4927,7 @@ try {
     <div id="rca-success-banner" class="success-banner hidden">
       ✅ <span id="rca-success-banner-text">Record saved!</span>
       <div style="margin-top:10px;">
-        <button type="button" class="btn btn-primary" onclick="rcaResetForm()">＋ <span data-en>Start New RCA</span><span data-es>Iniciar Nueva ACR</span></button>
+        <button type="button" class="btn btn-primary" onclick="rcaResetForm()">＋ <span data-en>Start New CAR</span><span data-es>Iniciar Nueva ACR</span></button>
       </div>
     </div>
 
@@ -4943,7 +4943,7 @@ try {
         <div>
           <button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button>
           <div class="view-title"><span data-en>Records</span><span data-es>Registros</span></div>
-          <div class="view-sub"><span data-en>Every job, NCR, and RCA — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div>
+          <div class="view-sub"><span data-en>Every job, NCR, and CAR — at any stage. Updates live as work progresses.</span><span data-es>Todo trabajo, RNC y ACR — en cualquier etapa. Se actualiza en vivo conforme avanza el trabajo.</span></div>
         </div>
         <div class="view-mode-toggle" id="records-view-toggle">
           <button class="vmt-btn" id="records-view-tile-btn" onclick="setRecordsViewMode('tile')">▦ <span data-en>Tile</span><span data-es>Mosaico</span></button>
@@ -4984,7 +4984,7 @@ try {
           <button type="button" class="tgl sel" data-recfilter="all" onclick="setRecordsFilter('all',this)"><span data-en>All</span><span data-es>Todos</span></button>
           <button type="button" class="tgl" data-recfilter="job" onclick="setRecordsFilter('job',this)"><span data-en>Jobs</span><span data-es>Trabajos</span></button>
           <button type="button" class="tgl" data-recfilter="ncr" onclick="setRecordsFilter('ncr',this)">NCR</button>
-          <button type="button" class="tgl" data-recfilter="rca" onclick="setRecordsFilter('rca',this)">RCA</button>
+          <button type="button" class="tgl" data-recfilter="rca" onclick="setRecordsFilter('rca',this)">CAR</button>
         </div>
         <div id="records-year-month-nav"></div>
         <div id="records-list"></div>
@@ -5107,7 +5107,7 @@ try {
 
           <div class="card" style="margin:0;">
             <div class="card-label"><span data-en>📊 What happened to "NCR – Pie Chart"?</span><span data-es>📊 ¿Qué pasó con "RNC – Gráfico Circular"?</span></div>
-            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>It grew into <b>QA Data &amp; Export</b> (same spot in the QA screen). It still has everything the old pie chart had — by station, status, customer, and type — plus jobs, RCA records, quality issues, root causes, dispositions, shipping-approved counts, and trends over time, all in one dashboard.</span><span data-es>Se convirtió en <b>Datos y Exportación de Calidad</b> (mismo lugar en la pantalla de Calidad). Todavía tiene todo lo que tenía el gráfico circular anterior — por estación, estado, cliente y tipo — además de trabajos, registros de ACR, problemas de calidad, causas raíz, disposiciones, conteo de envíos aprobados, y tendencias en el tiempo, todo en un solo tablero.</span></p>
+            <p style="font-size:16px;line-height:1.6;margin:0;"><span data-en>It grew into <b>QA Data &amp; Export</b> (same spot in the QA screen). It still has everything the old pie chart had — by station, status, customer, and type — plus jobs, CAR records, quality issues, root causes, dispositions, shipping-approved counts, and trends over time, all in one dashboard.</span><span data-es>Se convirtió en <b>Datos y Exportación de Calidad</b> (mismo lugar en la pantalla de Calidad). Todavía tiene todo lo que tenía el gráfico circular anterior — por estación, estado, cliente y tipo — además de trabajos, registros de ACR, problemas de calidad, causas raíz, disposiciones, conteo de envíos aprobados, y tendencias en el tiempo, todo en un solo tablero.</span></p>
           </div>
 
           <div class="card" style="margin:0;">
@@ -19366,7 +19366,7 @@ function ncrRootCauseCorrectiveHTML(d){
   var caOptions = data ? data.correctiveActions.concat(['N/A','Other']) : [_rccEs ? '— Seleccione primero la categoría del problema de calidad —' : '— Select quality issue category first —'];
   return '<div class="field"><div class="field-label">' + (_rccEs?'Causa raíz':'Root cause') + ' <span class="req">*</span></div>' +
     ncrCascadeSelectHTML('rootCauseSel', rcOptions, d, _rccEs?'Detalle o notas adicionales sobre esta causa raíz…':'Additional detail or notes on this root cause…') + '</div>' +
-    '<div class="field"><div class="field-label">' + (_rccEs?'Acción correctiva':'Corrective action') + ' <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(' + (_rccEs?'opcional — se maneja en el ACR':'optional — handled in the RCA') + ')</span></div>' +
+    '<div class="field"><div class="field-label">' + (_rccEs?'Acción correctiva':'Corrective action') + ' <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(' + (_rccEs?'opcional — se maneja en el ACR':'optional — handled in the CAR') + ')</span></div>' +
     ncrCascadeSelectHTML('correctiveActionSel', caOptions, d, _rccEs?'Detalle o condiciones adicionales para esta acción correctiva…':'Additional detail or conditions for this corrective action…') + '</div>';
 }
 
@@ -20438,7 +20438,7 @@ function _clearQADateRange(){
 function _qaFilterBarHTML(matchCount){
   var isEs = isEsLang();
   var f = _getSectionFilters('qadata');
-  var typeBtns = [['all', isEs?'Todos':'All'], ['job', isEs?'Trabajos':'Jobs'], ['ncr','NCR'], ['rca','RCA']];
+  var typeBtns = [['all', isEs?'Todos':'All'], ['job', isEs?'Trabajos':'Jobs'], ['ncr','NCR'], ['rca','CAR']];
   // Issue categories populated from every saved NCR ever recorded (not just
   // the currently filtered set) so the dropdown doesn't empty itself out as
   // soon as it's used to narrow the data.
@@ -20475,7 +20475,7 @@ function _qaFilterBarHTML(matchCount){
   h += '<select class="input" onchange="_qaSetIssueCategory(this.value)"><option value="">'+(isEs?'Categoría de Calidad — Todas':'Quality Issue — All')+'</option>' +
     issueCatOpts.map(function(c){ return '<option value="'+escHtml(c)+'"'+(_qaFilters.issueCategory===c?' selected':'')+'>'+escHtml(c)+'</option>'; }).join('') + '</select>';
   if (rcaStatusOpts.length){
-    h += '<select class="input" onchange="_qaSetRcaStatus(this.value)"><option value="">'+(isEs?'Estado de ACR — Todos':'RCA Status — All')+'</option>' +
+    h += '<select class="input" onchange="_qaSetRcaStatus(this.value)"><option value="">'+(isEs?'Estado de ACR — Todos':'CAR Status — All')+'</option>' +
       rcaStatusOpts.map(function(s){ return '<option value="'+escHtml(s)+'"'+(_qaFilters.rcaStatus===s?' selected':'')+'>'+escHtml(rcaStatusLabel(s))+'</option>'; }).join('') + '</select>';
   }
   h += '</div>';
@@ -20513,7 +20513,7 @@ function _qaKpiRowHTML(a){
   h += _qaKpiCard('pink', isEs?'RNC Totales':'Total NCRs', a.totalNCRs, a.ncrDrafts.length ? (a.ncrDrafts.length + ' ' + (isEs?'Borradores':'Drafts')) : '');
   h += _qaKpiCard('red', isEs?'RNC Abiertos / Activos':'Open / Active NCRs', a.openNCRs, '');
   h += _qaKpiCard('green', isEs?'RNC Cerrados':'Closed NCRs', a.closedNCRs, '');
-  h += _qaKpiCard('', isEs?'Registros ACR':'RCA Records', a.totalRCAs,
+  h += _qaKpiCard('', isEs?'Registros ACR':'CAR Records', a.totalRCAs,
     (a.rcas.length ? (a.rcas.filter(function(r){return r.raw.status==='Closed';}).length + ' ' + (isEs?'Cerrados':'Closed') + ' · ' + a.rcas.filter(function(r){return r.raw.status!=='Closed';}).length + ' ' + (isEs?'Pendientes':'Pending/Draft')) : ''));
   h += _qaKpiCard('green', isEs?'Trabajos Envío Aprobado':'Shipping Approved Jobs', a.shippingApprovedJobs, '');
   h += '</div>';
@@ -20543,7 +20543,7 @@ function _qaMainPanelsHTML(a){
   var h = '';
   // Row 2: Quality Record Overview (donut) + Records by Station (grouped bar)
   h += '<div class="qad-row-2">';
-  h += _qaCard('qad-mix-body', isEs?'Resumen de Registros de Calidad':'Quality Record Overview', isEs?'Composición de registros — Trabajos / RNC / ACR':'Record mix — Jobs / NCRs / RCA',
+  h += _qaCard('qad-mix-body', isEs?'Resumen de Registros de Calidad':'Quality Record Overview', isEs?'Composición de registros — Trabajos / RNC / ACR':'Record mix — Jobs / NCRs / CARs',
     a.recordMix.total ?
       '<div class="qad-donut-wrap"><canvas id="qad-mix-canvas"></canvas><div class="qad-donut-center"><b>'+a.recordMix.total+'</b><span>'+(isEs?'TOTAL':'TOTAL RECORDS')+'</span></div></div>' +
       '<div class="qad-legend" id="qad-mix-legend"></div>'
@@ -20569,7 +20569,7 @@ function _qaMainPanelsHTML(a){
   h += '<div class="qad-row-2">';
   h += _qaCard('qad-issues-body', isEs?'Principales Problemas de Calidad (RNC)':'Top NCR Quality Issues', isEs?'Top 8 por raw.issueCategory guardado':'Top 8 by saved issueCategory',
     Object.keys(a.ncrByIssue).length ? '<div style="height:260px;"><canvas id="qad-issues-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin categorías de problema en los RNC seleccionados.':'No issue categories on the selected NCRs.'));
-  h += _qaCard('qad-rootcause-body', isEs?'Principales Causas Raíz':'Top Root Causes', isEs?'De RNC y ACR guardados (campo rootCause)':'From saved NCR and RCA records (rootCause field)',
+  h += _qaCard('qad-rootcause-body', isEs?'Principales Causas Raíz':'Top Root Causes', isEs?'De RNC y ACR guardados (campo rootCause)':'From saved NCR and CAR records (rootCause field)',
     Object.keys(a.rootCauses).length ? '<div style="height:260px;"><canvas id="qad-rootcause-canvas"></canvas></div>' : _qaEmpty(isEs?'Sin datos de causa raíz en los registros seleccionados.':'No root-cause data in selected records.'));
   h += '</div>';
 
@@ -20639,7 +20639,7 @@ function _qaSummaryHTML(a){
   lines.push((isEs?'RNC: ':'NCRs: ') + '<b>'+a.totalNCRs+'</b>');
   lines.push((isEs?'RNC abiertos: ':'Open NCRs: ') + '<b>'+a.openNCRs+'</b>');
   lines.push((isEs?'RNC cerrados: ':'Closed NCRs: ') + '<b>'+a.closedNCRs+'</b>');
-  lines.push((isEs?'Registros ACR: ':'RCA records: ') + '<b>'+a.totalRCAs+'</b>');
+  lines.push((isEs?'Registros ACR: ':'CAR records: ') + '<b>'+a.totalRCAs+'</b>');
   lines.push((isEs?'Trabajos con envío aprobado: ':'Shipping approved jobs: ') + '<b>'+a.shippingApprovedJobs+'</b>');
   var topRC = _qaTopN(a.rootCauses, 1)[0];
   if (topRC) lines.push((isEs?'Causa raíz más frecuente: ':'Most frequent root cause: ') + '<b>' + escHtml(topRC[0]) + '</b> (' + topRC[1] + ')');
@@ -20655,14 +20655,14 @@ function _qaSummaryHTML(a){
     h += '<div class="qad-summary-group"><b>' + (isEs?'Por Estación':'By Station') + '</b>';
     stationKeys.forEach(function(st){
       var s = a.byStation[st];
-      h += '<div>' + escHtml(stationLabel(st)) + ' — ' + s.jobs + ' ' + (isEs?'trabajos':'jobs') + ', ' + s.ncrs + ' NCR' + (s.rcas ? (', ' + s.rcas + ' RCA') : '') + '</div>';
+      h += '<div>' + escHtml(stationLabel(st)) + ' — ' + s.jobs + ' ' + (isEs?'trabajos':'jobs') + ', ' + s.ncrs + ' NCR' + (s.rcas ? (', ' + s.rcas + ' CAR') : '') + '</div>';
     });
     h += '</div>';
   }
   if (a.rcas.length){
     h += '<div class="qad-note" style="margin-top:10px;">' + (isEs
       ? 'Los análisis de ACR reflejan los registros de ACR disponibles en este dispositivo.'
-      : 'RCA analytics reflect RCA records available to this device.') + '</div>';
+      : 'CAR analytics reflect CAR records available to this device.') + '</div>';
   }
   return h;
 }
@@ -20676,7 +20676,7 @@ function _qaSetTableMode(mode, btn){
 }
 function _qaTableTabsHTML(){
   var isEs = isEsLang();
-  var modes = [['all', isEs?'Todos':'All'], ['job', isEs?'Trabajos':'Jobs'], ['ncr','NCR'], ['rca','RCA']];
+  var modes = [['all', isEs?'Todos':'All'], ['job', isEs?'Trabajos':'Jobs'], ['ncr','NCR'], ['rca','CAR']];
   return '<div class="qad-table-tabs" id="qad-table-tabs">' + modes.map(function(m){
     return '<button type="button" class="tgl'+(_qaTableMode===m[0]?' sel':'')+'" onclick="_qaSetTableMode(\''+m[0]+'\',this)">'+m[1]+'</button>';
   }).join('') + '</div>';
@@ -20795,7 +20795,7 @@ function _qaRenderCharts(a){
   }
   // Record mix donut
   if (a.recordMix.total){
-    var mixLabels = [isEs?'Trabajos':'Jobs', 'NCRs', 'RCA'].concat(a.recordMix.ncrDrafts ? [isEs?'Borradores RNC':'NCR Drafts'] : []);
+    var mixLabels = [isEs?'Trabajos':'Jobs', 'NCRs', 'CAR'].concat(a.recordMix.ncrDrafts ? [isEs?'Borradores RNC':'NCR Drafts'] : []);
     var mixData = [a.recordMix.jobs, a.recordMix.ncrs, a.recordMix.rcas].concat(a.recordMix.ncrDrafts ? [a.recordMix.ncrDrafts] : []);
     var mixColors = [QA_PALETTE[3], QA_PALETTE[0], QA_PALETTE[4]].concat(a.recordMix.ncrDrafts ? [QA_PALETTE[2]] : []);
     _qaDoughnut('qad-mix-canvas', mixLabels, mixData, mixColors);
@@ -20810,7 +20810,7 @@ function _qaRenderCharts(a){
     _qaHBar('qad-station-canvas', stLabels, [
       { label: isEs?'Trabajos':'Jobs', data: stKeys.map(function(s){ return a.byStation[s].jobs; }), backgroundColor: QA_PALETTE[3] },
       { label: 'NCR', data: stKeys.map(function(s){ return a.byStation[s].ncrs; }), backgroundColor: QA_PALETTE[0] },
-      { label: 'RCA', data: stKeys.map(function(s){ return a.byStation[s].rcas; }), backgroundColor: QA_PALETTE[4] }
+      { label: 'CAR', data: stKeys.map(function(s){ return a.byStation[s].rcas; }), backgroundColor: QA_PALETTE[4] }
     ]);
   }
   // Records over time
@@ -20819,7 +20819,7 @@ function _qaRenderCharts(a){
     _qaLine('qad-trend-canvas', dateKeys, [
       { label: isEs?'Trabajos':'Jobs', data: dateKeys.map(function(d){ return a.recordsByDate[d].jobs; }), borderColor: QA_PALETTE[3], backgroundColor: QA_PALETTE[3], tension: .25 },
       { label: 'NCR', data: dateKeys.map(function(d){ return a.recordsByDate[d].ncrs; }), borderColor: QA_PALETTE[0], backgroundColor: QA_PALETTE[0], tension: .25 },
-      { label: 'RCA', data: dateKeys.map(function(d){ return a.recordsByDate[d].rcas; }), borderColor: QA_PALETTE[4], backgroundColor: QA_PALETTE[4], tension: .25 }
+      { label: 'CAR', data: dateKeys.map(function(d){ return a.recordsByDate[d].rcas; }), borderColor: QA_PALETTE[4], backgroundColor: QA_PALETTE[4], tension: .25 }
     ]);
   }
   // NCR status donut
@@ -20919,7 +20919,7 @@ function qaExportExcel(){
       [(isEs?'RNC Abiertos':'Open NCRs'), a.openNCRs],
       [(isEs?'RNC Cerrados':'Closed NCRs'), a.closedNCRs],
       [(isEs?'Borradores de RNC':'NCR Drafts'), a.ncrDrafts.length],
-      [(isEs?'Registros ACR':'RCA Records'), a.totalRCAs],
+      [(isEs?'Registros ACR':'CAR Records'), a.totalRCAs],
       [(isEs?'Trabajos Envío Aprobado':'Shipping Approved Jobs'), a.shippingApprovedJobs],
       [(isEs?'Trabajos En Espera':'Jobs On Hold'), a.onHold],
       [(isEs?'Trabajos Pend. Calidad':'QA Pending Jobs'), a.qaPending],
@@ -20929,7 +20929,7 @@ function qaExportExcel(){
       [(isEs?'Cantidad Producida (Trabajos)':'Qty Produced (Jobs)'), a.productivity.totalQtyProduced],
       [(isEs?'Trabajos Bajo Objetivo':'Jobs Short of Target'), a.productivity.shortJobs],
       [(isEs?'% Corto Promedio (trabajos bajo objetivo)':'Avg % Short (jobs short of target)'), a.productivity.avgShortPct],
-      [], [(isEs?'Registros por Estación':'Records by Station')], ['Station','Jobs','NCRs','RCAs']
+      [], [(isEs?'Registros por Estación':'Records by Station')], ['Station','Jobs','NCRs','CARs']
     ];
     Object.keys(a.byStation).forEach(function(st){ var s = a.byStation[st]; summaryRows.push([stationLabel(st), s.jobs, s.ncrs, s.rcas]); });
     summaryRows.push([], [(isEs?'Estado de RNC':'NCR Status')], [(isEs?'Estado':'Status'), (isEs?'Cantidad':'Count')]);
@@ -21011,7 +21011,7 @@ function qaExportExcel(){
         'Close Date': raw.closeDate || '', 'Close Notes': raw.closeNotes || '', 'Closing QA Tech': raw.closeQATech || ''
       };
     });
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rcaRows), 'RCAs');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rcaRows), 'CARs');
 
     // Sheet 5 — All Records (normalized)
     var allRows = list.map(function(r){
@@ -21024,7 +21024,7 @@ function qaExportExcel(){
     XLSX.writeFile(wb, 'QA_Data_Export_' + Date.now() + '.xlsx');
     if (a.rcas.length) _qaExportStatus(isEs
       ? ('✅ Excel exportado. Nota: las filas ACR solo incluyen lo que este dispositivo ha visto — vea "RCA Backups" en Drive para el historial completo.')
-      : ('✅ Excel exported. Note: RCA rows only cover what this device has seen — see "RCA Backups" in Drive for the complete history.'));
+      : ('✅ Excel exported. Note: CAR rows only cover what this device has seen — see "RCA Backups" in Drive for the complete history.'));
     else _qaExportStatus(isEs ? '✅ Excel exportado.' : '✅ Excel exported.');
   }).catch(function(err){
     _qaExportStatus((isEs?'❌ Error: ':'❌ Error: ') + err.message, true);
@@ -21053,7 +21053,7 @@ function qaExportPowerPoint(){
       [isEs?'RNC TOTALES':'TOTAL NCRs', a.totalNCRs, PINK],
       [isEs?'RNC ABIERTOS':'OPEN NCRs', a.openNCRs, RED],
       [isEs?'RNC CERRADOS':'CLOSED NCRs', a.closedNCRs, GREEN],
-      [isEs?'REGISTROS ACR':'RCA RECORDS', a.totalRCAs, NEUTRAL],
+      [isEs?'REGISTROS ACR':'CAR RECORDS', a.totalRCAs, NEUTRAL],
       [isEs?'ENVÍO APROBADO':'SHIPPING APPROVED', a.shippingApprovedJobs, GREEN]
     ];
     var kpiW = 2.05, kpiGap = 0.12, kx = 0.4;
@@ -21132,7 +21132,7 @@ function qaExportPowerPoint(){
     if (a.rcas.length){
       s2.addText(isEs
         ? 'Los análisis de ACR reflejan los registros de ACR disponibles en este dispositivo.'
-        : 'RCA analytics reflect RCA records available to this device.',
+        : 'CAR analytics reflect CAR records available to this device.',
         { x:6.9, y:4.45, w:6.0, h:0.6, fontSize:10, italic:true, color:NEUTRAL });
     }
 
@@ -22273,9 +22273,9 @@ function rcaRenderIssueAssign(){
   var groups = _rcaStationGroups();
   var idle = involved.filter(function(s){ return !groups.some(function(g){ return g.station===s; }); });
   box.innerHTML = '<div class="rca-assign"><div class="rca-assign-title">'+(isEs?'¿Qué problema corresponde a qué estación?':'Which issue goes with which station?')+'</div>'+rows+
-    '<div class="rca-assign-note">'+(isEs?'Un solo RCA cubrirá: ':'This will save as ONE RCA covering: ')+
+    '<div class="rca-assign-note">'+(isEs?'Un solo ACR cubrirá: ':'This will save as ONE CAR covering: ')+
     groups.map(function(g){ return '<b>'+escHtml(g.station)+'</b> ('+g.cats.length+')'; }).join(', ')+'.'+
-    (idle.length ? ' '+(isEs?'Sin problemas asignados (se omiten de este RCA): ':'No issues assigned (left out of this RCA): ')+idle.map(escHtml).join(', ')+'.' : '')+
+    (idle.length ? ' '+(isEs?'Sin problemas asignados (se omiten de este ACR): ':'No issues assigned (left out of this CAR): ')+idle.map(escHtml).join(', ')+'.' : '')+
     '</div></div>';
 }
 // Saves ONE record covering every station group (see _rcaStationValue); with no extra stations this is
@@ -22493,7 +22493,7 @@ function _rcaBuildReport(presetData){
   var d = presetData || rcaCollectData(rcaCurrentPath===1 ? _rcaCarStatus : 'Draft', 'export_pdf');
   var report = document.getElementById('rca-pdf-report');
   var L = isEs ? {
-    title:'Análisis de Causa Raíz y Acción Correctiva', subtitle:'Moquin Press — Gestión de Calidad',
+    title:'Informe de Acción Correctiva (ACR)', subtitle:'Moquin Press — Gestión de Calidad',
     incidentInfo:'Información del Incidente', jobNumber:'Número de trabajo', productId:'ID de Producto',
     customer:'Cliente', dateFound:'Fecha de detección', station:'Estación', qaTech:'Técnico de calidad',
     qualityIssue:'Problema de calidad', rootCause5:'Causa raíz — 5 Por qués', problemStmt:'Declaración del problema',
@@ -22511,7 +22511,7 @@ function _rcaBuildReport(presetData){
     verifiedBy:'Verificado por', verifyDate:'Fecha de verificación', verifyResults:'Resultados / evidencia', evidenceRef:'Documentos adjuntos',
     effective:'¿Acción efectiva?', closureDate:'Fecha de cierre', rcInvestigation:'Investigación de causa raíz'
   } : {
-    title:'Root Cause Analysis &amp; Corrective Action', subtitle:'Moquin Press — Quality Management',
+    title:'Corrective Action Report (CAR)', subtitle:'Moquin Press — Quality Management',
     incidentInfo:'Incident information', jobNumber:'Job number', productId:'Product ID',
     customer:'Customer', dateFound:'Date found', station:'Station', qaTech:'QA tech',
     qualityIssue:'Quality issue', rootCause5:"Root cause — 5 Why's", problemStmt:'Problem statement',
@@ -24270,7 +24270,7 @@ function _recNorm(list, type){
       product   = r.productNumber || '';
       customer  = r.customer || '';
       station   = r.station || '';
-      status    = 'RCA — ' + rcaStatusLabel(r.status);
+      status    = 'CAR — ' + rcaStatusLabel(r.status);
       ts        = r.closeDate || r.savedAt || '';
       id        = 'rca-' + idx;
     }
@@ -24526,7 +24526,7 @@ function renderRecords(){
     job:       { label: 'JOB',       color: '#3b82f6' },
     ncr:       { label: 'NCR',       color: '#ff1f8f' },
     ncr_draft: { label: _recEs ? 'BORRADOR RNC' : 'NCR DRAFT', color: '#e8a020' },
-    rca:       { label: 'RCA',       color: '#8b5cf6' }
+    rca:       { label: 'CAR',       color: '#8b5cf6' }
   };
 
   var tileMode = getRecordsViewMode() === 'tile';
@@ -24609,8 +24609,8 @@ function _downloadRecordsCSV(list, filename){
   if (list.some(function(r){ return r.type === 'rca'; })) {
     var isEs = isEsLang();
     showToast(isEs
-      ? 'Exportado. Nota: las filas RCA solo incluyen lo que este dispositivo ha visto — vea la carpeta "RCA Backups" en Drive para el historial completo.'
-      : 'Exported. Note: RCA rows only cover what this device has seen — see the "RCA Backups" Drive folder for the complete history.', 'pass');
+      ? 'Exportado. Nota: las filas ACR solo incluyen lo que este dispositivo ha visto — vea la carpeta "RCA Backups" en Drive para el historial completo.'
+      : 'Exported. Note: CAR rows only cover what this device has seen — see the "RCA Backups" Drive folder for the complete history.', 'pass');
   }
 }
 
@@ -25000,7 +25000,7 @@ function openRecordRCA(idxKey){
   if (!r) return;
   rvContext = { type: 'rca', id: idxKey };
   var _rvrEs = isEsLang();
-  document.getElementById('rv-title').innerHTML = 'RCA — ' + escHtml(jp('jobLabel')) + ' ' + hlId(r.jobNumber);
+  document.getElementById('rv-title').innerHTML = 'CAR — ' + escHtml(jp('jobLabel')) + ' ' + hlId(r.jobNumber);
   document.getElementById('rv-sub').innerHTML = escHtml(stationLabel(r.station)) + (r.customer ? ' · '+escHtml(r.customer) : '');
   var rows = [
     [_rvrEs?'Estado':'Status', r.status ? rcaStatusLabel(r.status) : '—'],
