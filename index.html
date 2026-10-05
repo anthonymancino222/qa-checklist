@@ -4453,6 +4453,7 @@ try {
             <option value="Prepress">Prepress</option>
             <option value="CSR">CSR</option>
             <option value="Packing">Packing</option>
+            <option value="Shipping">Shipping</option>
             <option value="Samples">Samples</option>
             <option value="Vendor">Vendor</option>
             <option value="Combination">Combination (more than one station)</option>
@@ -11712,6 +11713,7 @@ var STATION_LABELS = {
   'Prepress':         ['Prepress', 'Preprensa'],
   'CSR':              ['CSR', 'Servicio al Cliente (CSR)'],
   'Packing':          ['Packing', 'Empaque'],
+  'Shipping':         ['Shipping', 'Envíos'],
   'Samples':          ['Samples', 'Trabajos de Muestra'],
   'Vendor':           ['Vendor', 'Trabajos de Vendedor']
 };
@@ -18005,7 +18007,7 @@ function ncrNextId() {
   return 'NCR-' + String(max+1).padStart(3,'0');
 }
 
-var NCR_STATIONS = ['Bindery Cutter','Pressroom Cutter','Kama Foil Press','New Die Cutter','Old Die Cutter','Long Gluer','Short Gluer','Label Press','Packaging Press','Prepress','CSR','Packing','Samples','Vendor'];
+var NCR_STATIONS = ['Bindery Cutter','Pressroom Cutter','Kama Foil Press','New Die Cutter','Old Die Cutter','Long Gluer','Short Gluer','Label Press','Packaging Press','Prepress','CSR','Packing','Shipping','Samples','Vendor'];
 var NCR_PATHS = {
   finding: { title:['Quality Issue Pallet Tag','Etiqueta de Pallet — Problema de Calidad'], sub:['Tag and hold flagged product — no NCR record needed.','Etiquete y retenga el producto marcado — no se necesita registro de RNC.'] },
   ncr:     { title:['Document an NCR','Documentar un RNC'],    sub:['Full record: issue, root cause, corrective action, disposition.','Registro completo: problema, causa raíz, acción correctiva, disposición.'] },
@@ -19118,6 +19120,10 @@ var STATION_ISSUES = {
     "Damaged","Short / quantity","Scuffing","Inventory",
     "Documentation / job ticket","5S","Safety","SQF","Other"
   ],
+  "Shipping": [
+    "Packing / shipping issue","Wrong Label on Case","Mixed Product","Damaged","Short / quantity",
+    "Documentation / job ticket","Inventory","Process not followed","5S","Safety","Other"
+  ],
   "Samples": [
     "Damaged","Short / quantity","Documentation / job ticket","Process not followed",
     "Inventory","5S","Safety","Other"
@@ -19323,7 +19329,7 @@ function ncrIssueCategoriesFor(station){
   // straight to STATION_ISSUES (curated per-station list) instead of falling
   // through to the "no mapped bucket" branch below, which would otherwise
   // dump every category from every other station on them.
-  if (station === 'Label Press' || station === 'Packaging Press' || station === 'Prepress' || station === 'CSR') return STATION_ISSUES[station] || [];
+  if (station === 'Label Press' || station === 'Packaging Press' || station === 'Prepress' || station === 'CSR' || station === 'Shipping') return STATION_ISSUES[station] || [];
   if (typeof PT_DATA === 'undefined') return qualityIssueCategoriesFor(station);
   var ptStation = NCR_TO_PT_STATION[station];
   if (ptStation && PT_DATA[ptStation]) return Object.keys(PT_DATA[ptStation].categories);
