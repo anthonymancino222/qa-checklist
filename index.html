@@ -6251,12 +6251,33 @@ var _signedInUser = null; // { name, email } — cosmetic only, for the header
 // on a device that was still being used. Explicit sign-out clears this.
 var _LOCAL_SESSION_KEY = 'qa_local_session_v1';
 var _LOCAL_SESSION_MAX_INACTIVITY_MS = 72 * 60 * 60 * 1000; // 72 hours
+/* ── Long-lived device session ────────────────────────────────────────────
+   The Google ID token above only lives ~1 hour and renewing it quietly often
+   fails, so a device could look signed in while the backend rejected every call
+   ("Sync incomplete", "Pull failed"). After a real Google sign-in the Worker
+   (POST /auth/session) now hands this device its own signed session token that
+   lasts 180 days and is renewed in the background (POST /auth/refresh) each time
+   the app is opened and every few hours while it stays open — so a device stays
+   signed in until someone signs out, or it goes unused for the whole window.
+   _authHeaders() prefers it. If the Worker isn't set up for sessions yet (503 /
+   404) or the call fails, everything keeps working on the Google token exactly as
+   before. */
+var _sessionToken = null;       // Worker-issued; null until /auth/session succeeds
+var _sessionExpiresAt = 0;      // ms
+var _sessionEmail = '';         // whose session it is (a different account signing in replaces it)
+var _sessionRefreshedAt = 0;    // ms — last mint/refresh
+var _sessionExchangeBackoffUntil = 0;
+function _sessionUsable() { return !!(_sessionToken && _sessionExpiresAt > Date.now() + 60000); }
 function _saveLocalSession(idToken) {
   try {
     localStorage.setItem(_LOCAL_SESSION_KEY, JSON.stringify({
       name: _signedInUser && _signedInUser.name,
       email: _signedInUser && _signedInUser.email,
       idToken: idToken || null,
+      sessionToken: _sessionToken || null,
+      sessionExp: _sessionExpiresAt || 0,
+      sessionEmail: _sessionEmail || '',
+      sessionRefreshedAt: _sessionRefreshedAt || 0,
       lastActivityAt: Date.now()
     }));
   } catch (e) { /* localStorage unavailable (private mode, quota) — just means this device won't stay signed in; not fatal */ }
@@ -6267,13 +6288,57 @@ function _readLocalSession() {
     if (!raw) return null;
     var s = JSON.parse(raw);
     if (!s || !s.email || !s.lastActivityAt) return null;
-    if (Date.now() - s.lastActivityAt > _LOCAL_SESSION_MAX_INACTIVITY_MS) return null; // expired — 72h+ untouched
+    // A device holding a live Worker session stays signed in for that session's whole
+    // window; without one, the old 72-hour "since last use" rule still applies.
+    var hasSession = !!(s.sessionToken && s.sessionExp > Date.now());
+    if (!hasSession && Date.now() - s.lastActivityAt > _LOCAL_SESSION_MAX_INACTIVITY_MS) return null; // expired — 72h+ untouched
     return s;
   } catch (e) { return null; }
 }
 function _clearLocalSession() {
   try { localStorage.removeItem(_LOCAL_SESSION_KEY); } catch (e) {}
+  _sessionToken = null; _sessionExpiresAt = 0; _sessionEmail = ''; _sessionRefreshedAt = 0;
 }
+function _applySessionResponse(j) {
+  if (!j || !j.sessionToken) return false;
+  _sessionToken = j.sessionToken;
+  _sessionExpiresAt = j.expiresAt || 0;
+  _sessionEmail = String(j.email || (_signedInUser && _signedInUser.email) || '').toLowerCase();
+  _sessionRefreshedAt = Date.now();
+  _saveLocalSession(_googleIdToken);
+  return true;
+}
+// Trades a freshly issued Google ID token for a device session. Best-effort and
+// never throws; after a failure it waits 30 minutes before trying again.
+function _exchangeForSession(idToken) {
+  if (!QA_BACKEND_URL || !idToken || Date.now() < _sessionExchangeBackoffUntil) return Promise.resolve(false);
+  return fetch(QA_BACKEND_URL + '/auth/session', { method: 'POST', headers: { 'Authorization': 'Bearer ' + idToken } })
+    .then(function(res) { return res.ok ? res.json() : null; })
+    .then(function(j) {
+      var ok = _applySessionResponse(j);
+      if (!ok) _sessionExchangeBackoffUntil = Date.now() + 30 * 60 * 1000;
+      return ok;
+    })
+    .catch(function() { _sessionExchangeBackoffUntil = Date.now() + 30 * 60 * 1000; return false; });
+}
+// Renews the window (sliding). Only an explicit 401 means the session itself is dead
+// (secret changed / expired) — then we drop it and fall back to the Google token.
+// Network errors and server hiccups change nothing.
+var _sessionRefreshBusy = false;
+function _refreshSession(force) {
+  if (!_sessionToken || !QA_BACKEND_URL || _sessionRefreshBusy) return Promise.resolve(false);
+  if (!force && Date.now() - _sessionRefreshedAt < 12 * 60 * 60 * 1000) return Promise.resolve(false);
+  _sessionRefreshBusy = true;
+  return fetch(QA_BACKEND_URL + '/auth/refresh', { method: 'POST', headers: { 'Authorization': 'Bearer ' + _sessionToken } })
+    .then(function(res) {
+      if (res.status === 401) { _sessionToken = null; _sessionExpiresAt = 0; _saveLocalSession(_googleIdToken); return false; }
+      return res.ok ? res.json().then(_applySessionResponse) : false;
+    })
+    .catch(function() { return false; })
+    .then(function(r) { _sessionRefreshBusy = false; return r; });
+}
+setInterval(function() { _refreshSession(false); }, 6 * 60 * 60 * 1000);
+document.addEventListener('visibilitychange', function() { if (!document.hidden) _refreshSession(false); });
 // Refreshes lastActivityAt so the 72h window is "since last use," not "since
 // login" — throttled to once/minute so real interactions don't spam writes.
 // Initialized to page-load time, not 0 — this same timestamp doubles as the
@@ -6302,6 +6367,12 @@ function _tryRestoreLocalSession() {
   if (!s) return false;
   _signedInUser = { name: s.name, email: s.email };
   _googleIdToken = s.idToken || null;
+  if (s.sessionToken && s.sessionExp > Date.now()) {
+    _sessionToken = s.sessionToken; _sessionExpiresAt = s.sessionExp;
+    _sessionEmail = String(s.sessionEmail || s.email || '').toLowerCase();
+    _sessionRefreshedAt = s.sessionRefreshedAt || 0;
+    setTimeout(function(){ _refreshSession(false); }, 4000);   // slides the window forward each time the app is opened (skipped if done in the last 12h)
+  }
   var overlay = document.getElementById('google-signin-overlay');
   if (overlay) overlay.style.display = 'none';
   var appLayout = document.getElementById('appLayout');
@@ -6381,7 +6452,9 @@ function _renderQaManagerAccess() {
 // already carries a verified Google ID token.
 function _authHeaders() {
   var h = {};
-  if (_googleIdToken) h['Authorization'] = 'Bearer ' + _googleIdToken;
+  // The device session (long-lived) wins when there is one; otherwise the Google token.
+  if (_sessionUsable()) h['Authorization'] = 'Bearer ' + _sessionToken;
+  else if (_googleIdToken) h['Authorization'] = 'Bearer ' + _googleIdToken;
   return h;
 }
 
@@ -6426,12 +6499,20 @@ function _onGoogleSignIn(response) {
     _renderSignedInUser();
   } catch (e) { /* cosmetic only — a decode failure here doesn't block anything */ }
   _applyDataEditVisibility();
+  // A different account signing in on this device must not inherit the previous
+  // person's device session.
+  if (_signedInUser && _sessionEmail && String(_signedInUser.email || '').toLowerCase() !== _sessionEmail) {
+    _sessionToken = null; _sessionExpiresAt = 0; _sessionEmail = ''; _sessionRefreshedAt = 0;
+  }
   // Establishes (or refreshes) this device's local "stay signed in" session —
   // see _saveLocalSession() above. From this point on, reopening/reloading
   // the app on this device skips the sign-in screen entirely as long as it's
   // used again within the 72h inactivity window, regardless of whether
   // Google's own silent one-tap resume succeeds on that later visit.
   _saveLocalSession(_googleIdToken);
+  // Trade this sign-in for a long-lived device session unless this device already has a
+  // healthy one (the quiet hourly Google re-prompts also land here and must not mint a new one each time).
+  if (!(_sessionUsable() && _sessionExpiresAt > Date.now() + 7 * 24 * 60 * 60 * 1000)) _exchangeForSession(_googleIdToken);
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
   setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
   setTimeout(function(){ if (typeof rcaFlushPending === 'function') rcaFlushPending(); }, 2000);
@@ -7254,6 +7335,9 @@ function _normalizeSyncTaskOk(result){
 }
 function _syncNowAll() {
   var jobs = ipLoad(), ncrs = ncrLoad(), drafts = ncrDraftLoad(), qcDrafts = loadDrafts();
+  // Names are only for the "Sync incomplete" message, so it can say WHICH part failed or was slow.
+  var names = ['jobs (send)', 'NCRs (send)', 'NCR drafts (send)', 'jobs (receive)', 'NCRs (receive)', 'NCR drafts (receive)', 'saved entries (receive)'];
+  var state = names.map(function(){ return 'pending'; });
   var tasks = [
     _syncPushDelta('job', jobs), _syncPushDelta('ncr', ncrs), _syncPushDelta('ncr_draft', drafts),
     _syncPullAndMerge('job', jobs, ipSave), _syncPullAndMerge('ncr', ncrs, ncrSave), _syncPullAndMerge('ncr_draft', drafts, ncrDraftSave),
@@ -7263,12 +7347,22 @@ function _syncNowAll() {
     // receive the ones that WERE handed off, and to prune the ones another
     // station has since picked up.
     _syncPullAndMerge('qc_draft', qcDrafts, saveDrafts)
-  ].map(function(p){
-    return Promise.resolve(p).then(_normalizeSyncTaskOk).catch(function(){ return false; });
+  ].map(function(p, i){
+    return Promise.resolve(p).then(_normalizeSyncTaskOk).catch(function(){ return false; }).then(function(ok){ state[i] = ok ? 'ok' : 'fail'; return ok; });
   });
-  var allDone = Promise.all(tasks).then(function(results){ return { ok: results.every(Boolean) }; });
-  var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve({ ok: false }); }, 8000); });
-  return Promise.race([allDone, timeout]);
+  var notOk = function(){ return names.filter(function(n, i){ return state[i] !== 'ok'; }); };
+  var allDone = Promise.all(tasks).then(function(results){ var ok = results.every(Boolean); return { ok: ok, failed: ok ? [] : notOk(), timedOut: false }; });
+  var timeout = new Promise(function(resolve){ setTimeout(function(){ resolve({ ok: false, failed: notOk(), timedOut: true }); }, 8000); });
+  return Promise.race([allDone, timeout]).then(function(r){
+    if (!r.ok) { try { console.warn('Sync incomplete' + (r.timedOut ? ' (still running after 8s)' : '') + ':', r.failed.join(', ')); } catch(e){} }
+    return r;
+  });
+}
+// " (jobs (receive), NCRs (send))" — appended to the "Sync incomplete" message; "" if nothing is known.
+function _syncFailNote(result) {
+  if (!result || !result.failed || !result.failed.length) return '';
+  var isEs = isEsLang();
+  return ' (' + (result.timedOut ? (isEs ? 'lento: ' : 'slow: ') : '') + result.failed.slice(0, 3).join(', ') + (result.failed.length > 3 ? '…' : '') + ')';
 }
 // Re-renders whichever screen is currently on-screen — used after a manual
 // sync so newly-pulled records (created on another device) show up right
@@ -7314,7 +7408,7 @@ function headerSyncNowClick() {
       // Honest failure instead of the "✓ Synced" it used to show
       // regardless — see _syncNowAll's own comment for the incident this
       // was built to stop repeating.
-      showToast(isEs ? '⚠ Sincronización incompleta — intente de nuevo' : '⚠ Sync incomplete — try again', 'fail');
+      showToast((isEs ? '⚠ Sincronización incompleta — intente de nuevo' : '⚠ Sync incomplete — try again') + _syncFailNote(result), 'fail');
     }
     // Fire-and-forget — shows its own prompt if a real update is found (see
     // _checkForAppUpdate's own comment for why this asks instead of
@@ -15908,7 +16002,7 @@ function qcSyncNowClick() {
         btn.style.opacity = '1';
         btn.innerHTML = '🔄 ' + (isEs ? 'Sincronizar Ahora' : 'Sync Now');
       }
-      showToast(isEs ? '⚠ Sincronización incompleta — intente de nuevo' : '⚠ Sync incomplete — try again', 'fail');
+      showToast((isEs ? '⚠ Sincronización incompleta — intente de nuevo' : '⚠ Sync incomplete — try again') + _syncFailNote(result), 'fail');
       return;
     }
     document.getElementById('qcSyncOverlay').classList.remove('open');
