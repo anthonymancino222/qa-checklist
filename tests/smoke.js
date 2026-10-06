@@ -116,6 +116,38 @@ const FLOWS = `
     rcaRenderDraftList();
   });
 
+  await step('Gluer batch: change number of products (fewer, more, while entering, single->batch)', async function(){
+    var keep = ipLoad().slice(); ipSave([], { preserveTouch: true });
+    ipAdd({ id: 'gluer-t1', jobNumber: '555', station: 'Long Gluer', productNumber: 'P1', customer: 'T', process: 'qa_release', batchId: 'batch-t', batchSize: 5, batchIndex: 2, scheduleProductsUsed: ['P1', 'P2', 'P3'], scheduleProductPool: [], stageHistory: [], checklist: [] });
+    function cards(){ return _computeIPCols(ipLoad()).needsNextProduct.length; }
+    if (cards() !== 1) throw new Error('start-next card should show for 3 of 5');
+    renderInProgress();
+    if (!document.querySelector('.gluer-count-edit')) throw new Error('no visible "change number of products" control on the card');
+    // fewer: 5 -> 3 (all done) makes the prompt go away; cannot go below the 3 already started
+    openGluerCountEditor('job', 'gluer-t1'); var pop = document.getElementById('gluer-count-pop');
+    document.getElementById('gcp-minus').click(); document.getElementById('gcp-minus').click(); document.getElementById('gcp-minus').click();
+    if (document.getElementById('gcp-val').textContent !== '3') throw new Error('stepper went below the products already started: ' + document.getElementById('gcp-val').textContent);
+    document.getElementById('gcp-save').click();
+    if (ipLoad()[0].batchSize !== 3 || cards() !== 0) throw new Error('reducing to 3 should finish the job (batchSize=' + ipLoad()[0].batchSize + ', cards=' + cards() + ')');
+    // more: 3 -> 5 brings the prompt back
+    openGluerCountEditor('job', 'gluer-t1'); document.getElementById('gcp-plus').click(); document.getElementById('gcp-plus').click(); document.getElementById('gcp-save').click();
+    if (ipLoad()[0].batchSize !== 5 || cards() !== 1) throw new Error('raising to 5 should bring the prompt back');
+    // while entering the next product: bar visible, minimum = the product being entered
+    _startGluerNextProduct(ipLoad()[0], 'P4');
+    var bar = document.getElementById('gluer-batch-bar');
+    if (bar.style.display === 'none' || !/4/.test(document.getElementById('gluer-batch-bar-text').textContent)) throw new Error('entry-screen bar missing');
+    openGluerCountEditor('continue'); document.getElementById('gcp-minus').click(); document.getElementById('gcp-minus').click(); document.getElementById('gcp-save').click();
+    if (_gluerContinueBatch.batchSize !== 4 || ipLoad()[0].batchSize !== 4) throw new Error('edit while entering did not apply (min should be the product being entered)');
+    startNewJob();
+    if (document.getElementById('gluer-batch-bar').style.display !== 'none') throw new Error('bar should hide on a fresh job');
+    // a single-product gluer job grown into a batch gets a batch id and the prompt
+    ipSave([], { preserveTouch: true });
+    ipAdd({ id: 'gluer-t2', jobNumber: '556', station: 'Short Gluer', productNumber: 'Q1', customer: 'T', process: 'qa_release', batchSize: 1, scheduleProductsUsed: ['Q1'], stageHistory: [], checklist: [] });
+    openGluerCountEditor('job', 'gluer-t2'); document.getElementById('gcp-plus').click(); document.getElementById('gcp-plus').click(); document.getElementById('gcp-save').click();
+    if (!ipLoad()[0].batchId || ipLoad()[0].batchSize !== 3 || cards() !== 1) throw new Error('single job was not grown into a batch');
+    ipSave(keep, { preserveTouch: true });
+  });
+
   await step('Records list + CAR popup', async function(){
     switchView('records'); renderRecords();
     if (rcaLoadRecords().length) openRecordRCA('rca-0');

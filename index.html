@@ -1931,6 +1931,22 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #rca-expand-pop .rca-expand-x:hover{ background:var(--brand,#73a600); color:#fff; border-color:var(--brand,#73a600); }
 #rca-expand-pop .rca-expand-ta{ width:100%; min-height:38vh; flex:1 1 auto; resize:vertical; font:inherit; font-size:16px; line-height:1.5; padding:10px 12px; border-radius:10px; border:1.5px solid var(--border-mid,#999); background:var(--surface-raised,#fafafa); color:inherit; }
 #rca-expand-pop .rca-expand-hint{ font-size:12px; color:var(--text-tertiary,#777); }
+/* Gluer: change the number of products in a multi-product job */
+.gluer-batch-bar{ display:none; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-soft); border:1px solid var(--brand); border-radius:10px; padding:8px 12px; margin-bottom:12px; font-size:14px; font-weight:700; color:var(--brand-dark); }
+.gluer-count-edit{ background:none; border:none; color:var(--brand-dark); text-decoration:underline; font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:4px 2px; }
+.gluer-count-edit:hover{ color:var(--brand); }
+#gluer-count-pop{ display:none; position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:16px; }
+#gluer-count-pop.open{ display:flex; }
+#gluer-count-pop .gcp-card{ width:min(380px,100%); background:var(--surface,#fff); color:var(--text-primary,#111); border:1px solid var(--border-mid,#999); border-radius:14px; padding:18px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+#gluer-count-pop .gcp-title{ font-weight:800; font-size:18px; }
+#gluer-count-pop .gcp-sub{ font-size:14px; color:var(--text-secondary,#555); margin:2px 0 14px; }
+#gluer-count-pop .gcp-stepper{ display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:10px; }
+#gluer-count-pop .gcp-btn{ width:54px; height:54px; border-radius:50%; border:2px solid var(--brand); background:var(--brand-soft); color:var(--brand-dark); font-size:28px; font-weight:700; cursor:pointer; line-height:1; }
+#gluer-count-pop .gcp-btn:disabled{ opacity:.35; cursor:not-allowed; }
+#gluer-count-pop .gcp-val{ font-size:44px; font-weight:800; min-width:70px; text-align:center; }
+#gluer-count-pop .gcp-help{ font-size:13.5px; color:var(--text-secondary,#555); text-align:center; min-height:38px; }
+#gluer-count-pop .gcp-actions{ display:flex; gap:10px; margin-top:12px; }
+#gluer-count-pop .gcp-actions .btn{ flex:1; }
 /* Quick actions (Start new draft / Download PDF) — styled as obvious buttons, shown at the top AND bottom */
 #view-rca .rca-quickbar{ margin:4px 0 14px; }
 #view-rca .rca-quickbar-label{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px; }
@@ -2877,6 +2893,10 @@ try {
 
         <!-- ══ GLUER FIELDS (Long Gluer / Short Gluer) ══ -->
         <div id="gluer-fields" style="display:none;">
+
+          <!-- Shown only while entering Product 2..N of a multi-product job: which product this is, plus a
+               always-visible way to fix the total if it was chosen wrong. -->
+          <div id="gluer-batch-bar" class="gluer-batch-bar"><span id="gluer-batch-bar-text"></span> <button type="button" class="gluer-count-edit" onclick="openGluerCountEditor('continue')">✎ <span data-en>Wrong number of products? Change it</span><span data-es>¿Número de productos incorrecto? Cámbielo</span></button></div>
 
           <!-- Gates the "how many products" chooser below — most gluer jobs
                are a single product, so this stays collapsed until someone
@@ -9009,6 +9029,7 @@ function renderInProgress() {
         '<div class="jp-card-station">' + stationLabel(job.station) + '</div>' +
         '<div class="jp-card-job">' + hlId(job.jobNumber) + '</div>' +
         '<div class="jp-card-form">' + ((job.scheduleProductsUsed||[]).length) + ' ' + (isEsLang()?'de':'of') + ' ' + job.batchSize + ' ' + (isEsLang()?'productos completados':'products done') + '</div>' +
+        '<button type="button" class="gluer-count-edit" onclick="event.stopPropagation();openGluerCountEditor(\'job\',\'' + job.id + '\');">✎ ' + (isEsLang() ? 'Cambiar número de productos' : 'Change number of products') + '</button>' +
         '<button type="button" class="gluer-next-product-btn" style="width:100%;margin-top:10px;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
         (isEsLang() ? 'Iniciar Siguiente Producto' : 'Start Next Product') + ' (' + ((job.scheduleProductsUsed||[]).length + 1) + ' ' + (isEsLang()?'de':'of') + ' ' + job.batchSize + ')</button>' +
       '</div>';
@@ -9022,7 +9043,7 @@ function renderInProgress() {
       '<div class="jp-list-thumb-empty">▶</div>' +
       '<div class="jp-list-info">' +
         '<div class="jp-list-job">' + hlId(job.jobNumber) + '</div>' +
-        '<div class="jp-list-sub">' + stationLabel(job.station) + ' · ' + ((job.scheduleProductsUsed||[]).length) + '/' + job.batchSize + '</div>' +
+        '<div class="jp-list-sub">' + stationLabel(job.station) + ' · ' + ((job.scheduleProductsUsed||[]).length) + '/' + job.batchSize + ' <button type="button" class="gluer-count-edit" onclick="event.stopPropagation();openGluerCountEditor(\'job\',\'' + job.id + '\');">✎ ' + (isEsLang() ? 'Cambiar' : 'Change') + '</button></div>' +
       '</div>' +
       '<button type="button" class="gluer-next-product-btn" style="flex-shrink:0;" onclick="event.stopPropagation();openGluerNextProductPicker(\'' + job.id + '\');">▶ ' +
       (isEsLang() ? 'Iniciar Siguiente' : 'Start Next') + '</button>';
@@ -16314,6 +16335,7 @@ function startNewJob() {
   }
   gluerCurrentProcess = 'makeready';
   _gluerContinueBatch = null;
+  if (typeof _gluerBatchBarRefresh === 'function') _gluerBatchBarRefresh();
   gluerProductCount = 1;
   // Multi-CAD gate resets to "No" (the common case — most gluer jobs are a
   // single product), hiding the count chooser again. Also un-hides the
@@ -17643,6 +17665,90 @@ function _finalizeJobPick(jobNumber, entry, product) {
 ══════════════════════════════════ */
 var _gluerContinueBatch = null; // { batchId, batchSize, scheduleProductPool, scheduleProductsUsed } while continuing an existing batch, else null
 
+/* ── Fix the number of products in a Gluer multi-product job after it was chosen ──────────────────
+   The count chosen on the first screen could never be corrected (chose 5, only 3 exist — or chose 3,
+   there are 5). Two always-visible entry points: the "Start Next Product" card and a bar on the
+   next-product entry screen. Applies to EVERY record of that batch so the whole job agrees. ── */
+var GLUER_MAX_PRODUCTS = 20;
+function _gluerBatchKey(j){ return j.batchId || j.id; }
+function _gluerBatchBarRefresh(){
+  var bar = document.getElementById('gluer-batch-bar'), txt = document.getElementById('gluer-batch-bar-text');
+  if (!bar || !txt) return;
+  if (!_gluerContinueBatch){ bar.style.display = 'none'; return; }
+  var isEs = isEsLang();
+  txt.textContent = (isEs ? 'Producto ' : 'Product ') + (_gluerContinueBatch.scheduleProductsUsed.length + 1) + (isEs ? ' de ' : ' of ') + _gluerContinueBatch.batchSize;
+  bar.style.display = 'flex';
+}
+function openGluerCountEditor(source, jobId){
+  var isEs = isEsLang(), ctx = null;
+  if (source === 'continue'){
+    if (!_gluerContinueBatch) return;
+    var u = (_gluerContinueBatch.scheduleProductsUsed || []).length;
+    ctx = { source: 'continue', key: _gluerContinueBatch.batchId, jobNumber: (document.getElementById('setup-job') || {}).value || '', current: _gluerContinueBatch.batchSize, done: u, min: u + 1 };
+  } else {
+    var job = null; ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
+    if (!job) return;
+    var d = (job.scheduleProductsUsed || []).length;
+    ctx = { source: 'job', key: _gluerBatchKey(job), jobNumber: job.jobNumber, current: job.batchSize || 1, done: d, min: Math.max(1, d) };
+  }
+  var pop = document.getElementById('gluer-count-pop');
+  if (!pop){
+    pop = document.createElement('div'); pop.id = 'gluer-count-pop';
+    pop.innerHTML = '<div class="gcp-card" role="dialog" aria-modal="true"><div class="gcp-title"></div><div class="gcp-sub"></div>' +
+      '<div class="gcp-stepper"><button type="button" class="gcp-btn" id="gcp-minus" aria-label="Fewer">−</button><span class="gcp-val" id="gcp-val"></span><button type="button" class="gcp-btn" id="gcp-plus" aria-label="More">+</button></div>' +
+      '<div class="gcp-help" id="gcp-help"></div><div class="gcp-actions"><button type="button" class="btn" id="gcp-cancel"></button><button type="button" class="btn btn-primary" id="gcp-save"></button></div></div>';
+    document.body.appendChild(pop);
+  }
+  pop._ctx = ctx; pop._val = ctx.current;
+  pop.querySelector('.gcp-title').textContent = isEs ? 'Productos en este trabajo' : 'Products in this job';
+  pop.querySelector('.gcp-sub').textContent = (isEs ? 'Trabajo ' : 'Job ') + ctx.jobNumber + ' · ' + ctx.done + (isEs ? ' producto(s) ya iniciado(s)' : ' product(s) already started');
+  document.getElementById('gcp-cancel').textContent = isEs ? 'Cancelar' : 'Cancel';
+  document.getElementById('gcp-save').textContent = isEs ? 'Guardar' : 'Save';
+  function paint(){
+    var v = pop._val, c = pop._ctx;
+    document.getElementById('gcp-val').textContent = v;
+    var h;
+    if (v === c.current) h = isEs ? 'Sin cambios.' : 'No change.';
+    else if (v < c.current) h = (v <= c.done)
+      ? (isEs ? 'Ya están todos los productos: se quitará el aviso “Iniciar Siguiente Producto”.' : 'That is all of them — the “Start Next Product” prompt will go away.')
+      : (isEs ? 'Quedarán menos productos por iniciar.' : 'Fewer products left to start.');
+    else h = (isEs ? 'Se le pedirá iniciar el Producto ' : 'You will be prompted to start Product ') + (c.done + 1) + (isEs ? ' hasta el ' : ' through ') + v + '.';
+    if (v <= c.min && c.done > 0) h += ' ' + (isEs ? '(El mínimo es ' + c.min + ': ya inició ' + c.done + '.)' : '(Minimum is ' + c.min + ' — ' + c.done + ' already started.)');
+    document.getElementById('gcp-help').textContent = h;
+    document.getElementById('gcp-minus').disabled = v <= c.min;
+    document.getElementById('gcp-plus').disabled = v >= GLUER_MAX_PRODUCTS;
+  }
+  document.getElementById('gcp-minus').onclick = function(){ if (pop._val > pop._ctx.min){ pop._val--; paint(); } };
+  document.getElementById('gcp-plus').onclick = function(){ if (pop._val < GLUER_MAX_PRODUCTS){ pop._val++; paint(); } };
+  document.getElementById('gcp-cancel').onclick = function(){ pop.classList.remove('open'); };
+  document.getElementById('gcp-save').onclick = function(){ var c = pop._ctx, v = pop._val; pop.classList.remove('open'); if (v !== c.current) applyGluerBatchSize(c, v); };
+  paint();
+  pop.classList.add('open');
+}
+function applyGluerBatchSize(ctx, newVal){
+  var isEs = isEsLang(), jobs = ipLoad();
+  var members = jobs.filter(function(j){ return _gluerBatchKey(j) === ctx.key; });
+  if (!members.length) return;
+  newVal = Math.max(ctx.min, Math.min(GLUER_MAX_PRODUCTS, newVal));
+  var needsId = !members[0].batchId && newVal > 1;           // a single-product job being grown into a batch
+  var bid = needsId ? ('batch-' + Date.now()) : members[0].batchId;
+  members.forEach(function(j){
+    var from = j.batchSize || 1;
+    if (needsId) j.batchId = bid;
+    j.batchSize = newVal;
+    j.stageHistory = _stageSnapshot(j.stageHistory, 'batch_count_changed', (isEs ? 'Productos en el trabajo: ' : 'Products in job changed: ') + from + ' → ' + newVal, { from: from, to: newVal });
+  });
+  ipSave(jobs);
+  if (_gluerContinueBatch && (ctx.source === 'continue' || _gluerContinueBatch.batchId === ctx.key)){
+    _gluerContinueBatch.batchSize = newVal;
+    if (needsId) _gluerContinueBatch.batchId = bid;
+    gluerProductCount = newVal;
+    _gluerBatchBarRefresh();
+  }
+  if (typeof renderInProgress === 'function') renderInProgress();
+  showToast((isEs ? 'Productos en el trabajo: ' : 'Products in this job: ') + newVal, 'pass');
+}
+
 function openGluerNextProductPicker(jobId) {
   var job = null;
   ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
@@ -17730,6 +17836,7 @@ function _startGluerNextProduct(job, productNumber) {
   }
   var isEs = isEsLang();
   showToast((isEs ? 'Iniciando producto ' : 'Starting product ') + (used.length + 1) + (isEs ? ' de ' : ' of ') + job.batchSize, 'pass');
+  _gluerBatchBarRefresh();
   _scrollMainToTop();
 }
 
