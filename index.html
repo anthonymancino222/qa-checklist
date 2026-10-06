@@ -24131,7 +24131,7 @@ function ncrNotifyMessage(d){
 // email with a big "Reply to all" button). The script re-checks the sign-in and only mails company addresses.
 // Flip to true ONLY after the updated Google script (with the NCR email) is deployed; until then NCR/Sales
 // Approval emails fall back to the Gmail compose window so nothing is ever silently dropped.
-var QA_NCR_AUTO_EMAIL = false;
+var QA_NCR_AUTO_EMAIL = true;
 function qaSendNcrAuto(picks, n){
   var isEs = isEsLang();
   if (!picks || !picks.length) return false;
