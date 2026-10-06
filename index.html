@@ -20090,6 +20090,7 @@ function ncrSummaryHTML(d, isNew){
   var h = (isNew ? '<button class="ncr-back" onclick="ncrState.mode=\'form\';renderNCRView()">← ' + (isEs?'Volver a editar':'Back to edit') + '</button>' : '') +
     '<div class="card"><div class="card-label">'+(d.ncrId||(isEs?'Resumen':'Summary'))+ (d.status? ' <span class="ncr-status '+(d.status==='Closed'?'closed':d.status==='In Progress'?'inprog':'open')+'">'+ncrStatusLabel(d.status)+'</span>':'') +'</div>' +
     ncrSummaryRows(d).map(function(r){ return '<div class="ncr-sumrow"><b>'+_ncrEsc(r[0])+'</b><span>'+_rowVal(r[1])+'</span></div>'; }).join('') +
+    ((d.emailedTo && d.emailedTo.length) ? '<div class="ncr-sumrow"><b>' + (isEs?'Enviado por correo a':'Emailed to') + '</b><span>' + _ncrEsc(d.emailedTo.map(function(p){ return p.name; }).join(', ')) + (d.emailedAt ? ' · ' + _ncrEsc(d.emailedAt) : '') + '</span></div>' : '') +
     ((d.photos&&d.photos.length) ? '<div class="ncr-photo-grid" style="margin-top:12px;">'+d.photos.map(function(p){ return '<div class="ncr-thumb"><img src="'+p.src+'" onclick="qaOpenPhoto(this.src)" style="cursor:zoom-in" title="Click to view full size"></div>'; }).join('')+'</div>' : '') +
     (d.collage ? '<div style="margin-top:10px"><img src="'+d.collage+'" style="width:100%;border-radius:10px;border:1px solid var(--border)"></div>' : '') +
     (d.dispositionNote ? '<div class="ncr-sumrow"><b>' + (isEs?'Nota de cierre':'Closing note') + '</b><span>'+_ncrEsc(d.dispositionNote)+'</span></div>' : '') +
@@ -20100,9 +20101,9 @@ function ncrSummaryHTML(d, isNew){
   var _ptRef = isNew ? 'current' : (d.ncrId || '');
   if (_ptRef) h += '<button type="button" class="ncr-secondary" onclick="openPalletTagFromNCR(\'' + _ptRef + '\')">🏷️ ' + (isEs?'Imprimir Etiqueta de Pallet':'Print Pallet Tag') + '</button>';
   if (isNew) h += qaNotifyPickerHTML('ncr', d.path === 'sales' ? (isEs ? 'Enviar la solicitud de aprobación a… (opcional)' : 'Send the approval request to… (optional)') : (isEs ? 'Notificar también a… (opcional)' : 'Also notify… (optional)'),
-    isEs ? 'Al enviar, se abre Gmail con el resumen listo para enviar a las personas seleccionadas.' : 'When you submit, Gmail opens with the summary ready to send to the people you pick.');
+    isEs ? 'Al enviar el RNC se manda automáticamente un correo con el resumen a las personas seleccionadas. Todos pueden usar “Responder a todos”.' : 'When you submit, a clear summary email is sent automatically to the people you pick. They can hit “Reply to all” to answer everyone.');
   else if (d.ncrId) h += qaNotifyPickerHTML('ncrd', isEs ? 'Enviar este RNC por correo a…' : 'Email this NCR to…') +
-    '<button type="button" class="ncr-secondary" onclick="ncrEmailSelected(\'' + d.ncrId + '\')">✉ ' + (isEs ? 'Abrir correo para los seleccionados' : 'Open email to selected') + '</button>';
+    '<button type="button" class="ncr-secondary" onclick="ncrEmailSelected(\'' + d.ncrId + '\')">✉ ' + (isEs ? 'Enviar correo a los seleccionados' : 'Send email to selected') + '</button>';
   if (isNew) h += '<button class="btn-primary" onclick="ncrFinalize()">' + (isEs?'Enviar RNC ✓':'Submit NCR ✓') + '</button>';
   return h;
 }
@@ -20111,6 +20112,7 @@ function ncrFinalize(){
   var d = ncrState.d;
   var _picks = qaNotifyPicked('ncr');   // read before the screen changes
   d.ncrId = ncrNextId();
+  if (_picks.length){ d.emailedTo = _picks; d.emailedAt = formatTS(); }
   d.status = 'Open';
   d.createdAt = formatTS();
   if (d.__draftId){ ncrRemoveDraftById(d.__draftId); delete d.__draftId; }
@@ -20118,7 +20120,7 @@ function ncrFinalize(){
   list.unshift(d);
   ncrSave(list);
   updateNCRBadges();
-  if (_picks.length){ var _m = ncrNotifyMessage(d); qaOpenNotifyEmail(_picks, _m.subject, _m.lines); qaNotifyClear('ncr'); }
+  if (_picks.length && qaSendNcrAuto(_picks, d)){ qaNotifyClear('ncr'); }
   ncrState.mode = 'home'; ncrState.d = {}; ncrState.path = null;
   switchView('ncrprog');
 }
@@ -24125,13 +24127,35 @@ function ncrNotifyMessage(d){
   if (d.urgency) lines.push((isEs ? 'Urgencia: ' : 'Urgency: ') + d.urgency);
   return { subject: subject.trim(), lines: lines };
 }
+// NCR / Sales Approval Request emails go out AUTOMATICALLY through the Google script (a designed HTML
+// email with a big "Reply to all" button). The script re-checks the sign-in and only mails company addresses.
+// Flip to true ONLY after the updated Google script (with the NCR email) is deployed; until then NCR/Sales
+// Approval emails fall back to the Gmail compose window so nothing is ever silently dropped.
+var QA_NCR_AUTO_EMAIL = false;
+function qaSendNcrAuto(picks, n){
+  var isEs = isEsLang();
+  if (!picks || !picks.length) return false;
+  if (!QA_NCR_AUTO_EMAIL){ var gm = ncrNotifyMessage(n); return qaOpenNotifyEmail(picks, gm.subject, gm.lines); }
+  if (!_googleIdToken){ showAlert(isEs ? 'Inicie sesión para enviar el correo.' : 'Sign in to send the email.'); return false; }
+  var photos = (n.photos || []).map(function(p){ return p && p.src; }).filter(function(u){ return /^https?:\/\//i.test(String(u || '')); });
+  var slim = { path: n.path, ncrId: n.ncrId, customerFinal: n.customerFinal, jobNumber: n.jobNumber, station: n.station, product: n.product, date: n.date,
+    reportedBy: n.reportedBy, urgency: n.urgency, issueCategory: n.issueCategory, issue: n.issue, rootCause: n.rootCause, correctiveAction: n.correctiveAction,
+    disposition: n.disposition, salesSummary: n.salesSummary, proposedResolution: n.proposedResolution, photos: photos };
+  try {
+    fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: 'ncr', idToken: _googleIdToken,
+      to: picks.map(function(p){ return p.email; }), lang: isEs ? 'es' : 'en', senderName: (_signedInUser && (_signedInUser.name || _signedInUser.email)) || '', data: slim }) }).catch(function(){});
+  } catch(e){ return false; }
+  showToast((isEs ? 'Correo enviado a ' : 'Email sent to ') + picks.map(function(p){ return p.name; }).join(', '), 'pass');
+  return true;
+}
 function ncrEmailSelected(ncrId){
-  var n = ncrLoad().filter(function(x){ return x.ncrId === ncrId; })[0], isEs = isEsLang();
+  var list = ncrLoad(), n = list.filter(function(x){ return x.ncrId === ncrId; })[0], isEs = isEsLang();
   if (!n) return;
   var picks = qaNotifyPicked('ncrd');
   if (!picks.length){ showAlert(isEs ? 'Seleccione a quién enviar.' : 'Pick who to send it to first.'); return; }
-  var m = ncrNotifyMessage(n);
-  qaOpenNotifyEmail(picks, m.subject, m.lines);
+  if (!qaSendNcrAuto(picks, n)) return;
+  var seen = {}; n.emailedTo = (n.emailedTo || []).concat(picks).filter(function(p){ var k = String(p.email).toLowerCase(); if (seen[k]) return false; seen[k] = 1; return true; });
+  n.emailedAt = formatTS(); ncrSave(list); qaNotifyClear('ncrd'); renderNCRProgress();
 }
 // CAR message, built from the live form
 function carNotifyMessage(){
