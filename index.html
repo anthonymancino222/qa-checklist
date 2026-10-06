@@ -6392,6 +6392,7 @@ function _tryRestoreLocalSession() {
     _sessionEmail = String(s.sessionEmail || s.email || '').toLowerCase();
     _sessionRefreshedAt = s.sessionRefreshedAt || 0;
     setTimeout(function(){ _refreshSession(false); }, 4000);   // slides the window forward each time the app is opened (skipped if done in the last 12h)
+    setTimeout(function(){ if (typeof _rcaRetryHeldNotices === 'function') _rcaRetryHeldNotices(); }, 6000);   // CAR emails held back earlier (needs QA_SCRIPT_ACCEPTS_SESSION)
   }
   var overlay = document.getElementById('google-signin-overlay');
   if (overlay) overlay.style.display = 'none';
@@ -6479,6 +6480,17 @@ function _googleTokenFresh() {
     var p = JSON.parse(decodeURIComponent(escape(atob(_googleIdToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))));
     return !!p.exp && p.exp * 1000 > Date.now() + 60000;
   } catch (e) { return false; }
+}
+// The Google script (NCR / CAR emails) can also accept the long-lived device session (see
+// "Long-lived device session" above): it checks the token itself with the same secret as the Worker.
+// Flip to true ONLY after the updated Google script is deployed AND its SESSION_SECRET script
+// property is set — check <RCA_SCRIPT_URL>?action=ping answers sessionAuth:true, hasSecret:true.
+// While false, emails use the Google token exactly as before (and fall back safely when it expired).
+var QA_SCRIPT_ACCEPTS_SESSION = false;
+function _scriptAuthOk() { return _googleTokenFresh() || (QA_SCRIPT_ACCEPTS_SESSION && _sessionUsable()); }
+function _scriptToken() {
+  if (QA_SCRIPT_ACCEPTS_SESSION && !_googleTokenFresh() && _sessionUsable()) return _sessionToken;
+  return _googleIdToken || '';
 }
 function _authHeaders() {
   var h = {};
@@ -23424,12 +23436,13 @@ function _rcaSendNotices(id){
   if (!ev.length) return;
   // Expired Google sign-in: the Google script would silently drop these. Keep them queued
   // (nothing is cleared) and send them when a fresh token arrives — see _rcaRetryHeldNotices.
-  if (!_googleTokenFresh()){ _reactiveAuthRefresh(); return; }
+  if (!_scriptAuthOk()){ _reactiveAuthRefresh(); return; }
   var slim = _rcaSlim(rec);
   slim.carNo = slim.carNo || (slim.carTbd ? 'TBD' : '');   // emails show TBD, never a blank number
+  var _tok = _scriptToken();
   ev.forEach(function(e){
     try {
-      fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: e, token: slim.token || slim.cloudId, data: slim, recipients: _ccRecipientsFor(slim), idToken: _googleIdToken || '' }) }).catch(function(){});
+      fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: e, token: slim.token || slim.cloudId, data: slim, recipients: _ccRecipientsFor(slim), idToken: _tok }) }).catch(function(){});
     } catch(x){}
   });
   _rcaPatchLocal(id, { _notify: [] });
@@ -23437,7 +23450,7 @@ function _rcaSendNotices(id){
 // Sends CAR emails that were held back because the Google sign-in had expired. Safe to call any
 // time: _rcaSendNotices clears each record's queue only after it actually sends.
 function _rcaRetryHeldNotices(){
-  if (!_googleTokenFresh()) return;
+  if (!_scriptAuthOk()) return;
   rcaLoadRecords().forEach(function(r){
     if (r && r.cloudId && !r._cloudPending && r._notify && r._notify.length) _rcaSendNotices(r.cloudId);
   });
@@ -24398,8 +24411,8 @@ function qaSendNcrAuto(picks, n){
   var isEs = isEsLang();
   if (!picks || !picks.length) return false;
   if (!QA_NCR_AUTO_EMAIL){ var gm = ncrNotifyMessage(n); return qaOpenNotifyEmail(picks, gm.subject, gm.lines); }
-  if (!_googleIdToken){ showAlert(isEs ? 'Inicie sesión para enviar el correo.' : 'Sign in to send the email.'); return false; }
-  if (!_googleTokenFresh()){
+  if (!_googleIdToken && !(QA_SCRIPT_ACCEPTS_SESSION && _sessionUsable())){ showAlert(isEs ? 'Inicie sesión para enviar el correo.' : 'Sign in to send the email.'); return false; }
+  if (!_scriptAuthOk()){
     // The Google script would reject the expired sign-in and the app could never tell (fire-and-forget),
     // yet it would still say "Email sent". Open Gmail instead so the email genuinely goes out, and
     // quietly ask Google for a fresh token for next time.
@@ -24413,7 +24426,7 @@ function qaSendNcrAuto(picks, n){
     reportedBy: n.reportedBy, urgency: n.urgency, issueCategory: n.issueCategory, issue: n.issue, rootCause: n.rootCause, correctiveAction: n.correctiveAction,
     disposition: n.disposition, salesSummary: n.salesSummary, proposedResolution: n.proposedResolution, photos: photos };
   try {
-    fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: 'ncr', idToken: _googleIdToken,
+    fetch(RCA_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'notify', event: 'ncr', idToken: _scriptToken(),
       to: picks.map(function(p){ return p.email; }), lang: isEs ? 'es' : 'en', senderName: (_signedInUser && (_signedInUser.name || _signedInUser.email)) || '', data: slim }) }).catch(function(){});
   } catch(e){ return false; }
   showToast((isEs ? 'Correo enviado a ' : 'Email sent to ') + picks.map(function(p){ return p.name; }).join(', '), 'pass');
