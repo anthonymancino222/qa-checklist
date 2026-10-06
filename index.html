@@ -1844,6 +1844,15 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .rca-assign-row{padding:8px 0;border-top:1px solid var(--border)}
 #view-rca .rca-assign-row:first-of-type{border-top:none}
 #view-rca .rca-assign-issue{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+/* "Also notify" picker */
+.qa-notify .qa-nt-sub{ font-size:12.5px; color:var(--text-tertiary); margin:-2px 0 8px; }
+.qa-notify .qa-nt-search{ margin-bottom:8px; }
+.qa-notify .qa-nt-list{ max-height:230px; overflow:auto; border:1px solid var(--border); border-radius:10px; padding:4px; }
+.qa-notify .qa-nt-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:500; }
+.qa-notify .qa-nt-row:hover{ background:var(--surface-raised); }
+.qa-notify .qa-nt-row input{ width:18px; height:18px; accent-color:var(--brand); flex-shrink:0; }
+.qa-notify .qa-nt-em{ color:var(--text-tertiary); font-weight:400; font-size:12.5px; margin-left:4px; }
+.qa-notify .qa-nt-count{ font-size:13px; color:var(--text-secondary); margin-top:8px; }
 /* CAR contacts editor (QA Manager -> CAR Contacts) */
 #cc-pop{ display:none; position:fixed; inset:0; z-index:100001; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:12px; }
 #cc-pop.open{ display:flex; }
@@ -4952,6 +4961,9 @@ try {
     </div>
 
     <!-- Path 1 submit -->
+    <!-- Email this CAR to people picked from CAR Contacts -->
+    <div id="rca-notify-box"></div>
+
     <!-- Same quick actions as the top of the page (see rcaQuickBarHtml) -->
     <div id="rca-quickbar-bottom"></div>
 
@@ -20087,12 +20099,17 @@ function ncrSummaryHTML(d, isNew){
   // the form use the form's own button instead.
   var _ptRef = isNew ? 'current' : (d.ncrId || '');
   if (_ptRef) h += '<button type="button" class="ncr-secondary" onclick="openPalletTagFromNCR(\'' + _ptRef + '\')">🏷️ ' + (isEs?'Imprimir Etiqueta de Pallet':'Print Pallet Tag') + '</button>';
+  if (isNew) h += qaNotifyPickerHTML('ncr', d.path === 'sales' ? (isEs ? 'Enviar la solicitud de aprobación a… (opcional)' : 'Send the approval request to… (optional)') : (isEs ? 'Notificar también a… (opcional)' : 'Also notify… (optional)'),
+    isEs ? 'Al enviar, se abre Gmail con el resumen listo para enviar a las personas seleccionadas.' : 'When you submit, Gmail opens with the summary ready to send to the people you pick.');
+  else if (d.ncrId) h += qaNotifyPickerHTML('ncrd', isEs ? 'Enviar este RNC por correo a…' : 'Email this NCR to…') +
+    '<button type="button" class="ncr-secondary" onclick="ncrEmailSelected(\'' + d.ncrId + '\')">✉ ' + (isEs ? 'Abrir correo para los seleccionados' : 'Open email to selected') + '</button>';
   if (isNew) h += '<button class="btn-primary" onclick="ncrFinalize()">' + (isEs?'Enviar RNC ✓':'Submit NCR ✓') + '</button>';
   return h;
 }
 
 function ncrFinalize(){
   var d = ncrState.d;
+  var _picks = qaNotifyPicked('ncr');   // read before the screen changes
   d.ncrId = ncrNextId();
   d.status = 'Open';
   d.createdAt = formatTS();
@@ -20101,6 +20118,7 @@ function ncrFinalize(){
   list.unshift(d);
   ncrSave(list);
   updateNCRBadges();
+  if (_picks.length){ var _m = ncrNotifyMessage(d); qaOpenNotifyEmail(_picks, _m.subject, _m.lines); qaNotifyClear('ncr'); }
   ncrState.mode = 'home'; ncrState.d = {}; ncrState.path = null;
   switchView('ncrprog');
 }
@@ -23865,6 +23883,7 @@ function _carContactsApply(){
     STATION_MANAGER[st] = labels.length === 1 ? labels[0] : labels;
   });
   if (typeof _rcaRefreshMgrSelects === 'function') _rcaRefreshMgrSelects();
+  if (typeof rcaRenderNotifyBox === 'function') rcaRenderNotifyBox();
 }
 function _rcaRefreshMgrSelects(){
   ['rca-approved-by-select','rca-mgr-name-select','rca-rc-resp-select','rca-ca-resp-select'].forEach(function(id){
@@ -24046,6 +24065,104 @@ function _ccSave(){
 }
 _ccLoadCache();
 _carContactsApply();
+
+/* ── "Also notify" picker — one shared list (CAR Contacts people) for NCR, Sales Approval Request and CAR ──
+   Pick people, submit/send, and Gmail opens with a ready-to-send message to them (same approach as the
+   shortage alert). Selections are remembered per picker until it is used. ── */
+var _qaNotifySel = {};   // prefix -> { email: name }
+function qaNotifyPickerHTML(prefix, title, sub){
+  var isEs = isEsLang(), sel = _qaNotifySel[prefix] || {};
+  var rows = _notifyOptions().filter(function(o){ return o.email; }).map(function(o){
+    var on = sel[String(o.email).toLowerCase()] ? ' checked' : '';
+    return '<label class="qa-nt-row" data-q="' + escHtml((o.name + ' ' + o.email).toLowerCase()) + '"><input type="checkbox" value="' + escHtml(o.name) + '" data-email="' + escHtml(o.email) + '"' + on +
+      ' onchange="qaNotifyChange(\'' + prefix + '\')"><span>' + escHtml(o.name) + ' <span class="qa-nt-em">' + escHtml(o.email) + '</span></span></label>';
+  }).join('');
+  return '<div class="card qa-notify" id="' + prefix + '-notify"><div class="card-label">✉ ' + escHtml(title || (isEs ? 'Notificar también (opcional)' : 'Also notify (optional)')) + '</div>' +
+    (sub ? '<div class="qa-nt-sub">' + escHtml(sub) + '</div>' : '') +
+    '<input type="text" class="input qa-nt-search" placeholder="' + (isEs ? 'Buscar nombre…' : 'Search names…') + '" oninput="qaNotifyFilter(\'' + prefix + '\', this.value)">' +
+    '<div class="qa-nt-list" id="' + prefix + '-notify-list">' + rows + '</div>' +
+    '<div class="qa-nt-count" id="' + prefix + '-notify-count">' + qaNotifyCountText(prefix) + '</div></div>';
+}
+function qaNotifyCountText(prefix){
+  var n = Object.keys(_qaNotifySel[prefix] || {}).length, isEs = isEsLang();
+  return n ? (n + (isEs ? ' seleccionado(s)' : ' selected') + ' — ' + Object.keys(_qaNotifySel[prefix]).map(function(e){ return _qaNotifySel[prefix][e]; }).join(', ')) : (isEs ? 'Nadie seleccionado' : 'Nobody selected');
+}
+function qaNotifyChange(prefix){
+  var wrap = document.getElementById(prefix + '-notify'); if (!wrap) return;
+  var m = _qaNotifySel[prefix] || (_qaNotifySel[prefix] = {});
+  Array.prototype.forEach.call(wrap.querySelectorAll('input[type=checkbox]'), function(cb){
+    var k = String(cb.dataset.email).toLowerCase();
+    if (cb.checked) m[k] = cb.value; else delete m[k];
+  });
+  var c = document.getElementById(prefix + '-notify-count'); if (c) c.textContent = qaNotifyCountText(prefix);
+}
+function qaNotifyFilter(prefix, q){
+  q = String(q || '').toLowerCase().trim();
+  Array.prototype.forEach.call(document.querySelectorAll('#' + prefix + '-notify-list .qa-nt-row'), function(r){ r.style.display = (!q || r.dataset.q.indexOf(q) > -1) ? '' : 'none'; });
+}
+// [{name,email}] currently ticked in that picker
+function qaNotifyPicked(prefix){
+  var m = _qaNotifySel[prefix] || {};
+  return Object.keys(m).map(function(e){ return { name: m[e], email: e }; });
+}
+function qaNotifyClear(prefix){ _qaNotifySel[prefix] = {}; var c = document.getElementById(prefix + '-notify-count'); if (c) c.textContent = qaNotifyCountText(prefix); Array.prototype.forEach.call(document.querySelectorAll('#' + prefix + '-notify input[type=checkbox]'), function(cb){ cb.checked = false; }); }
+function _qaPlain(v){ return (v && typeof v === 'object' && 'html' in v) ? String(v.html).replace(/<[^>]*>/g, '') : String(v == null ? '' : v); }
+// Opens a Gmail compose window to the picked people with the message filled in.
+function qaOpenNotifyEmail(picks, subject, lines){
+  var isEs = isEsLang();
+  if (!picks || !picks.length) return false;
+  var to = picks.map(function(p){ return p.email; }).join(',');
+  var body = lines.join('\n') + '\n\n— ' + (isEs ? 'Abrir en la app: ' : 'Open in the app: ') + 'https://anthonymancino222.github.io/qa-checklist/';
+  window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(to) + '&su=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body), '_blank');
+  return true;
+}
+// NCR / Sales Approval Request message
+function ncrNotifyMessage(d){
+  var isEs = isEsLang(), sales = d.path === 'sales';
+  var subject = (sales ? (isEs ? 'Solicitud de Aprobación de Ventas' : 'Sales Approval Request') : (isEs ? 'RNC' : 'NCR')) + ' ' + (d.ncrId || '') + ' — ' + (d.customerFinal || '') + (d.jobNumber ? (isEs ? ' — Trabajo ' : ' — Job ') + d.jobNumber : '');
+  var lines = [sales ? (isEs ? 'Se solicita su aprobación.' : 'Your approval is requested.') : (isEs ? 'Se registró un RNC.' : 'An NCR was logged.'), ''];
+  ncrSummaryRows(d).forEach(function(r){ var v = _qaPlain(r[1]); if (v && v !== '—') lines.push(r[0] + ': ' + v); });
+  if (d.urgency) lines.push((isEs ? 'Urgencia: ' : 'Urgency: ') + d.urgency);
+  return { subject: subject.trim(), lines: lines };
+}
+function ncrEmailSelected(ncrId){
+  var n = ncrLoad().filter(function(x){ return x.ncrId === ncrId; })[0], isEs = isEsLang();
+  if (!n) return;
+  var picks = qaNotifyPicked('ncrd');
+  if (!picks.length){ showAlert(isEs ? 'Seleccione a quién enviar.' : 'Pick who to send it to first.'); return; }
+  var m = ncrNotifyMessage(n);
+  qaOpenNotifyEmail(picks, m.subject, m.lines);
+}
+// CAR message, built from the live form
+function carNotifyMessage(){
+  var isEs = isEsLang(), d = rcaCollectData(_rcaCarStatus, 'notify');
+  var label = _rcaCarLabel(d);
+  var subject = 'CAR ' + (label || '') + ' — ' + rcaStatusLabel(d.status || _rcaCarStatus) + (d.jobNumber ? (isEs ? ' — Trabajo ' : ' — Job ') + d.jobNumber : '');
+  var L = [];
+  function add(k, v){ if (v) L.push(k + ': ' + v); }
+  add('CAR #', label); add(isEs ? 'Estado' : 'Status', rcaStatusLabel(d.status || _rcaCarStatus));
+  add(isEs ? 'Trabajo' : 'Job', d.jobNumber); add(isEs ? 'Producto' : 'Product', d.productNumber); add(isEs ? 'Cliente' : 'Customer', d.customer); add(isEs ? 'Estación' : 'Station', d.station);
+  add(isEs ? 'Origen' : 'Source', d.carSource); add(isEs ? 'Originado por' : 'Originated by', d.originatedBy); add(isEs ? 'Queja / RNC original' : 'Original complaint / NCR', d.origRef);
+  L.push('');
+  add(isEs ? 'Problema' : 'Problem', d.problemStmt || d.issueDesc); add(isEs ? 'Causa raíz' : 'Root cause', d.rcSummary || d.rootCause);
+  add(isEs ? 'Acción inmediata' : 'Immediate action', d.immAction); add(isEs ? 'Acción correctiva' : 'Corrective action', d.correctiveAction);
+  add(isEs ? 'Responsable' : 'Responsible', [d.caResp, d.caDue ? (isEs ? 'vence ' : 'due ') + d.caDue : ''].filter(Boolean).join(' · '));
+  add(isEs ? 'Disposición' : 'Disposition', d.disposition);
+  add(isEs ? 'Verificación' : 'Verification', [d.verifyMethod, d.verifiedBy, d.verifyDate].filter(Boolean).join(' · ')); add(isEs ? 'Resultados' : 'Results', d.verifyResults); add(isEs ? '¿Efectiva?' : 'Effective?', d.effective);
+  return { subject: subject.trim(), lines: L };
+}
+function rcaEmailSelected(){
+  var isEs = isEsLang(), picks = qaNotifyPicked('car');
+  if (!picks.length){ showAlert(isEs ? 'Seleccione a quién enviar.' : 'Pick who to send it to first.'); return; }
+  var m = carNotifyMessage();
+  qaOpenNotifyEmail(picks, m.subject, m.lines);
+}
+function rcaRenderNotifyBox(){
+  var box = document.getElementById('rca-notify-box'); if (!box) return;
+  var isEs = isEsLang();
+  box.innerHTML = qaNotifyPickerHTML('car', isEs ? 'Enviar esta ACR por correo a… (opcional)' : 'Email this CAR to… (optional)', isEs ? 'Se abre Gmail con el resumen listo para enviar. Los gerentes de la estación ya reciben sus correos automáticamente.' : 'Opens Gmail with the summary ready to send. The station managers already get their emails automatically.') +
+    '<div class="action-row" style="margin:-6px 0 12px"><button type="button" class="btn" onclick="rcaEmailSelected()">✉ ' + (isEs ? 'Abrir correo para los seleccionados' : 'Open email to selected') + '</button></div>';
+}
 
 /* ══════════════════════════════════
    SHIPPING APPROVAL MODULE
@@ -25483,6 +25600,7 @@ function rcaRenderDraftList(){
   box.innerHTML = head + rows.map(function(x){ return rowHtml(x, isEs?'Continuar':'Continue'); }).join('') + pvHtml + '</div>';
   var bottom = document.getElementById('rca-quickbar-bottom');
   if (bottom) bottom.innerHTML = _rcaQuickBarHtml();
+  if (typeof rcaRenderNotifyBox === 'function') rcaRenderNotifyBox();
 }
 // "Start new draft" — clears the form back to the choose-a-path screen. If a
 // form is already open, confirm first since unsaved entries would be lost.
