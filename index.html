@@ -1400,6 +1400,12 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   .home-card-list { display: grid; grid-template-columns: 1fr 1fr; }
   .home-card-start { grid-column: 1 / -1; }
 }
+/* Desktop: Home takes the full width (see .main-wide, toggled in switchView)
+   and centers a 3-column card grid, instead of a narrow column pinned to the
+   left with a blank strip to its right. Phones and tablets are unchanged. */
+@media (min-width: 1024px) {
+  #view-home .home-card-list { grid-template-columns: repeat(3, 1fr); max-width: 1040px; gap: 18px; }
+}
 /* QC Approval is where every new job/product entry actually starts — made
    visually distinct (not just another tile in the grid) so a new or
    unsure operator's eye lands there first, full-width on wider screens. */
@@ -11674,7 +11680,7 @@ function switchView(id) {
   // The kanban board is the one view that actually benefits from more than
   // .main's usual 860px cap — see .main-wide's own comment.
   var mainEl = document.getElementById('mainContent');
-  if (mainEl) mainEl.classList.toggle('main-wide', id === 'inprogress' || id === 'ncrpie');
+  if (mainEl) mainEl.classList.toggle('main-wide', id === 'inprogress' || id === 'ncrpie' || id === 'home');
   if (id === 'inprogress') renderInProgress();
   if (id === 'qarelease')  renderQARelease();
   if (id === 'qc')         { checkDraftBanner(); checkQcLanding(); }
