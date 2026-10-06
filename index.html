@@ -375,6 +375,15 @@ body.sidebar-expanded .nav-status {
    enough, and avoids relying on 100vw (which can disagree with the actual
    flex-computed width when a scrollbar or side panel is involved). */
 .main.main-wide { max-width: none; }
+/* Desktop: .main fills the width (so its scrollbar stays at the window edge)
+   and each normal screen is centered in it at the same 812px content width the
+   860px cap used to give, instead of sitting pinned to the left with a blank
+   strip on the right. Phones/tablets (<1024px) are unchanged. Fixed overlays
+   and the language button are position:fixed, so they're unaffected. */
+@media (min-width: 1024px) {
+  .main { max-width: none; }
+  .main:not(.main-wide) > .screen { max-width: 812px; margin-inline: auto; }
+}
 
 /* Job/Product/Form ID highlight — wraps just the VALUE (never the label)
    anywhere one is displayed as read-only text, so it jumps out while
@@ -23845,6 +23854,7 @@ rcaRenderCascadeGrids(true);
 var CAR_CONTACTS_KEY = 'qa_car_contacts_v1';
 var CAR_CONTACTS_ID = 'carcontacts-main';
 var _carContacts = null;
+var _qaNotifySel = {};   // declared up here: the load-time apply below renders the notify box, which reads it
 // Everyone who can be picked in a "who should we notify?" list (shortage / overs alerts today). Comes from
 // the CAR Contacts people list; falls back to the old built-in list until contacts exist.
 function _notifyOptions(){
@@ -24072,13 +24082,13 @@ function _ccSave(){
     });
   }).catch(function(){ put(); });
 }
-_ccLoadCache();
-_carContactsApply();
+// An optional feature must NEVER be able to stop the rest of the app from starting: any failure here is
+// logged and skipped (the whole app used to halt at this line when contacts were cached on the device).
+try { _ccLoadCache(); _carContactsApply(); } catch(e){ try { console.error('CAR contacts failed to initialize (app continues):', e); } catch(e2){} }
 
 /* ── "Also notify" picker — one shared list (CAR Contacts people) for NCR, Sales Approval Request and CAR ──
    Pick people, submit/send, and Gmail opens with a ready-to-send message to them (same approach as the
    shortage alert). Selections are remembered per picker until it is used. ── */
-var _qaNotifySel = {};   // prefix -> { email: name }
 function qaNotifyPickerHTML(prefix, title, sub){
   var isEs = isEsLang(), sel = _qaNotifySel[prefix] || {};
   var rows = _notifyOptions().filter(function(o){ return o.email; }).map(function(o){
