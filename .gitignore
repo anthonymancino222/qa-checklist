@@ -10,3 +10,7 @@ Read REGRESSION_CHECKLIST.md and mo.txt
 ~$*
 *.txt
 Reference photos/
+
+# test tooling (installed locally)
+tests/node_modules/
+.smoke-last.txt
