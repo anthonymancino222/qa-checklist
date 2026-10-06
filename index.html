@@ -20175,7 +20175,7 @@ function renderNCRProgress(){
           '<input type="text" class="input" id="ncr-close-reportedby-other" placeholder="' + (_npEs ? 'Ingrese el nombre' : 'Enter name') + '" style="margin-top:7px;display:none"></div>' +
           '<button class="btn-primary" onclick="ncrClose(\''+n.ncrId+'\')">' + (_npEs ? 'Cerrar RNC ✓' : 'Close NCR ✓') + '</button></div>';
       }
-      h += '<button class="ncr-secondary" style="border-color:var(--red);color:var(--red);margin-top:12px;" onclick="deleteNCRInProgress(\''+n.ncrId+'\')">🗑️ ' + (_npEs ? 'Eliminar RNC' : 'Delete NCR') + '</button>';
+      if (_isDataEditAllowedUser()) h += '<button class="ncr-secondary" style="border-color:var(--red);color:var(--red);margin-top:12px;" onclick="deleteNCRInProgress(\''+n.ncrId+'\')">🗑️ ' + (_npEs ? 'Eliminar RNC' : 'Delete NCR') + '</button>';
       el.innerHTML = h;
       return;
     }
@@ -20186,7 +20186,8 @@ function renderNCRProgress(){
     var cls = n.status==='Closed'?'closed':(n.status==='In Progress'?'inprog':'open');
     var statusLabel = n.status==='Closed' ? (_npEs?'Cerrado':'Closed') : n.status==='In Progress' ? (_npEs?'En Progreso':'In Progress') : (_npEs?'Abierto':'Open');
     return '<div class="ncr-list-item" onclick="ncrState.detailId=\''+n.ncrId+'\';renderNCRProgress()">' +
-      '<div class="ncr-list-top"><span class="ncr-list-id">'+n.ncrId+'</span><span class="ncr-status '+cls+'">'+statusLabel+'</span></div>' +
+      '<div class="ncr-list-top"><span class="ncr-list-id">'+n.ncrId+'</span><span style="display:flex;align-items:center;gap:8px;"><span class="ncr-status '+cls+'">'+statusLabel+'</span>' +
+      (n.status!=='Closed' && _isDataEditAllowedUser() ? '<button type="button" class="ncr-row-x" style="padding:4px 10px;font-size:14px;" onclick="event.stopPropagation();deleteNCRInProgress(\''+n.ncrId+'\')">🗑️ ' + (_npEs ? 'Eliminar' : 'Delete') + '</button>' : '') + '</span></div>' +
       '<div class="ncr-list-meta">'+_ncrEsc(n.customerFinal)+' · '+_ncrEsc(ncrPathTitle(n.path))+(n.jobNumber?' · '+(_npEs?'Trabajo ':'Job ')+_ncrEsc(n.jobNumber):'')+(n.station?' · '+_ncrEsc(n.station):'')+' · '+_ncrEsc(n.createdAt)+'</div></div>';
   }
   el.innerHTML =
@@ -25613,7 +25614,10 @@ function rcaRenderDraftList(){
       '<div style="min-width:0"><div style="font-weight:700;font-size:15px">' + (_rcaCarLabel(r) ? (isEs?'ACR ':'CAR ') + escHtml(_rcaCarLabel(r)) + ' · ' : '') + (isEs?'Trabajo ':'Job ') + escHtml(r.jobNumber || '—') +
       (overdue ? ' <span style="color:var(--red);font-size:12px;font-weight:700">' + (isEs?'VENCIDA':'OVERDUE') + '</span>' : '') + '</div>' +
       '<div style="font-size:13px;color:var(--text-tertiary)">' + meta + '</div></div>' +
-      '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + btnLabel + '</button></div>';
+      '<div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">' +
+      '<button type="button" class="btn btn-primary" onclick="rcaContinueDraft(\'rca-' + x.idx + '\')">▶️ ' + btnLabel + '</button>' +
+      (_isDataEditAllowedUser() ? '<button type="button" class="btn" style="border-color:var(--red);color:var(--red)" title="' + (isEs?'Eliminar':'Delete') + '" onclick="rcaDeleteOpenCar(\'rca-' + x.idx + '\')">🗑️ ' + (isEs?'Eliminar':'Delete') + '</button>' : '') +
+      '</div></div>';
   }
   var head = '<div class="section" style="margin-bottom:1rem">' + _rcaQuickBarHtml() +
     ((rows.length || pending.length) ? '' : '<div class="section-title">' + (isEs ? 'No hay borradores guardados' : 'No saved drafts') + '</div>') +
@@ -25625,6 +25629,42 @@ function rcaRenderDraftList(){
   var bottom = document.getElementById('rca-quickbar-bottom');
   if (bottom) bottom.innerHTML = _rcaQuickBarHtml();
   if (typeof rcaRenderNotifyBox === 'function') rcaRenderNotifyBox();
+}
+/* Delete an open CAR / draft from the "Continue an open CAR" list. Managers
+   only (the same DATA_EDIT_ALLOWED_EMAILS roster as every other delete in the
+   app), with a confirm and the same audit trail + server-side delete the
+   Records tab uses. A draft job can have several older saved copies (each
+   save mirrors a new one), so every open copy of the same CAR/draft goes, not
+   just the newest — otherwise the next older copy would pop back into the list.
+   Closed records are never touched here. */
+function rcaDeleteOpenCar(idxKey){
+  var isEs = isEsLang();
+  if (!_isDataEditAllowedUser()){
+    showAlert(isEs ? 'Eliminar registros está restringido a una cuenta específica.' : 'Deleting records is restricted to a specific account.');
+    return;
+  }
+  var list = rcaLoadRecords();
+  var r = list[parseInt(String(idxKey).replace('rca-',''), 10)];
+  if (!r) return;
+  var label = (_rcaCarLabel(r) ? (isEs ? 'ACR ' : 'CAR ') + _rcaCarLabel(r) + ' · ' : '') + (isEs ? 'Trabajo ' : 'Job ') + (r.jobNumber || '—');
+  showConfirm(
+    isEs ? ('Esto eliminará ' + label + ' de forma permanente. Esta acción no se puede deshacer.') : ('This will permanently delete ' + label + '. This cannot be undone.'),
+    function(ok){
+      if (!ok) return;
+      var key = function(x){ return (x.carNo || x.carTbd) ? 'car|' + (x.cloudId || x.carNo) : (x.jobNumber||'') + '|' + (x.station||''); };
+      var isOpen = function(x){ return x.status === 'Draft' || x.status === 'Open' || x.status === 'Pending Verification'; };
+      var cur = rcaLoadRecords(), hits = [];
+      cur.forEach(function(x, i){ if (x && isOpen(x) && key(x) === key(r)) hits.push(i); });
+      if (!hits.length){ rcaRenderDraftList(); return; }
+      _recordDeleteAuditEntry('rca', 'rca-' + hits[0], 'DATA EDIT — Open CAR Deleted from CAR list', _deleteAuditSummary('rca', 'rca-' + hits[0]));
+      for (var k = hits.length - 1; k >= 0; k--) _deleteRecordById('rca', 'rca-' + hits[k]);   // high index first so the rest stay valid
+      if (r.carNo && _rcaLoadedCar && String(_rcaLoadedCar).toLowerCase() === String(r.carNo).toLowerCase()) rcaResetForm();
+      rcaRenderDraftList();
+      if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
+      showToast(isEs ? 'ACR eliminada' : 'CAR deleted', 'pass');
+    },
+    { okLabel: isEs ? 'Eliminar' : 'Delete' }
+  );
 }
 // "Start new draft" — clears the form back to the choose-a-path screen. If a
 // form is already open, confirm first since unsaved entries would be lost.
