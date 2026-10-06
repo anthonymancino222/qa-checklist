@@ -6470,6 +6470,16 @@ function _renderQaManagerAccess() {
 // the backend, bypassing the Google sign-in allowlists entirely) is gone
 // now that sign-in is mandatory to use the app at all — every real request
 // already carries a verified Google ID token.
+// Is the Google ID token we hold still valid? The Google script (NCR / CAR emails) checks it with
+// Google, which rejects an expired one — and those requests are fire-and-forget, so an expired token
+// means the email is silently never sent. Callers use this to avoid claiming "sent" when it can't be.
+function _googleTokenFresh() {
+  try {
+    if (!_googleIdToken) return false;
+    var p = JSON.parse(decodeURIComponent(escape(atob(_googleIdToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))));
+    return !!p.exp && p.exp * 1000 > Date.now() + 60000;
+  } catch (e) { return false; }
+}
 function _authHeaders() {
   var h = {};
   // The device session (long-lived) wins when there is one; otherwise the Google token.
@@ -6536,6 +6546,7 @@ function _onGoogleSignIn(response) {
   if (typeof _syncInitialPull === 'function') _syncInitialPull();
   setTimeout(function(){ if (typeof rosterPullRemote === 'function') rosterPullRemote(); }, 0);
   setTimeout(function(){ if (typeof rcaFlushPending === 'function') rcaFlushPending(); }, 2000);
+  setTimeout(function(){ if (typeof _rcaRetryHeldNotices === 'function') _rcaRetryHeldNotices(); }, 4000);   // CAR emails held while the Google sign-in was expired
   setTimeout(function(){ if (typeof carContactsPull === 'function') carContactsPull(false); }, 2500);   // one single-record read per app load
   setTimeout(_initScheduleAutoPull, 0);
 }
@@ -23411,6 +23422,9 @@ function _rcaSendNotices(id){
   var rec = _rcaLocalById(id);
   var ev = (rec && rec._notify) || [];
   if (!ev.length) return;
+  // Expired Google sign-in: the Google script would silently drop these. Keep them queued
+  // (nothing is cleared) and send them when a fresh token arrives — see _rcaRetryHeldNotices.
+  if (!_googleTokenFresh()){ _reactiveAuthRefresh(); return; }
   var slim = _rcaSlim(rec);
   slim.carNo = slim.carNo || (slim.carTbd ? 'TBD' : '');   // emails show TBD, never a blank number
   ev.forEach(function(e){
@@ -23419,6 +23433,14 @@ function _rcaSendNotices(id){
     } catch(x){}
   });
   _rcaPatchLocal(id, { _notify: [] });
+}
+// Sends CAR emails that were held back because the Google sign-in had expired. Safe to call any
+// time: _rcaSendNotices clears each record's queue only after it actually sends.
+function _rcaRetryHeldNotices(){
+  if (!_googleTokenFresh()) return;
+  rcaLoadRecords().forEach(function(r){
+    if (r && r.cloudId && !r._cloudPending && r._notify && r._notify.length) _rcaSendNotices(r.cloudId);
+  });
 }
 function _rcaCloudFlushOne(id){
   if (!_googleIdToken) return Promise.resolve({ ok: false, why: 'auth' });
@@ -24377,6 +24399,15 @@ function qaSendNcrAuto(picks, n){
   if (!picks || !picks.length) return false;
   if (!QA_NCR_AUTO_EMAIL){ var gm = ncrNotifyMessage(n); return qaOpenNotifyEmail(picks, gm.subject, gm.lines); }
   if (!_googleIdToken){ showAlert(isEs ? 'Inicie sesión para enviar el correo.' : 'Sign in to send the email.'); return false; }
+  if (!_googleTokenFresh()){
+    // The Google script would reject the expired sign-in and the app could never tell (fire-and-forget),
+    // yet it would still say "Email sent". Open Gmail instead so the email genuinely goes out, and
+    // quietly ask Google for a fresh token for next time.
+    _reactiveAuthRefresh();
+    showToast(isEs ? '⚠ La sesión de Google venció — se abrió Gmail para enviar el correo' : '⚠ Google sign-in expired — opened Gmail so the email still gets sent', 'fail');
+    var gmx = ncrNotifyMessage(n);
+    return qaOpenNotifyEmail(picks, gmx.subject, gmx.lines);
+  }
   var photos = (n.photos || []).map(function(p){ return p && p.src; }).filter(function(u){ return /^https?:\/\//i.test(String(u || '')); });
   var slim = { path: n.path, ncrId: n.ncrId, customerFinal: n.customerFinal, jobNumber: n.jobNumber, station: n.station, product: n.product, date: n.date,
     reportedBy: n.reportedBy, urgency: n.urgency, issueCategory: n.issueCategory, issue: n.issue, rootCause: n.rootCause, correctiveAction: n.correctiveAction,
