@@ -762,7 +762,7 @@ select.input.station-select-picked {
 .batch-sheet-thumb { width:44px; height:44px; border-radius:8px; background:var(--bg); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; overflow:hidden; }
 .batch-sheet-thumb img { width:44px; height:44px; object-fit:cover; border-radius:8px; }
 .batch-sheet-info { flex:1; min-width:0; }
-.batch-sheet-pn { font-size:14px; font-weight:700; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.batch-sheet-pn { font-size:14px; font-weight:700; color:var(--text-primary); overflow-wrap:anywhere; }
 .batch-sheet-sub { font-size:14px; color:var(--text-tertiary); margin-top:2px; }
 .batch-sheet-status { font-size:13.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; }
 
@@ -782,7 +782,7 @@ select.input.station-select-picked {
 .gluer-prod-row-hdr { display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; background:rgba(77,124,0,.07); -webkit-tap-highlight-color:transparent; transition:background .15s; }
 .gluer-prod-row-hdr:active { background:rgba(77,124,0,.18); }
 .gluer-prod-label { font-size:14px; font-weight:800; color:var(--brand); min-width:74px; }
-.gluer-prod-pn-disp { flex:1; font-size:15px; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gluer-prod-pn-disp { flex:1; font-size:15px; color:var(--text-primary); overflow-wrap:anywhere; }
 .gluer-prod-check { font-size:14px; color:#16a34a; font-weight:700; }
 .gluer-prod-chevron { font-size:15px; color:var(--brand); transition:transform .2s; }
 .gluer-prod-chevron.open { transform:rotate(180deg); }
@@ -1308,7 +1308,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 /* Label text — nowrap + ellipsis rather than wrapping to a 2nd line, which
    used to run one tab's label into the next tab's icon/label at 6-across. */
 .bnav-label {
-  font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 10.5px; white-space: nowrap; overflow: visible;
   max-width: 100%;
 }
 .bnav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
@@ -1353,7 +1353,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
    number/type badge here instead of the row wrapping like it should. */
 .jp-list-info { flex: 1 1 180px; min-width: 0; }
 .jp-list-job { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.jp-list-sub { font-size: 14px; color: var(--text-secondary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jp-list-sub { font-size: 14px; color: var(--text-secondary); margin-top: 1px; overflow-wrap:anywhere; }
 .jp-list-badges { display: flex; gap: 6px; flex-shrink: 0; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 
 /* Records' "Tile" view — a grid of self-contained cards instead of one row
@@ -1506,7 +1506,7 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   /* Long names ("Anthony Mancino") were themselves sometimes enough to push
      this row over and force it to wrap — capped + ellipsized rather than
      truncated by JS, so the real value is untouched, only its display is. */
-  #signed-in-user { max-width: 110px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+  #signed-in-user { max-width: 110px; white-space: normal; overflow-wrap: anywhere; line-height: 1.15; display: inline-block; vertical-align: middle; }
 
   /* Sidebar hidden entirely — replaced by bottom nav */
   .sidebar { display: none !important; }
@@ -20764,17 +20764,47 @@ function _qaDoughnut(id, labels, data, colors){
     options: { responsive: true, maintainAspectRatio: true, cutout: '68%', plugins: { legend: { display: false } } }
   });
 }
+// Word-wraps a long label into lines (Chart.js draws an array label as several lines), so nothing is
+// clipped at the edge of the chart. Hard-breaks a single word longer than a line.
+function _qaWrapLabel(text, maxChars){
+  text = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+  if (text.length <= maxChars) return text;
+  var words = text.split(' '), lines = [], cur = '';
+  words.forEach(function(w){
+    while (w.length > maxChars){ if (cur){ lines.push(cur); cur = ''; } lines.push(w.slice(0, maxChars)); w = w.slice(maxChars); }
+    if (!cur) cur = w;
+    else if ((cur + ' ' + w).length <= maxChars) cur += ' ' + w;
+    else { lines.push(cur); cur = w; }
+  });
+  if (cur) lines.push(cur);
+  return lines;
+}
 function _qaHBar(id, labels, datasets){
   _qaDestroyChart(id);
   var canvas = document.getElementById(id);
   if (!canvas || typeof Chart === 'undefined') return;
+  // The label column may use about 40% of the chart's width (at ~6px per character); longer labels
+  // wrap onto more lines, and the chart gets taller so every line stays readable. Full text is in the tooltip.
+  var holder = canvas.parentElement;
+  var width = (holder && holder.clientWidth) || 600;
+  var maxChars = Math.max(16, Math.min(70, Math.floor(width * 0.4 / 6)));
+  var wrapped = labels.map(function(l){ return _qaWrapLabel(l, maxChars); });
+  var maxLines = wrapped.reduce(function(m, l){ return Math.max(m, Array.isArray(l) ? l.length : 1); }, 1);
+  if (holder && maxLines > 1){
+    var rowH = Math.max(34, maxLines * 14 + 14);
+    var minH = wrapped.length * rowH + 50;
+    if (minH > holder.clientHeight) holder.style.height = minH + 'px';
+  }
   _qaCharts[id] = new Chart(canvas.getContext('2d'), {
     type: 'bar',
-    data: { labels: labels, datasets: datasets },
+    data: { labels: wrapped, datasets: datasets },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: datasets.length > 1, position: 'bottom' } },
-      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+      plugins: {
+        legend: { display: datasets.length > 1, position: 'bottom' },
+        tooltip: { callbacks: { title: function(items){ var i = items[0].dataIndex; return String(labels[i]); } } }
+      },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { ticks: { autoSkip: false, font: { size: 11 } } } }
     }
   });
 }
