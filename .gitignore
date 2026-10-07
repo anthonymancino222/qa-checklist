@@ -14,3 +14,6 @@ Reference photos/
 # test tooling (installed locally)
 tests/node_modules/
 .smoke-last.txt
+
+# Google Apps Script source (contains the export key + manager emails) - never publish
+google-script/
