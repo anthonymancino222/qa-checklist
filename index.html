@@ -1931,6 +1931,11 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #rca-expand-pop .rca-expand-x:hover{ background:var(--brand,#73a600); color:#fff; border-color:var(--brand,#73a600); }
 #rca-expand-pop .rca-expand-ta{ width:100%; min-height:38vh; flex:1 1 auto; resize:vertical; font:inherit; font-size:16px; line-height:1.5; padding:10px 12px; border-radius:10px; border:1.5px solid var(--border-mid,#999); background:var(--surface-raised,#fafafa); color:inherit; }
 #rca-expand-pop .rca-expand-hint{ font-size:12px; color:var(--text-tertiary,#777); }
+/* CAR target close date: pick a date, or ASAP / TBD */
+.rca-tc-opts{ display:flex; gap:6px; margin-top:6px; }
+.rca-tc-btn{ border:1.5px solid var(--border-mid); background:var(--surface); color:var(--text-secondary); border-radius:999px; padding:4px 14px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+.rca-tc-btn:hover{ border-color:var(--brand); }
+.rca-tc-btn.on{ background:var(--brand); border-color:var(--brand); color:#fff; }
 /* Gluer: change the number of products in a multi-product job */
 .gluer-batch-bar{ display:none; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-soft); border:1px solid var(--brand); border-radius:10px; padding:8px 12px; margin-bottom:12px; font-size:14px; font-weight:700; color:var(--brand-dark); }
 .gluer-count-edit{ background:none; border:none; color:var(--brand-dark); text-decoration:underline; font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:4px 2px; }
@@ -4454,6 +4459,11 @@ try {
           <div class="field-group">
             <label><span data-en>Target close date</span><span data-es>Fecha objetivo de cierre</span></label>
             <input type="date" id="rca-target-close" oninput="this.dataset.touched='1'">
+            <div class="rca-tc-opts" id="rca-tc-opts">
+              <button type="button" class="rca-tc-btn" data-tc="ASAP" onclick="rcaSetTargetMode('ASAP')"><span data-en>ASAP</span><span data-es>Lo antes posible</span></button>
+              <button type="button" class="rca-tc-btn" data-tc="TBD" onclick="rcaSetTargetMode('TBD')"><span data-en>TBD</span><span data-es>Por definir</span></button>
+            </div>
+            <input type="hidden" id="rca-target-mode">
           </div>
         </div>
         <div class="field-row">
@@ -21915,8 +21925,25 @@ function _rcaRefreshPhaseUi(){
     pill.className = 'rca-carpill' + (_rcaCarStatus === 'Pending Verification' ? ' pv' : _rcaCarStatus === 'Closed' ? ' cl' : '');
   }
 }
+// Target close date can be a real date OR the words ASAP / TBD. Tapping the lit-up option again goes back to a date.
+function _rcaApplyTargetMode(mode, refill){
+  var m = document.getElementById('rca-target-mode'), t = document.getElementById('rca-target-close');
+  if (!m) return;
+  m.value = mode || '';
+  if (t){
+    t.disabled = !!mode;
+    if (mode) t.value = '';
+    else if (refill){ delete t.dataset.touched; rcaOpenDateChanged(); }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#rca-tc-opts .rca-tc-btn'), function(b){ b.classList.toggle('on', b.dataset.tc === (mode || '')); });
+}
+function rcaSetTargetMode(mode){
+  var m = document.getElementById('rca-target-mode');
+  _rcaApplyTargetMode(m && m.value === mode ? '' : mode, true);
+}
 function rcaOpenDateChanged(){
   var t = document.getElementById('rca-target-close'), o = rcaGetVal('open-date');
+  if (rcaGetVal('target-mode')) return;
   if (!t || t.dataset.touched || !o) return;
   var p = o.split('-'); if (p.length !== 3) return;
   var d = new Date(+p[0], +p[1]-1, +p[2] + 90);   // CAR log convention: ~90 days to close
@@ -23228,7 +23255,7 @@ function rcaCollectData(status, action){
     closeDate:rcaGetVal('close-date'), closeNotes:rcaGetVal('close-notes'),
     closeQATech:rcaGetCloseQAName(), verifyMethod:rcaGetVal('verify-method'),
     // CAR traceability / 3-phase fields (Path 1)
-    carNo:(_rcaCarTbd() ? '' : rcaGetVal('car-no')), carTbd:_rcaCarTbd(), tbdId:_rcaTbdId, openDate:rcaGetVal('open-date'), targetClose:rcaGetVal('target-close'),
+    carNo:(_rcaCarTbd() ? '' : rcaGetVal('car-no')), carTbd:_rcaCarTbd(), tbdId:_rcaTbdId, openDate:rcaGetVal('open-date'), targetClose:(rcaGetVal('target-mode') || rcaGetVal('target-close')),
     carSource:rcaGetVal('car-source'), originatedBy:rcaGetVal('originated-by'), origRef:rcaGetVal('orig-ref'),
     moquinNcr:rcaGetVal('moquin-ncr'), customerNcr:rcaGetVal('customer-ncr'),
     lotQty:rcaGetVal('lot-qty'), qtyInsp:rcaGetVal('qty-insp'), qtyRej:rcaGetVal('qty-rej'),
@@ -23629,6 +23656,7 @@ function rcaResetForm(){
   var _tb = document.getElementById('rca-car-tbd'); if (_tb) _tb.checked = false;
   var _tr = document.getElementById('rca-tbd-row'); if (_tr) _tr.style.display = '';
   var _tc = document.getElementById('rca-target-close'); if (_tc) delete _tc.dataset.touched;
+  _rcaApplyTargetMode('', false);
   document.getElementById('rca-form-body').classList.remove('rca-p1');
   rcaCurrentPath = null;
 
@@ -25889,7 +25917,7 @@ function rcaRenderDraftList(){
   box.classList.remove('hidden');
   function rowHtml(x, btnLabel){
     var r = x.r;
-    var overdue = r.status === 'Pending Verification' && r.targetClose && r.targetClose < today;
+    var overdue = r.status === 'Pending Verification' && /^\d{4}-/.test(r.targetClose || '') && r.targetClose < today;
     var meta = [r.station ? stationLabel(r.station) : '', r.customer || '',
       r.status === 'Pending Verification' && r.targetClose ? (isEs?'cierre objetivo ':'target close ') + r.targetClose : '',
       r.savedAt ? (isEs?'guardado ':'saved ') + r.savedAt : ''].filter(Boolean).map(escHtml).join(' · ');
@@ -26217,6 +26245,7 @@ function _rcaFillCarFields(r){
   var cin = document.getElementById('rca-car-no'); if (cin){ cin.disabled = tbOn; cin.placeholder = tbOn ? 'TBD' : '2026-17'; }
   set('open-date', r.openDate); set('target-close', r.targetClose);
   var tc = document.getElementById('rca-target-close'); if (tc){ if (r.targetClose) tc.dataset.touched = '1'; else delete tc.dataset.touched; }
+  _rcaApplyTargetMode((r.targetClose === 'ASAP' || r.targetClose === 'TBD') ? r.targetClose : '', false);
   set('car-source', r.carSource); set('originated-by', r.originatedBy); set('orig-ref', r.origRef);
   set('moquin-ncr', r.moquinNcr); set('customer-ncr', r.customerNcr);
   set('lot-qty', r.lotQty); set('qty-insp', r.qtyInsp); set('qty-rej', r.qtyRej);

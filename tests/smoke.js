@@ -148,6 +148,24 @@ const FLOWS = `
     ipSave(keep, { preserveTouch: true });
   });
 
+  await step('CAR target close date: date / ASAP / TBD, saved and reloaded', async function(){
+    switchView('rca'); rcaResetForm(); rcaSetPath(1); await sleep(30);
+    $('rca-open-date').value = '2026-10-07'; rcaOpenDateChanged();
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(rcaCollectData('Open', 'x').targetClose)) throw new Error('default target close should be a date');
+    rcaSetTargetMode('ASAP');
+    if (rcaCollectData('Open', 'x').targetClose !== 'ASAP' || !$('rca-target-close').disabled) throw new Error('ASAP not applied');
+    rcaSetTargetMode('TBD');
+    if (rcaCollectData('Open', 'x').targetClose !== 'TBD') throw new Error('TBD not applied');
+    var rec = rcaCollectData('Open', 'x'); _rcaFillCarFields(rec);
+    if (rcaCollectData('Open', 'x').targetClose !== 'TBD') throw new Error('TBD lost when a saved CAR is reopened');
+    rcaSetTargetMode('TBD');   // tapping the lit option again goes back to a date
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(rcaCollectData('Open', 'x').targetClose) || $('rca-target-close').disabled) throw new Error('could not go back to a date');
+    var d = rcaCollectData('Open', 'x'); d.carNo = 'T-1'; d.targetClose = 'ASAP'; _rcaBuildReport(d);
+    if (!/ASAP/.test($('rca-pdf-report').textContent)) throw new Error('ASAP missing from the PDF report');
+    rcaResetForm();
+    if ($('rca-target-mode').value !== '') throw new Error('reset did not clear the target mode');
+  });
+
   await step('Records list + CAR popup', async function(){
     switchView('records'); renderRecords();
     if (rcaLoadRecords().length) openRecordRCA('rca-0');
