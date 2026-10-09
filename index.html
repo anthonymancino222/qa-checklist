@@ -19777,40 +19777,23 @@ function ncrRevealSteps(){
 function ncrFormHTML() {
   var isEs = isEsLang();
   var d = ncrState.d;
-  var qcJobs = ipLoad();
-  var hasScheduleJobs = !!(_scheduleData && _scheduleData.jobs && Object.keys(_scheduleData.jobs).length);
-  var prefillHTML = '<div class="field"><div class="field-label">' + (isEs?'Extraer de un trabajo de QC':'Pull from QC job') + ' <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">(' + (isEs?'opcional':'optional') + ')</span></div>';
-  // "Pull Schedule" here too — same button/behavior as the QC setup screen
-  // (pullScheduleNow()) — so this search can also find any job on today's
-  // pulled schedule, not just jobs that already have a QC entry recorded in
-  // this browser. Also ensures _scheduleData is fresh right before the
-  // search below runs, on a device that hasn't opened the QC screen yet.
-  prefillHTML += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">' +
+  // Job number — the same behavior as the QC setup screen: start typing and matching jobs from the
+  // pulled schedule (plus jobs already run through QC on this device) appear right away; picking one
+  // fills in the customer and product ID(s). "Pull Schedule" sits under the field, with the same
+  // status line, so a device that hasn't pulled yet can do it without leaving the form.
+  var jobFieldHTML = '<div class="field"><div class="field-label">' + (isEs?'Número de trabajo':'Job number') + ' <span class="req">*</span></div>' +
+    '<div style="position:relative;">' +
+    '<input type="text" class="input" id="ncr-job-search" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" ' +
+    'placeholder="' + (isEs?'Escriba el # de trabajo…':'Type job #…') + '" value="'+_ncrEsc(d.jobNumber||'')+'" ' +
+    'oninput="ncrFilterJob()" onfocus="ncrFilterJob()" onblur="setTimeout(ncrCloseJobDrop,200)">' +
+    '<div class="customer-drop" id="ncr-job-drop" style="display:none;"></div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;">' +
     '<button type="button" class="pull-schedule-btn" style="padding:10px 16px;font-size:14px;" onclick="ncrPullScheduleClick()">🔄 ' + (isEs?'Actualizar Programa':'Pull Schedule') + '</button>' +
-    '<span id="ncr-schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);"></span>' +
+    '<span id="ncr-schedule-pull-status" style="font-size:12px;color:var(--text-tertiary);">' + _ncrScheduleStatusText() + '</span>' +
+    '</div>' +
+    '<small class="hint" style="display:block;margin-top:6px;">' + (isEs?'Empiece a escribir para ver trabajos coincidentes; al elegir uno se llenan el cliente y el producto.':'Start typing to see matching jobs — pick one to fill in the customer and product.') + '</small>' +
     '</div>';
-  if (qcJobs.length || hasScheduleJobs){
-    var preselectedLabel = '';
-    if (d.__prefillFrom){
-      var pj = qcJobs.filter(function(j){ return j.id === d.__prefillFrom; })[0];
-      if (pj){
-        var ppf = pj.formNumber || pj.productNumber || pj.product || '';
-        preselectedLabel = (pj.jobNumber||'?') + ' · ' + (pj.station||'') + (pj.customer?' · '+pj.customer:'') + (ppf?' · '+ppf:'');
-      }
-    } else if (d.__prefillScheduleJobNumber) {
-      preselectedLabel = _ncrScheduleLabel(d.__prefillScheduleJobNumber);
-    }
-    prefillHTML += '<div style="position:relative;">' +
-      '<input type="text" class="input" id="ncr-prefill-search" autocomplete="off" autocorrect="off" spellcheck="false" ' +
-      'placeholder="' + (isEs?'Escriba # de trabajo, estación, cliente o producto…':'Type job #, station, customer, or product…') + '" value="'+_ncrEsc(preselectedLabel)+'" ' +
-      'oninput="ncrFilterPrefill()" onfocus="ncrFilterPrefill()" onblur="setTimeout(ncrClosePrefillDrop,200)">' +
-      '<div class="customer-drop" id="ncr-prefill-drop" style="display:none;"></div>' +
-      '</div>' +
-      '<small class="hint" style="display:block;margin-top:6px;">' + (isEs?'Empiece a escribir al menos 1 carácter para ver trabajos coincidentes.':'Start typing at least 1 character to see matching jobs.') + '</small>';
-  } else {
-    prefillHTML += '<input type="text" class="input" disabled placeholder="' + (isEs?'Aún no hay entradas de QC ni programa cargado':'No QC entries or pulled schedule yet') + '">';
-  }
-  prefillHTML += '</div>';
 
   // Old drafts stored the issue as free text only — surface it in the
   // "Additional detail" box so nothing already written is lost.
@@ -19825,7 +19808,7 @@ function ncrFormHTML() {
   // ── Step 1: everything about the job, all in one place ──
   var h = '<button class="ncr-back" onclick="ncrCancel()">← ' + (isEs?'Atrás':'Back') + '</button>' +
     '<div class="card">' + stepTitle(1, ncrPathTitle(ncrState.path) + (isEs?' — Información del Trabajo':' — Job Info')) +
-    prefillHTML +
+    jobFieldHTML +
     '<div class="field"><div class="field-label">' + (isEs?'Cliente':'Customer') + ' <span class="req">*</span></div>' +
     '<div style="position:relative;">' +
     '<input type="text" class="input" id="ncr-customer-search" autocomplete="off" autocorrect="off" spellcheck="false" ' +
@@ -19838,8 +19821,6 @@ function ncrFormHTML() {
     'oninput="ncrState.d.customerManual=this.value" onblur="addCustomerToList(this.value)"></div>' +
     '<div class="field"><div class="field-label">' + (isEs?'Fecha':'Date') + ' <span class="req">*</span></div>' +
     '<input id="ncr-date" class="input" type="date" value="'+_ncrEsc(d.date)+'" onchange="ncrState.d.date=this.value"></div>' +
-    '<div class="field"><div class="field-label">' + (isEs?'Número de trabajo':'Job number') + ' <span class="req">*</span></div>' +
-    '<input class="input" type="text" inputmode="numeric" placeholder="' + (isEs?'Trabajo #':'Job #') + '" value="'+_ncrEsc(d.jobNumber||'')+'" oninput="ncrState.d.jobNumber=this.value"></div>' +
     '<div class="field"><div class="field-label">' + (isEs?'ID(s) de Producto / ID(s) de Forma':'Product ID(s) / Form ID(s)') + ' <span class="req">*</span></div>' +
     '<div id="ncr-prod-rows">' + ncrProdRowsHTML(d) + '</div>' +
     '<button type="button" class="ncr-add-row" onclick="ncrAddProdRow()">+ ' + (isEs?'Agregar otro ID de Producto / ID de Forma':'Add another Product ID / Form ID') + '</button></div>' +
@@ -20155,7 +20136,9 @@ function ncrPrefillFromSchedule(jobNumber){
     if (CUSTOMERS.indexOf(cust) >= 0){ d.customer = cust; d.customerIsOther = false; }
     else { d.customerIsOther = true; d.customerManual = cust; d.customer = ''; }
   }
-  if ((entry.products||[]).length) d.products[0] = entry.products[0];
+  // Every product on the job goes in as its own row (this form takes several; the ✕ beside a row removes
+  // one that isn't part of the problem). An explicit pick of a job replaces whatever was there.
+  if ((entry.products||[]).length) d.products = entry.products.slice(0, 10);
   renderNCRView();
 }
 function ncrSelectPrefillFromSchedule(jobNumber){
@@ -20172,12 +20155,82 @@ function ncrPullScheduleClick(){
   if (status) { status.textContent = isEsLang() ? 'Actualizando…' : 'Pulling…'; status.style.color = 'var(--text-tertiary)'; }
   pullScheduleNow()
     .then(function(data){
-      if (status) { status.style.color = 'var(--text-tertiary)'; status.textContent = (isEsLang()?'Cargados ':'Loaded ') + data.jobCount + (isEsLang()?' trabajos':' jobs'); }
-      ncrFilterPrefill();
+      if (status) { status.style.color = 'var(--text-tertiary)'; status.textContent = _ncrScheduleStatusText(); }
+      ncrFilterJob();
     })
     .catch(function(err){
       if (status) { status.style.color = 'var(--red)'; status.textContent = (isEsLang()?'Error: ':'Pull failed: ') + err.message; }
     });
+}
+
+// "Loaded 338 jobs from schedule-….xlsx" — same wording the QC screen shows under its Pull Schedule button.
+function _ncrScheduleStatusText(){
+  if (!_scheduleData || !_scheduleData.jobs) return '';
+  var n = _scheduleData.jobCount || Object.keys(_scheduleData.jobs).length;
+  return (isEsLang() ? 'Cargados ' : 'Loaded ') + n + (isEsLang() ? ' trabajos' : ' jobs') + (_scheduleData.sourceFile ? (isEsLang() ? ' de ' : ' from ') + _scheduleData.sourceFile : '');
+}
+/* Job number typeahead — the NCR form's equivalent of the QC screen's job field. Shows matches as soon as
+   one character is typed. Digits match the START of a job number (like QC); anything else searches the job's
+   customer / station / product text. Jobs already run through QC on this device come first (they know the
+   station and the exact product); the rest come from the pulled schedule. Picking one fills the customer and
+   product ID(s). What's typed in the box is always kept as the job number, so a job that isn't on the
+   schedule can still be entered by hand. */
+function ncrFilterJob(){
+  var input = document.getElementById('ncr-job-search');
+  var drop = document.getElementById('ncr-job-drop');
+  if (!input || !drop) return;
+  ncrState.d.jobNumber = input.value;
+  var q = input.value.trim().toLowerCase();
+  if (!q){ drop.style.display = 'none'; drop.innerHTML = ''; return; }
+  var numeric = /^[0-9]+$/.test(q);
+  function hit(jobNumber, label){ return numeric ? String(jobNumber).toLowerCase().indexOf(q) === 0 : label.toLowerCase().indexOf(q) >= 0; }
+  var seen = {}, qc = [];
+  ipLoad().forEach(function(j){
+    if (!j.jobNumber) return;
+    var key = j.jobNumber + '|' + (j.station || '');
+    if (seen[key] || !hit(j.jobNumber, _ncrPrefillLabel(j))) return;
+    seen[key] = true; qc.push(j);
+  });
+  qc = qc.slice(0, 6);
+  var qcJobNumbers = {};
+  qc.forEach(function(j){ qcJobNumbers[j.jobNumber] = true; });
+  var sched = [];
+  if (_scheduleData && _scheduleData.jobs) {
+    for (var jn in _scheduleData.jobs) {
+      if (qcJobNumbers[jn]) continue;
+      if (hit(jn, _ncrScheduleLabel(jn))) sched.push(jn);
+    }
+  }
+  sched.sort(function(a, b){ return a.localeCompare(b); });
+  var total = sched.length;
+  sched = sched.slice(0, 50);
+  var isEs = isEsLang(), html = '';
+  qc.forEach(function(j){
+    html += '<div class="cust-opt" onmousedown="ncrSelectJobFromQC(\'' + _ncrEsc(j.id) + '\')"><div>' + _ncrEsc(j.jobNumber) + ' <span class="job-tag">QC</span></div>' +
+      '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + _ncrEsc(_ncrPrefillLabel(j).split(' · ').slice(1).filter(Boolean).join(' · ')) + '</div></div>';
+  });
+  sched.forEach(function(jn){
+    var e = _scheduleData.jobs[jn] || {};
+    var sub = [e.customer, (e.products || []).slice(0, 2).join(', ')].filter(Boolean).join(' — ');
+    html += '<div class="cust-opt" onmousedown="ncrSelectJobFromSchedule(\'' + _ncrEsc(jn) + '\')"><div>' + _ncrEsc(jn) + ' ' + _jobSheetTagsHtml(e) + '</div>' +
+      (sub ? '<div style="font-size:12.5px;font-weight:400;color:var(--text-tertiary);margin-top:2px;">' + _ncrEsc(sub) + '</div>' : '') + '</div>';
+  });
+  if (total > sched.length) html += '<div class="cust-no-results">+ ' + (total - sched.length) + (isEs ? ' más — siga escribiendo para acotar' : ' more — keep typing to narrow') + '</div>';
+  if (!html) html = '<div class="cust-no-results">' + (isEs ? 'Sin trabajos coincidentes' : 'No matching jobs') + '</div>';
+  drop.innerHTML = html;
+  drop.style.display = 'block';
+}
+function ncrCloseJobDrop(){
+  var drop = document.getElementById('ncr-job-drop');
+  if (drop) drop.style.display = 'none';
+}
+function ncrSelectJobFromQC(jobId){
+  ncrCloseJobDrop();
+  ncrPrefillFromQC(jobId);
+}
+function ncrSelectJobFromSchedule(jobNumber){
+  ncrCloseJobDrop();
+  ncrPrefillFromSchedule(jobNumber);
 }
 
 /* Path: Document an NCR — issue entry is tap-first: a single quality-issue
