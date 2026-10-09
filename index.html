@@ -6496,7 +6496,9 @@ function _googleTokenFresh() {
 // Flip to true ONLY after the updated Google script is deployed AND its SESSION_SECRET script
 // property is set — check <RCA_SCRIPT_URL>?action=ping answers sessionAuth:true, hasSecret:true.
 // While false, emails use the Google token exactly as before (and fall back safely when it expired).
-var QA_SCRIPT_ACCEPTS_SESSION = false;
+// TURNED ON 2026-10-09: script deployed, ping showed sessionAuth:true + hasSecret:true, and a token minted
+// by the real Worker was accepted by the real script (forged/expired/garbage/empty tokens were refused).
+var QA_SCRIPT_ACCEPTS_SESSION = true;
 function _scriptAuthOk() { return _googleTokenFresh() || (QA_SCRIPT_ACCEPTS_SESSION && _sessionUsable()); }
 function _scriptToken() {
   if (QA_SCRIPT_ACCEPTS_SESSION && !_googleTokenFresh() && _sessionUsable()) return _sessionToken;
