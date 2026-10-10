@@ -480,7 +480,7 @@ body.sidebar-expanded .nav-status {
 .faq-hint { font-size: 15px; color: var(--text-secondary); margin: -4px 2px 0; }
 .faq-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .faq-chip {
-  border: 0; cursor: pointer; color: #fff; background: #475569; font: inherit;
+  border: 0; cursor: pointer; color: var(--text-primary); background: #475569; font: inherit;
   font-weight: 700; font-size: 13px; line-height: 1.2; padding: 7px 11px; border-radius: 999px;
   -webkit-tap-highlight-color: transparent;
 }
@@ -496,11 +496,11 @@ body.sidebar-expanded .nav-status {
 .faq-group[data-faq-group="misc"]       { --faq-c: #4f5a6b; }
 .faq-group-title {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: var(--faq-c); color: #eef1f6; font-size: 18px; font-weight: 700; line-height: 1.25;
+  background: color-mix(in srgb, var(--faq-c) 50%, var(--surface)); color: var(--text-primary); font-size: 18px; font-weight: 700; line-height: 1.25;
   padding: 13px 16px; border-radius: 12px; margin: 0;
 }
 .faq-count {
-  flex: 0 0 auto; background: rgba(255,255,255,.18); border-radius: 999px;
+  flex: 0 0 auto; background: rgba(128,128,128,.25); border-radius: 999px;
   font-size: 13px; font-weight: 800; padding: 3px 10px; white-space: nowrap;
 }
 .faq-group .card { padding: 0; margin: 0; border-left: 6px solid var(--faq-c); overflow: hidden; }
@@ -12363,7 +12363,7 @@ function initFaq(){
         chip.type = 'button';
         chip.className = 'faq-chip';
         chip.setAttribute('data-faq-chip', key);
-        chip.style.background = getComputedStyle(group).getPropertyValue('--faq-c');
+        chip.style.background = "color-mix(in srgb, " + getComputedStyle(group).getPropertyValue("--faq-c").trim() + " 50%, var(--surface))";
         chip.innerHTML = title.firstChild.innerHTML;
         chip.onclick = function(){ faqJump(key); };
         chipBox.appendChild(chip);
