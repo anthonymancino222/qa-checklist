@@ -515,6 +515,16 @@ body.sidebar-expanded .nav-status {
 .faq-group .card.faq-open > .card-label::after { transform: rotate(180deg); }
 .faq-group .card > .faq-body { display: none; padding: 12px 16px 16px; border-top: 1px solid var(--border); }
 .faq-group .card.faq-open > .faq-body { display: block; }
+/* On phones the floating 🌐 language button (.lang-fab: fixed, 14px from the left,
+   48px wide, always on top) sits over the left edge of the page and used to cover
+   the first letters of whatever scrolled underneath it. Indent the Help text past
+   it. Tablets/desktop don't need this: the sidebar is under the button there. */
+@media (max-width: 680px) {
+  .faq-hint,
+  .faq-group-title,
+  .faq-group .card > .card-label,
+  .faq-group .card > .faq-body { padding-left: 40px; }
+}
 
 /* ── Form fields ── */
 .field { margin-bottom: 14px; }
