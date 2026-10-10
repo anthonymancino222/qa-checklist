@@ -51,6 +51,25 @@ const SCENARIOS = [
         { cloudId: 'car-tbd-x1', carTbd: true, status: 'Open', jobNumber: '333', station: 'Samples', customer: 'Gamma', savedAt: 'Oct 3, 2026' }
       ]),
       'moquin-qa-ncrs': JSON.stringify([{ ncrId: 'NCR-001', path: 'ncr', status: 'Open', customerFinal: 'Acme', jobNumber: '111', station: 'Packing', product: 'P', date: '2026-10-01', photos: [] }])
+    } },
+  // A device that is ALREADY SIGNED IN (the stay-signed-in session is restored at the very top of the
+  // script, before most of the file has been read) with real saved jobs/NCRs/drafts/CARs. This is the
+  // everyday state of every shop tablet, and it runs code the other scenarios never reach: a variable
+  // declared further down the file is still undefined at that moment. On 2026-10-10 a new `var` used
+  // that way stopped the app half-way through starting on every signed-in device, and no test caught it
+  // because none of them were signed in.
+  { name: 'SIGNED-IN device (session restored) with saved jobs + NCRs + drafts + CARs', storage: {
+      qa_local_session_v1: JSON.stringify({ name: 'Tester', email: 'anthony.mancino@moquinpress.com', idToken: 'test-id-token',
+        sessionToken: 'test-session', sessionExp: Date.now() + 30 * 86400000, sessionEmail: 'anthony.mancino@moquinpress.com',
+        sessionRefreshedAt: Date.now(), lastActivityAt: Date.now() }),
+      qa_car_contacts_v1: JSON.stringify(CONTACTS),
+      'moquin-qa-inprogress': JSON.stringify([
+        { id: 'job-1', jobNumber: '111', station: 'Packing', process: 'finished', product: 'P1', customer: 'Acme', finishedAt: 'Oct 9, 2026, 08:00:00 AM', checklist: [], stageHistory: [], lastTouchedAt: 'Oct 9, 2026, 08:00:00 AM' },
+        { id: 'job-2', jobNumber: '222', station: 'Bindery Cutter', process: 'production', product: 'P2', customer: 'Beta', checklist: [], stageHistory: [] }
+      ]),
+      'moquin-qa-ncrs': JSON.stringify([{ ncrId: 'NCR-001', path: 'ncr', status: 'Open', customerFinal: 'Acme', jobNumber: '111', station: 'Packing', product: 'P', date: '2026-10-01', photos: [], createdAt: 'Oct 1, 2026, 08:00:00 AM' }]),
+      'moquin-qa-ncr-drafts': JSON.stringify([{ __draftId: 'd1', path: 'ncr', jobNumber: '333' }]),
+      'moquin-qa-rcas': JSON.stringify([{ cloudId: 'car-2026-1', carNo: '2026-1', status: 'Open', jobNumber: '111', station: 'Packing', customer: 'Acme', path: 'Path 1 — QA completes all', savedAt: 'Oct 1, 2026' }])
     } }
 ];
 
@@ -72,6 +91,13 @@ const FLOWS = `
     for (var i = 0; i < ids.length; i++){ try { switchView(ids[i]); } catch(e){ bad.push(ids[i] + ': ' + e.message); } }
     switchView('home');
     if (bad.length) throw new Error(bad.join(' | '));
+  });
+
+  await step('Help page built (topic buttons + collapsible answers) — proves startup code after the early session restore ran', async function(){
+    var chips = $('faq-chips') ? $('faq-chips').children.length : -1;
+    var bodies = document.querySelectorAll('.faq-body').length;
+    if (chips < 8 || bodies < 20) throw new Error('Help layout did not build (topic buttons=' + chips + ', answers=' + bodies + ') — startup stopped early');
+    if (typeof _showUpdateBanner !== 'function' || typeof APP_VERSION_HASH_KEY !== 'string') throw new Error('update-check startup values missing');
   });
 
   await step('shortage "who to notify" picker builds', async function(){

@@ -7947,10 +7947,18 @@ function _omitTouchStamp(job) {
 // refreshed by an ordinary edit (found 2026-10-10 by running the real
 // ipUpdate), so the sync merge's "more recent edit wins" tie-break was
 // comparing stale stamps. One fingerprint map per store: { id: JSON-minus-stamp }.
-var _touchSigs = {};
+//
+// The map lives as a property on a FUNCTION, not a top-level `var _touchSigs = {}`:
+// ipLoad() is first called very early at page load (_tryRestoreLocalSession ->
+// _syncInitialPull -> ipLoad) — BEFORE a `var` declared down here has been
+// assigned. A plain `var` made that first call throw on every signed-in
+// device, which stopped the main script partway through (update check, Help
+// page layout and everything after it never ran) — shipped and fixed
+// 2026-10-10. Function declarations are hoisted whole, so this can't happen again.
+function _touchSigMap(){ return _touchSigMap._m || (_touchSigMap._m = {}); }
 function _touchSigOf(rec){ try { return JSON.stringify(_omitTouchStamp(rec)); } catch(e){ return ''; } }
 function _primeTouchSigs(store, list, idField){
-  var sigs = _touchSigs[store] = {};
+  var sigs = _touchSigMap()[store] = {};
   (list || []).forEach(function(r){ if (r && r[idField] != null) sigs[r[idField]] = _touchSigOf(r); });
 }
 // Stamps lastTouchedAt on every record whose content differs from its stored
@@ -7958,7 +7966,8 @@ function _primeTouchSigs(store, list, idField){
 // list. preserve=true (sync-merge saves) only re-fingerprints: what a pull or a
 // merge writes was not a local edit and must not look like one.
 function _stampTouchedList(store, list, idField, preserve){
-  var sigs = _touchSigs[store] || (_touchSigs[store] = {});
+  var all = _touchSigMap();
+  var sigs = all[store] || (all[store] = {});
   var now = preserve ? '' : formatTS(), next = {};
   (list || []).forEach(function(r){
     if (!r || r[idField] == null) return;
@@ -7966,7 +7975,7 @@ function _stampTouchedList(store, list, idField, preserve){
     if (!preserve && sigs[r[idField]] !== sig) r.lastTouchedAt = now;
     next[r[idField]] = sig;
   });
-  _touchSigs[store] = next;
+  all[store] = next;
 }
 // ipSave is the single choke point every job mutation already runs through
 // (ipAdd/ipUpdate/ipRemove, plus every call site that hand-builds a `jobs`
