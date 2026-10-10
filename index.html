@@ -487,16 +487,16 @@ body.sidebar-expanded .nav-status {
 .faq-chip:active { transform: scale(.97); }
 .faq-group { --faq-c: #475569; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 .faq-group[data-faq-group="basics"]     { --faq-c: #3b5aa8; }
-.faq-group[data-faq-group="autoadvance"] { --faq-c: #6a4fa3; }
+.faq-group[data-faq-group="autoadvance"] { --faq-c: #a8862a; }
 .faq-group[data-faq-group="checklists"] { --faq-c: #2f7a5e; }
-.faq-group[data-faq-group="shipping"]   { --faq-c: #a8662a; }
+.faq-group[data-faq-group="shipping"]   { --faq-c: #6a4fa3; }
 .faq-group[data-faq-group="qadata"]     { --faq-c: #2f6f80; }
 .faq-group[data-faq-group="sync"]       { --faq-c: #a23a3f; }
-.faq-group[data-faq-group="carncr"]     { --faq-c: #9a3f64; }
+.faq-group[data-faq-group="carncr"]     { --faq-c: #6b7a2f; }
 .faq-group[data-faq-group="misc"]       { --faq-c: #4f5a6b; }
 .faq-group-title {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: color-mix(in srgb, var(--faq-c) 50%, var(--surface)); color: var(--text-primary); font-size: 18px; font-weight: 700; line-height: 1.25;
+  background: color-mix(in srgb, var(--faq-c) 38%, var(--surface)); color: var(--text-primary); font-size: 18px; font-weight: 700; line-height: 1.25;
   padding: 13px 16px; border-radius: 12px; margin: 0;
 }
 .faq-count {
@@ -12363,7 +12363,7 @@ function initFaq(){
         chip.type = 'button';
         chip.className = 'faq-chip';
         chip.setAttribute('data-faq-chip', key);
-        chip.style.background = "color-mix(in srgb, " + getComputedStyle(group).getPropertyValue("--faq-c").trim() + " 50%, var(--surface))";
+        chip.style.background = "color-mix(in srgb, " + getComputedStyle(group).getPropertyValue("--faq-c").trim() + " 38%, var(--surface))";
         chip.innerHTML = title.firstChild.innerHTML;
         chip.onclick = function(){ faqJump(key); };
         chipBox.appendChild(chip);
