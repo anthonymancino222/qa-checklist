@@ -6929,19 +6929,35 @@ function _syncPushBreaker(type, entries){
 // other device's edits and leaving two devices to keep re-pushing. Adopting
 // the merged copy locally (only if local hasn't been edited again in the
 // meantime) closes that loop.
-function _syncAdoptMergedLocally(entries){
-  if (typeof ipLoad !== 'function') return;
-  var jobs = ipLoad(), changed = false;
+function _syncAdoptMergedLocally(type, entries){
+  var store = _syncStoreFor(type);
+  if (!store) return;
+  var list = store.load(), changed = false;
   entries.forEach(function(e){
     if (!e.origJson) return;
-    for (var i = 0; i < jobs.length; i++) {
-      if (jobs[i] && jobs[i].id === e.id) {
-        if (JSON.stringify(jobs[i]) === e.origJson) { jobs[i] = e.data; changed = true; }
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && String(list[i][store.idField]) === String(e.id)) {
+        if (JSON.stringify(list[i]) === e.origJson) { list[i] = e.data; changed = true; }
         break;
       }
     }
   });
-  if (changed) { try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e){} }
+  if (changed) {
+    try { localStorage.setItem(store.key, JSON.stringify(list)); } catch(e){}
+    // The merged copy just went to the server: it is not a fresh local edit.
+    _primeTouchSigs(type, list, store.idField);
+  }
+}
+// The three stores that sync with a field-level merge, by type.
+function _syncStoreFor(type){
+  if (type === 'job') return { load: ipLoad, key: IN_PROGRESS_KEY, idField: 'id' };
+  if (type === 'ncr') return { load: ncrLoad, key: NCR_KEY, idField: 'ncrId' };
+  if (type === 'ncr_draft') return { load: ncrDraftLoad, key: NCR_DRAFT_KEY, idField: '__draftId' };
+  return null;
+}
+function _syncMergesType(type){ return type === 'job' || type === 'ncr' || type === 'ncr_draft'; }
+function _mergeForSync(type, base, local, remote){
+  return type === 'job' ? _mergeJobRecord(base, local, remote) : _mergeFlatRecord(type, base, local, remote);
 }
 
 // The real entry point every save/retry goes through now. Diffs `list`
@@ -7077,11 +7093,9 @@ function _syncPushDelta(type, list){
   dirty = _syncPushBreaker(type, dirty);
   if (!dirty.length) return Promise.resolve(false); // everything held back by the circuit breaker — honest "not pushed"
 
-  // Job pushes get reconciled against the server first — see
-  // _syncReconcileBeforePush's own comment for why. Every other type keeps
-  // the plain blind push, since NCR/drafts don't carry the stageHistory/
-  // checklist/lastTouchedAt shape _mergeJobRecord relies on.
-  var pushReady = type === 'job' ? _syncReconcileBeforePush(dirty, snap) : Promise.resolve(dirty);
+  // Jobs, NCRs and NCR drafts get reconciled against the server first — see
+  // _syncReconcileBeforePush's own comment for why. qc_draft stays a plain push.
+  var pushReady = _syncMergesType(type) ? _syncReconcileBeforePush(type, dirty, snap) : Promise.resolve(dirty);
   return pushReady.then(function(toPush){
     return _syncPushAll(type, toPush.map(function(d){ return d.data; })).then(function(ok){
       if (!ok) return false; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
@@ -7091,7 +7105,7 @@ function _syncPushDelta(type, list){
       var cur = _syncSnapshotGet(type);
       toPush.forEach(function(d){ cur[d.id] = d.json; });
       _syncSnapshotSet(type, cur);
-      if (type === 'job') _syncAdoptMergedLocally(toPush);
+      if (_syncMergesType(type)) _syncAdoptMergedLocally(type, toPush);
       return true;
     });
   });
@@ -7119,9 +7133,9 @@ function _syncPushDelta(type, list){
 // (_mergeJobRecord) and push the reconciled result instead of blindly
 // overwriting. A record the server doesn't have yet, or a failed check,
 // falls back to pushing as-is rather than blocking the save entirely.
-function _syncReconcileBeforePush(dirty, snap){
+function _syncReconcileBeforePush(type, dirty, snap){
   return Promise.all(dirty.map(function(d){
-    return fetch(QA_BACKEND_URL + '/records/' + d.id + '?type=job', { headers: _authHeaders() })
+    return fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(d.id) + '?type=' + type, { headers: _authHeaders() })
       .then(function(res){
         if (!res.ok) { if (res.status === 401) _reactiveAuthRefresh(); return null; }
         return res.json();
@@ -7129,15 +7143,24 @@ function _syncReconcileBeforePush(dirty, snap){
       .then(function(json){
         var remote = json && json.record && json.record.data;
         if (!remote) return d;
+        // Deleted on the server (e.g. via DATA EDIT on another tablet): never push this
+        // device's stale copy back — the upsert would silently un-delete it. The next
+        // pull removes the local copy, same as every other delete.
+        if (json.record.deleted) return null;
         var remoteJson = JSON.stringify(remote);
         if (remoteJson === d.json) return d; // server already matches what we're about to send
         var base = snap[d.id] ? JSON.parse(snap[d.id]) : null;
         if (base && remoteJson === JSON.stringify(base)) return d; // server unchanged since we last confirmed — safe as-is
-        var merged = _mergeJobRecord(base, d.data, remote);
+        // Two different NCRs that were given the same number by two offline
+        // devices: pushing would overwrite the server's NCR with this one.
+        // Hold this record back — the next pull renumbers it (see
+        // _syncPullAndMerge) and it then goes out under its own number.
+        if (type === 'ncr' && _ncrIsDifferentRecord(d.data, remote)) return null;
+        var merged = _mergeForSync(type, base, d.data, remote);
         return { id: d.id, json: JSON.stringify(merged), data: merged, origJson: d.json };
       })
       .catch(function(){ return d; });
-  }));
+  })).then(function(entries){ return entries.filter(Boolean); });
 }
 
 function _syncRetryPending() {
@@ -7299,6 +7322,7 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // not a comparison against the value this same pull is about to set.
       var snap = _syncSnapshotGet(type);
       var updates = {}; // id -> data this device should adopt
+      var collisions = [];
       remote.forEach(function(r){
         var idStr = String(r.id);
         var local = localById[idStr];
@@ -7306,6 +7330,10 @@ function _syncPullAndMerge(type, currentList, saveFn) {
         var localJson = JSON.stringify(local);
         var remoteJson = JSON.stringify(r.data);
         if (localJson === remoteJson) return;
+        // Same NCR number, different NCR: two devices offline at the same time
+        // each took "the next number." Never merge two unrelated records into
+        // one — keep the server's under its number and renumber this device's.
+        if (type === 'ncr' && _ncrIsDifferentRecord(local, r.data)) { collisions.push({ id: idStr, remote: r.data }); return; }
         // Never let a plain adopt take an already-approved job back to unapproved.
         if (type === 'job' && local.shippingApproved === true && r.data && r.data.shippingApproved !== true) {
           updates[idStr] = _mergeJobRecord(snap[idStr] ? JSON.parse(snap[idStr]) : null, local, r.data);
@@ -7318,10 +7346,24 @@ function _syncPullAndMerge(type, currentList, saveFn) {
         // _mergeJobRecord); every other type keeps the old "local wins until
         // it's confirmed clean" behavior, since NCR/drafts don't carry the
         // stageHistory/checklist/lastTouchedAt shape that merge relies on.
-        if (type === 'job') {
-          updates[idStr] = _mergeJobRecord(snap[idStr] ? JSON.parse(snap[idStr]) : null, local, r.data);
+        if (_syncMergesType(type)) {
+          updates[idStr] = _mergeForSync(type, snap[idStr] ? JSON.parse(snap[idStr]) : null, local, r.data);
         }
       });
+      // Renumber this device's side of each NCR-number collision.
+      var rekeyed = {};
+      if (collisions.length) {
+        var usedIds = {};
+        currentList.forEach(function(r){ usedIds[String(r[idField])] = true; });
+        remote.forEach(function(r){ usedIds[String(r.id)] = true; });
+        var maxN = 0;
+        Object.keys(usedIds).forEach(function(id){ var m = /^NCR-(\d+)$/.exec(id); if (m) maxN = Math.max(maxN, parseInt(m[1], 10)); });
+        collisions.forEach(function(c){
+          maxN++;
+          rekeyed[c.id] = Object.assign({}, localById[c.id], { ncrId: 'NCR-' + String(maxN).padStart(3, '0'), renumberedFrom: c.id, lastTouchedAt: formatTS() });
+          additions.push(c.remote);
+        });
+      }
 
       // A record deleted on ANOTHER device never used to disappear here —
       // this only ever added, so a stale local copy stuck around forever,
@@ -7332,7 +7374,7 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       var pruned = currentList.filter(function(r){ return !deletedIds[String(r[idField])]; });
       var merged = pruned.map(function(r){
         var idStr = String(r[idField]);
-        return updates.hasOwnProperty(idStr) ? updates[idStr] : r;
+        return updates.hasOwnProperty(idStr) ? updates[idStr] : (rekeyed.hasOwnProperty(idStr) ? rekeyed[idStr] : r);
       });
 
       // Seed the delta-push snapshot (see _syncPushDelta) with whatever the
@@ -7347,7 +7389,7 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       Object.keys(deletedIds).forEach(function(id){ delete snap[id]; });
       _syncSnapshotSet(type, snap);
 
-      var changed = additions.length || Object.keys(updates).length || pruned.length !== currentList.length;
+      var changed = additions.length || Object.keys(updates).length || Object.keys(rekeyed).length || pruned.length !== currentList.length;
       // preserveTouch: nothing landing here from a sync pull is a fresh
       // local edit — it's either adopted verbatim from another device
       // (which already carries that device's own honest lastTouchedAt) or
@@ -7355,7 +7397,7 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // one). Letting ipSave restamp it as "just touched now" would make a
       // remote-driven change look local and let this device wrongly win
       // every future real conflict on that record.
-      if (changed) saveFn(merged.concat(additions), type === 'job' ? {preserveTouch:true} : undefined);
+      if (changed) saveFn(merged.concat(additions), _syncMergesType(type) ? {preserveTouch:true} : undefined);
       return {ok:true, changed:changed};
     })
     .catch(function(){ /* offline, or a genuine auth failure — either way, leave local as-is; retried on the normal cycle */ return {ok:false, changed:false}; });
@@ -7692,6 +7734,7 @@ function ipLoad() {
       var raw = localStorage.getItem(IN_PROGRESS_KEY);
       if (raw) { _ipMem = JSON.parse(raw) || []; }
     } catch(e) {}
+    _primeTouchSigs('job', _ipMem, 'id');
   }
   return _ipMem;
 }
@@ -7702,6 +7745,36 @@ function _omitTouchStamp(job) {
   var copy = Object.assign({}, job);
   delete copy.lastTouchedAt;
   return copy;
+}
+// "Did this record's content change since it was last loaded/saved?" has to
+// be answered from a stored FINGERPRINT, not by comparing against the
+// in-memory list: the app edits records IN PLACE (ipUpdate does Object.assign
+// on the very objects inside _ipMem, and many call sites do job.x = y then
+// ipSave(jobs)), so by the time a save runs, "previous" and "current" are the
+// same object and always look identical. That meant lastTouchedAt was never
+// refreshed by an ordinary edit (found 2026-10-10 by running the real
+// ipUpdate), so the sync merge's "more recent edit wins" tie-break was
+// comparing stale stamps. One fingerprint map per store: { id: JSON-minus-stamp }.
+var _touchSigs = {};
+function _touchSigOf(rec){ try { return JSON.stringify(_omitTouchStamp(rec)); } catch(e){ return ''; } }
+function _primeTouchSigs(store, list, idField){
+  var sigs = _touchSigs[store] = {};
+  (list || []).forEach(function(r){ if (r && r[idField] != null) sigs[r[idField]] = _touchSigOf(r); });
+}
+// Stamps lastTouchedAt on every record whose content differs from its stored
+// fingerprint (or has none: a brand-new record), then re-fingerprints the whole
+// list. preserve=true (sync-merge saves) only re-fingerprints: what a pull or a
+// merge writes was not a local edit and must not look like one.
+function _stampTouchedList(store, list, idField, preserve){
+  var sigs = _touchSigs[store] || (_touchSigs[store] = {});
+  var now = preserve ? '' : formatTS(), next = {};
+  (list || []).forEach(function(r){
+    if (!r || r[idField] == null) return;
+    var sig = _touchSigOf(r);
+    if (!preserve && sigs[r[idField]] !== sig) r.lastTouchedAt = now;
+    next[r[idField]] = sig;
+  });
+  _touchSigs[store] = next;
 }
 // ipSave is the single choke point every job mutation already runs through
 // (ipAdd/ipUpdate/ipRemove, plus every call site that hand-builds a `jobs`
@@ -7720,17 +7793,7 @@ function _omitTouchStamp(job) {
 // change look like it just happened on THIS device, which would then let
 // this device wrongly win every future real conflict on that record.
 function ipSave(jobs, opts) {
-  if (!(opts && opts.preserveTouch)) {
-    var prevById = {};
-    _ipMem.forEach(function(j){ prevById[j.id] = j; });
-    var now = formatTS();
-    jobs.forEach(function(j){
-      var prev = prevById[j.id];
-      if (!prev || JSON.stringify(_omitTouchStamp(prev)) !== JSON.stringify(_omitTouchStamp(j))) {
-        j.lastTouchedAt = now;
-      }
-    });
-  }
+  _stampTouchedList('job', jobs, 'id', !!(opts && opts.preserveTouch));
   _ipMem = jobs;
   _rememberShipApproved(jobs);
   try { localStorage.setItem(IN_PROGRESS_KEY, JSON.stringify(jobs)); } catch(e) {}
@@ -7790,6 +7853,20 @@ function _mergeChecklist(oldChecklist, newChecklist) {
 // Deduped by stage+ts+label (formatTS() timestamps are second-resolution,
 // but two entries sharing all three of stage/ts/label on both devices are,
 // in practice, the same entry synced twice, not two different events).
+// formatTS() text ("Oct 9, 2026, 08:00:00 AM") does NOT sort as plain text:
+// "Sep 30" > "Oct 1" alphabetically, "Oct 9" > "Oct 10", "11:59 AM" > "01:05 PM".
+// Every "which is newer" decision in the sync merge (conflict tie-break, first
+// shipping approval, history order) has to compare real times. Found 2026-10-10
+// by testing the merge against real dates: 3 of 4 date cases kept the OLDER edit.
+// Unparseable values count as oldest; two equal/unparseable values fall back to
+// text order so the result is still deterministic.
+function _tsMillis(ts){ var d = _recordsValidDate(ts); return d ? d.getTime() : 0; }
+function _tsCompare(a, b){
+  var x = _tsMillis(a), y = _tsMillis(b);
+  if (x !== y) return x < y ? -1 : 1;
+  a = String(a || ''); b = String(b || '');
+  return a < b ? -1 : (a > b ? 1 : 0);
+}
 function _stageHistoryEntryKey(e) { return (e.stage||'') + '|' + (e.ts||'') + '|' + (e.label||''); }
 function _mergeStageHistory(local, remote) {
   var seen = {}, out = [];
@@ -7809,9 +7886,7 @@ function _mergeStageHistory(local, remote) {
     out.push(e && e.data ? Object.assign({}, e, { data: _stripEmbeddedImagesForHistory(e.data) }) : e);
   });
   out.sort(function(a, b){
-    if ((a.ts||'') < (b.ts||'')) return -1;
-    if ((a.ts||'') > (b.ts||'')) return 1;
-    return 0;
+    return _tsCompare(a.ts, b.ts);
   });
   return out;
 }
@@ -7860,7 +7935,7 @@ function _shipApprovedSide(local, remote){
   var la = local && local.shippingApproved === true, ra = remote && remote.shippingApproved === true;
   if (la && !ra) return local;
   if (ra && !la) return remote;
-  if (la && ra) return (String(local.shippingApprovedAt || '') <= String(remote.shippingApprovedAt || '')) ? local : remote; // the first approval stands
+  if (la && ra) return (_tsCompare(local.shippingApprovedAt, remote.shippingApprovedAt) <= 0) ? local : remote; // the first approval stands
   return null;
 }
 function _mergeJobRecord(base, local, remote) {
@@ -7909,7 +7984,7 @@ function _mergeJobRecord(base, local, remote) {
 
   var localTouch = local.lastTouchedAt || '';
   var remoteTouch = remote.lastTouchedAt || '';
-  var localWins = localTouch >= remoteTouch; // more-recently-touched side wins ties too, same as "local" being the device running this merge
+  var localWins = _tsCompare(localTouch, remoteTouch) >= 0; // more-recently-touched side wins ties too, same as "local" being the device running this merge
   conflicts.forEach(function(c){ merged[c.field] = localWins ? c.localValue : c.remoteValue; });
 
   merged.checklist = _mergeChecklist(local.checklist, remote.checklist);
@@ -7947,6 +8022,141 @@ function _mergeJobRecord(base, local, remote) {
 }
 
 /* ══════════════════════════════════
+   FIELD-LEVEL MERGE FOR NCRs, NCR DRAFTS AND CARs
+   Same three-way idea as _mergeJobRecord, for records that have no
+   stageHistory/checklist. base = last version this device confirmed with the
+   server, local = this device's copy, remote = the server's copy.
+     - only one side changed a field        -> that side's value
+     - both changed DIFFERENT fields        -> both edits kept
+     - both changed the SAME field          -> a genuine conflict: the more
+       recently edited side wins (real-time compare, see _tsCompare), except
+       that a workflow status never goes backwards (an NCR closed anywhere
+       stays closed); logged on the record (syncConflicts) and listed under
+       the header's ⚠ Conflicts button so a person can pick the other value.
+     - lists of plain text/numbers (photos, tags) are merged as sets: an item
+       either side added is kept, an item either side removed is removed.
+     - a photo embedded on one device and uploaded on the other is the same
+       photo, not a conflict.
+   Fields that just describe the save itself (savedAt, action, ...) follow
+   the more recent side and are never conflicts.
+══════════════════════════════════ */
+var _FLAT_MERGE_CFG = {
+  ncr:       { rankField: 'status', rank: ['Open', 'In Progress', 'Closed'] },
+  ncr_draft: { follow: { savedAt: 1 } },
+  // A CAR's status legitimately moves backwards (manager returns it to QA), so no rank.
+  car:       { follow: { savedAt: 1, action: 1, simulated: 1, editorEmail: 1, testMode: 1, testEmail: 1, cloudId: 1, replacesId: 1, tbdId: 1, photoData: 1 } }
+};
+// An NCR's number is "highest local number + 1", so two devices offline at the
+// same time can hand the same number to two DIFFERENT NCRs. createdAt tells them apart.
+function _ncrIsDifferentRecord(a, b){
+  return !!(a && b && a.createdAt && b.createdAt && a.createdAt !== b.createdAt);
+}
+function _isPrimitiveList(v){
+  if (!Array.isArray(v)) return false;
+  for (var i = 0; i < v.length; i++) { var t = typeof v[i]; if (t !== 'string' && t !== 'number') return false; }
+  return true;
+}
+function _mergeSetLists(base, local, remote){
+  var removed = {};
+  (Array.isArray(base) ? base : []).forEach(function(x){
+    if (local.indexOf(x) < 0 || remote.indexOf(x) < 0) removed[typeof x + ':' + x] = true;
+  });
+  var seen = {}, out = [];
+  local.concat(remote).forEach(function(x){
+    var k = typeof x + ':' + x;
+    if (seen[k] || removed[k]) return;
+    seen[k] = true; out.push(x);
+  });
+  return out;
+}
+function _clipConflictValue(v){
+  if (v === undefined || v === null) return '';
+  if (_isImageValue(v)) return '[photo]';
+  var s = typeof v === 'string' ? v : JSON.stringify(v);
+  return s.length > 300 ? s.slice(0, 300) + '…' : s;
+}
+function _mergeConflictLogs(a, b){
+  var seen = {}, out = [];
+  (a || []).concat(b || []).forEach(function(e){
+    if (!e) return;
+    var k = (e.at || '') + '|' + (e.fields || []).join(',');
+    if (seen[k]) return;
+    seen[k] = true; out.push(e);
+  });
+  out.sort(function(x, y){ return _tsCompare(x.at, y.at); });
+  return out.slice(-50);
+}
+function _flatConflictWinner(cfg, field, local, remote, localWins){
+  if (cfg.rankField === field && cfg.rank) {
+    var lr = cfg.rank.indexOf(local[field]), rr = cfg.rank.indexOf(remote[field]);
+    if (lr >= 0 && rr >= 0 && lr !== rr) return lr > rr ? 'local' : 'remote';
+  }
+  return localWins ? 'local' : 'remote';
+}
+function _mergeFlatRecord(kind, base, local, remote) {
+  var cfg = _FLAT_MERGE_CFG[kind] || {};
+  var follow = cfg.follow || {};
+  base = base || {};
+  var keys = {};
+  [base, local, remote].forEach(function(o){ Object.keys(o).forEach(function(k){ keys[k] = true; }); });
+  delete keys.lastTouchedAt; delete keys._conflictReview; delete keys.syncConflicts;
+
+  var localTouch = local.lastTouchedAt || '', remoteTouch = remote.lastTouchedAt || '';
+  var localWins = _tsCompare(localTouch, remoteTouch) >= 0;
+  var localReview = local._conflictReview || {}, remoteReview = remote._conflictReview || {};
+  var merged = {}, conflicts = [], stillPending = [], equivalentFields = {};
+
+  Object.keys(keys).forEach(function(k){
+    if (follow[k]) {
+      var win = localWins ? local : remote, other = localWins ? remote : local;
+      if (win.hasOwnProperty(k)) merged[k] = win[k]; else if (other.hasOwnProperty(k)) merged[k] = other[k];
+      return;
+    }
+    var b = JSON.stringify(base[k]), l = JSON.stringify(local[k]), r = JSON.stringify(remote[k]);
+    if (l === r) { if (local.hasOwnProperty(k)) merged[k] = local[k]; return; }
+    if (b === l) { merged[k] = remote[k]; return; }   // only remote changed it
+    if (b === r) { merged[k] = local[k]; return; }    // only local changed it
+    if (_imageEquivalent(local[k], remote[k])) { equivalentFields[k] = true; merged[k] = _pickImageValue(local[k], remote[k]); return; }
+    if (_isPrimitiveList(local[k]) && _isPrimitiveList(remote[k])) { merged[k] = _mergeSetLists(base[k], local[k], remote[k]); return; }
+    if (localReview[k] && remoteReview[k]) {
+      // Already flagged on both devices and never resolved: freeze it rather than
+      // flip-flopping every sync (same fix as the job merge's ping-pong bug).
+      merged[k] = base.hasOwnProperty(k) ? base[k] : local[k];
+      stillPending.push({ field: k, localValue: local[k], remoteValue: remote[k] });
+      return;
+    }
+    conflicts.push({ field: k, localValue: local[k], remoteValue: remote[k] });
+  });
+
+  conflicts.forEach(function(c){
+    c.keptFrom = _flatConflictWinner(cfg, c.field, local, remote, localWins);
+    merged[c.field] = c.keptFrom === 'local' ? c.localValue : c.remoteValue;
+  });
+
+  var touch = localWins ? localTouch : remoteTouch;
+  if (touch) merged.lastTouchedAt = touch;
+
+  var mergedReview = {};
+  Object.keys(Object.assign({}, localReview, remoteReview)).forEach(function(k){
+    if (localReview[k] && remoteReview[k] && !equivalentFields[k]) mergedReview[k] = localReview[k];
+  });
+  stillPending.concat(conflicts).forEach(function(c){
+    mergedReview[c.field] = { localValue: c.localValue, remoteValue: c.remoteValue, at: formatTS() };
+  });
+  merged._conflictReview = mergedReview;
+
+  var log = _mergeConflictLogs(local.syncConflicts, remote.syncConflicts);
+  if (conflicts.length) {
+    var values = {};
+    conflicts.forEach(function(c){ values[c.field] = { thisDevice: _clipConflictValue(c.localValue), otherDevice: _clipConflictValue(c.remoteValue), kept: c.keptFrom === 'local' ? 'thisDevice' : 'otherDevice' }; });
+    log.push({ at: formatTS(), fields: conflicts.map(function(c){ return c.field; }), values: values });
+    log = log.slice(-50);
+  }
+  if (log.length) merged.syncConflicts = log;
+  return merged;
+}
+
+/* ══════════════════════════════════
    SYNC CONFLICT REVIEW
    _mergeJobRecord above ALWAYS auto-resolves a genuine field conflict
    immediately — nothing here ever blocks or delays a sync. This is a
@@ -7959,6 +8169,19 @@ function _mergeJobRecord(base, local, remote) {
 ══════════════════════════════════ */
 function _conflictReviewJobs(){
   return ipLoad().filter(function(j){ return j._conflictReview && Object.keys(j._conflictReview).length; });
+}
+// Everything with an unreviewed sync conflict, across jobs, NCRs, NCR drafts
+// and CARs: [{ kind, id, rec, title }].
+function _conflictReviewItems(){
+  var isEs = isEsLang(), out = [];
+  function has(r){ return r && r._conflictReview && Object.keys(r._conflictReview).length; }
+  _conflictReviewJobs().forEach(function(j){
+    out.push({ kind: 'job', id: j.id, rec: j, title: (isEs ? 'Trabajo ' : 'Job ') + (j.jobNumber || '—') + (j.product ? ' · ' + j.product : '') });
+  });
+  try { ncrLoad().forEach(function(n){ if (has(n)) out.push({ kind: 'ncr', id: n.ncrId, rec: n, title: (isEs ? 'RNC ' : 'NCR ') + (n.ncrId || '—') + (n.jobNumber ? ' · ' + (isEs ? 'Trabajo ' : 'Job ') + n.jobNumber : '') }); }); } catch(e){}
+  try { ncrDraftLoad().forEach(function(n){ if (has(n)) out.push({ kind: 'ncr_draft', id: n.__draftId, rec: n, title: (isEs ? 'Borrador RNC' : 'NCR draft') + (n.jobNumber ? ' · ' + (isEs ? 'Trabajo ' : 'Job ') + n.jobNumber : '') }); }); } catch(e){}
+  try { rcaLoadRecords().forEach(function(r){ if (has(r) && r.cloudId) out.push({ kind: 'car', id: r.cloudId, rec: r, title: 'CAR ' + (r.carNo || (r.carTbd ? 'TBD' : '—')) + (r.jobNumber ? ' · ' + (isEs ? 'Trabajo ' : 'Job ') + r.jobNumber : '') }); }); } catch(e){}
+  return out;
 }
 // One-time-style cleanup of conflicts that were only ever "data: image vs its
 // own uploaded link": keep the uploaded link, drop the review entry. Runs at
@@ -7982,7 +8205,7 @@ function _pruneEquivalentImageConflicts(){
 function updateConflictBadge(){
   var btn = document.getElementById('header-conflict-btn');
   if (!btn) return;
-  var count = _conflictReviewJobs().reduce(function(n, j){ return n + Object.keys(j._conflictReview).length; }, 0);
+  var count = _conflictReviewItems().reduce(function(n, it){ return n + Object.keys(it.rec._conflictReview).length; }, 0);
   btn.style.display = count ? '' : 'none';
   var label = document.getElementById('conflict-count-label');
   if (label) label.textContent = count;
@@ -7990,6 +8213,7 @@ function updateConflictBadge(){
 function _conflictValueText(v){
   if (v === null || v === undefined || v === '') return '—';
   if (typeof v === 'boolean') return v ? (isEsLang() ? 'Sí' : 'Yes') : 'No';
+  if (typeof v === 'object') { try { var s = JSON.stringify(v); return s.length > 200 ? s.slice(0, 200) + '…' : s; } catch(e){ return '—'; } }
   return String(v);
 }
 function openConflictReview(){
@@ -8001,22 +8225,26 @@ function closeConflictReview(){
 }
 function _renderConflictReviewList(){
   var isEs = isEsLang();
-  var jobs = _conflictReviewJobs();
+  var items = _conflictReviewItems();
   var body = document.getElementById('conflict-review-list');
   if (!body) return;
-  if (!jobs.length){
+  if (!items.length){
     body.innerHTML = '<div style="font-size:14px;color:var(--text-secondary);text-align:center;padding:20px 0;">' +
       (isEs ? 'No hay conflictos pendientes.' : 'No pending conflicts.') + '</div>';
     return;
   }
-  body.innerHTML = jobs.map(function(job){
-    var rows = Object.keys(job._conflictReview).map(function(field){
-      var c = job._conflictReview[field];
+  body.innerHTML = items.map(function(item){
+    var rec = item.rec;
+    var rows = Object.keys(rec._conflictReview).map(function(field){
+      var c = rec._conflictReview[field];
       var label = _stageFieldLabel(field);
       // "Keep both" only makes sense when there are two actual non-empty
       // strings to combine (e.g. a free-typed note) — not for a toggle,
       // quantity, or date, where "both" isn't a meaningful value.
       var bothEligible = typeof c.localValue === 'string' && typeof c.remoteValue === 'string' && c.localValue && c.remoteValue;
+      var idArg = escHtml(String(item.id).replace(/['\\]/g, ''));
+      var fArg = escHtml(String(field).replace(/['\\]/g, ''));
+      var call = function(choice){ return 'resolveConflict(\'' + item.kind + '\',\'' + idArg + '\',\'' + fArg + '\',\'' + choice + '\')'; };
       return '<div class="conflict-field-row">' +
         '<div class="conflict-field-label">' + escHtml(label) + '</div>' +
         '<div class="conflict-field-values">' +
@@ -8024,43 +8252,69 @@ function _renderConflictReviewList(){
           '<div><b>' + (isEs ? 'Otro dispositivo:' : 'Other device:') + '</b> ' + escHtml(_conflictValueText(c.remoteValue)) + '</div>' +
         '</div>' +
         '<div class="conflict-field-actions">' +
-          '<button type="button" onclick="resolveConflict(\'' + job.id + '\',\'' + field + '\',\'local\')">' + (isEs ? 'Usar este' : 'Keep mine') + '</button>' +
-          '<button type="button" onclick="resolveConflict(\'' + job.id + '\',\'' + field + '\',\'remote\')">' + (isEs ? 'Usar el otro' : 'Keep theirs') + '</button>' +
-          (bothEligible ? '<button type="button" onclick="resolveConflict(\'' + job.id + '\',\'' + field + '\',\'both\')">' + (isEs ? 'Usar ambos' : 'Keep both') + '</button>' : '') +
+          '<button type="button" onclick="' + call('local') + '">' + (isEs ? 'Usar este' : 'Keep mine') + '</button>' +
+          '<button type="button" onclick="' + call('remote') + '">' + (isEs ? 'Usar el otro' : 'Keep theirs') + '</button>' +
+          (bothEligible ? '<button type="button" onclick="' + call('both') + '">' + (isEs ? 'Usar ambos' : 'Keep both') + '</button>' : '') +
         '</div>' +
       '</div>';
     }).join('');
     return '<div class="conflict-job-block">' +
-      '<div class="conflict-job-head">' + (isEs ? 'Trabajo' : 'Job') + ' ' + escHtml(job.jobNumber || '—') +
-        (job.product ? ' · ' + escHtml(job.product) : '') + '</div>' + rows +
+      '<div class="conflict-job-head">' + escHtml(item.title) + '</div>' + rows +
       '</div>';
   }).join('');
 }
-function resolveConflict(jobId, field, choice){
-  var jobs = ipLoad();
-  var job = null;
-  for (var i = 0; i < jobs.length; i++){ if (String(jobs[i].id) === String(jobId)){ job = jobs[i]; break; } }
-  if (!job || !job._conflictReview || !job._conflictReview[field]) return;
-  var c = job._conflictReview[field];
-  var chosen;
-  if (choice === 'local') chosen = c.localValue;
-  else if (choice === 'remote') chosen = c.remoteValue;
-  else chosen = c.localValue + ' / ' + c.remoteValue; // 'both' — only ever offered for two non-empty strings
-  job[field] = chosen;
-  delete job._conflictReview[field];
+// kind: 'job' | 'ncr' | 'ncr_draft' | 'car'. Applies the person's choice to
+// that one field of that one record, drops it from the review list, and saves
+// through the record type's own store so it syncs like any other edit.
+function resolveConflict(kind, id, field, choice){
+  if (arguments.length === 3) { choice = field; field = id; id = kind; kind = 'job'; }   // old (jobId, field, choice) call shape
   var isEs = isEsLang();
   var label = _stageFieldLabel(field);
-  job.stageHistory = _stageSnapshot(job.stageHistory, 'conflict_reviewed',
-    (isEs ? 'Conflicto revisado — ' : 'Conflict reviewed — ') + label + ' — ' +
-      (choice === 'both'
-        ? (isEs ? 'se usaron ambos valores' : 'kept both values')
-        : (isEs ? 'se usó el valor de ' + (choice === 'local' ? 'este dispositivo' : 'el otro dispositivo')
-                : 'kept the ' + (choice === 'local' ? 'local' : 'other device\'s') + ' value')),
-    { field: field, choice: choice });
-  ipSave(jobs);
+  var choiceText = choice === 'both'
+    ? (isEs ? 'se usaron ambos valores' : 'kept both values')
+    : (isEs ? 'se usó el valor de ' + (choice === 'local' ? 'este dispositivo' : 'el otro dispositivo')
+            : 'kept the ' + (choice === 'local' ? 'local' : 'other device\'s') + ' value');
+  function pick(c){
+    if (choice === 'local') return c.localValue;
+    if (choice === 'remote') return c.remoteValue;
+    return c.localValue + ' / ' + c.remoteValue; // 'both' — only ever offered for two non-empty strings
+  }
+  function logReviewed(rec){
+    var entry = { at: formatTS(), fields: [field], reviewed: choice };
+    rec.syncConflicts = (rec.syncConflicts || []).concat([entry]).slice(-50);
+  }
+  if (kind === 'job') {
+    var jobs = ipLoad(), job = null;
+    for (var i = 0; i < jobs.length; i++){ if (String(jobs[i].id) === String(id)){ job = jobs[i]; break; } }
+    if (!job || !job._conflictReview || !job._conflictReview[field]) return;
+    job[field] = pick(job._conflictReview[field]);
+    delete job._conflictReview[field];
+    job.stageHistory = _stageSnapshot(job.stageHistory, 'conflict_reviewed',
+      (isEs ? 'Conflicto revisado — ' : 'Conflict reviewed — ') + label + ' — ' + choiceText, { field: field, choice: choice });
+    ipSave(jobs);
+  } else if (kind === 'ncr' || kind === 'ncr_draft') {
+    var store = _syncStoreFor(kind), list = store.load(), rec = null;
+    for (var n = 0; n < list.length; n++){ if (String(list[n][store.idField]) === String(id)){ rec = list[n]; break; } }
+    if (!rec || !rec._conflictReview || !rec._conflictReview[field]) return;
+    rec[field] = pick(rec._conflictReview[field]);
+    delete rec._conflictReview[field];
+    logReviewed(rec);
+    if (kind === 'ncr') ncrSave(list); else ncrDraftSave(list);
+  } else if (kind === 'car') {
+    var car = _rcaLocalById(id);
+    if (!car || !car._conflictReview || !car._conflictReview[field]) return;
+    var review = Object.assign({}, car._conflictReview);
+    var chosen = pick(review[field]);
+    delete review[field];
+    var log = (car.syncConflicts || []).concat([{ at: formatTS(), fields: [field], reviewed: choice }]).slice(-50);
+    var patch = { _conflictReview: review, syncConflicts: log, _cloudPending: true, savedAt: formatTS() };
+    patch[field] = chosen;
+    _rcaPatchLocal(id, patch);
+    if (typeof rcaFlushPending === 'function') rcaFlushPending();
+  } else return;
   _renderConflictReviewList();
   updateConflictBadge();
-  if (!_conflictReviewJobs().length) closeConflictReview();
+  if (!_conflictReviewItems().length) closeConflictReview();
 }
 
 // Recursively replaces any embedded base64 image (a string starting with
@@ -18242,9 +18496,15 @@ var NCR_DRAFT_KEY = 'moquin-qa-ncr-drafts';
 
 /* NCR draft storage — save-for-later on all 3 paths */
 function ncrDraftLoad(){
-  try { return JSON.parse(localStorage.getItem(NCR_DRAFT_KEY)) || []; } catch(e){ return []; }
+  var list = [];
+  try { list = JSON.parse(localStorage.getItem(NCR_DRAFT_KEY)) || []; } catch(e){ list = []; }
+  // Every load hands out fresh objects the caller may edit in place, so
+  // fingerprint what was just loaded (see _stampTouchedList).
+  _primeTouchSigs('ncr_draft', list, '__draftId');
+  return list;
 }
-function ncrDraftSave(list){
+function ncrDraftSave(list, opts){
+  _stampTouchedList('ncr_draft', list, '__draftId', !!(opts && opts.preserveTouch));
   try {
     localStorage.setItem(NCR_DRAFT_KEY, JSON.stringify(list));
     if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
@@ -18310,10 +18570,12 @@ function ncrLoad() {
       var raw = localStorage.getItem(NCR_KEY);
       if (raw) { _ncrMem = JSON.parse(raw) || []; }
     } catch(e) {}
+    _primeTouchSigs('ncr', _ncrMem, 'ncrId');
   }
   return _ncrMem;
 }
-function ncrSave(list) {
+function ncrSave(list, opts) {
+  _stampTouchedList('ncr', list, 'ncrId', !!(opts && opts.preserveTouch));
   _ncrMem = list;
   try { localStorage.setItem(NCR_KEY, JSON.stringify(list)); } catch(e) {}
   if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
@@ -23483,6 +23745,35 @@ function _rcaSlim(rec){
   out.photoData = '';
   return out;
 }
+// What this device last CONFIRMED the server holds for a CAR (the "base" of a
+// three-way merge), kept on the local copy only (underscore fields never sync).
+function _rcaBaseOf(rec){ return JSON.stringify(_rcaSlim(rec)); }
+// Someone else saved this CAR after this device last synced it. Instead of
+// asking "overwrite their changes?" (which threw one side's work away), merge
+// field by field with the same rules NCRs use (_mergeFlatRecord, kind 'car'):
+// different fields -> both kept; same field -> the more recent save wins and
+// the conflict is logged + listed under ⚠ Conflicts. `data` is updated in
+// place with the merged result. localTouch = when this device's edit was made
+// (now for a live save; the record's own savedAt for a background retry).
+function _rcaMergeIntoData(data, local, remoteData, remoteId, localTouch){
+  var base = null;
+  if (local && local._cloudBase) { try { base = JSON.parse(local._cloudBase); } catch(e){ base = null; } }
+  // A cached copy that was never edited offline IS the last confirmed server state.
+  else if (local && !local._cloudPending) { try { base = JSON.parse(_rcaBaseOf(local)); } catch(e){ base = null; } }
+  var mine = _rcaSlim(data), theirs = _rcaSlim(remoteData || {});
+  mine.lastTouchedAt = localTouch || formatTS();
+  theirs.lastTouchedAt = (remoteData && remoteData.savedAt) || '';
+  var merged = _mergeFlatRecord('car', base, mine, theirs);
+  delete merged.lastTouchedAt;
+  var conflicts = Object.keys(merged._conflictReview || {}).length;
+  Object.keys(merged).forEach(function(k){ if (k !== 'photoData') data[k] = merged[k]; });
+  // Keep conflicts from earlier merges that nobody has reviewed yet.
+  var review = Object.assign({}, (local && local._conflictReview) || {}, merged._conflictReview || {});
+  if (Object.keys(review).length) data._conflictReview = review; else delete data._conflictReview;
+  data._cloudBase = _rcaBaseOf(Object.assign({}, remoteData, { cloudId: remoteId }));
+  if (conflicts && typeof updateConflictBadge === 'function') { try { updateConflictBadge(); } catch(e){} }
+  return merged;
+}
 function _rcaCloudFetch(path, opts){
   opts = opts || {};
   opts.headers = Object.assign({ 'Content-Type': 'application/json' }, _authHeaders(), opts.headers || {});
@@ -23532,13 +23823,15 @@ function _rcaPreflight(data, silent){
         }
         return 'ok';
       }
-      if (silent) return 'block';
-      return new Promise(function(resolve){
-        showConfirm(
-          (isEs ? 'Otra persona guardó este registro después de que usted lo abrió (' : 'Someone else saved this record after you opened it (') + (rd.savedAt || '') + (isEs ? '). Si continúa, su versión reemplazará la de ella.' : '). If you continue, your version replaces theirs.'),
-          function(okc){ resolve(okc ? 'ok' : 'block'); },
-          { title: isEs ? '¿Sobrescribir cambios de otra persona?' : "Overwrite someone else's changes?", okLabel: isEs ? 'Sí, sobrescribir' : 'Yes, overwrite' });
-      });
+      // Someone else saved after this device last synced: merge their changes
+      // with ours (see _rcaMergeIntoData) rather than blocking or overwriting.
+      var merged = _rcaMergeIntoData(data, local, rd, id, silent ? (local && local.savedAt) : '');
+      var patch = {};
+      Object.keys(merged).forEach(function(k){ if (k !== 'photoData') patch[k] = merged[k]; });
+      patch._cloudBase = data._cloudBase;
+      if (data._conflictReview) patch._conflictReview = data._conflictReview;
+      _rcaPatchLocal(id, patch);   // so a background flush (which re-reads the local copy) sends the merged record
+      return 'ok';
     });
   }).catch(function(){ return 'offline'; });
 }
@@ -23577,7 +23870,7 @@ function _rcaCloudFlushOne(id){
       if (res.status === 401){ _reactiveAuthRefresh(); return { ok: false, why: 'auth' }; }
       if (!res.ok) return { ok: false, why: 'server' };
       return res.json().then(function(j){
-        _rcaPatchLocal(id, { _cloudAt: j.updatedAt, _cloudPending: false });
+        _rcaPatchLocal(id, { _cloudAt: j.updatedAt, _cloudPending: false, _cloudBase: _rcaBaseOf(rec) });
         if (rec.replacesId){ _rcaCloudDelete(rec.replacesId); _rcaPatchLocal(id, { replacesId: '', tbdId: '' }); if (_rcaTbdId === rec.replacesId) _rcaTbdId = ''; }
         _rcaSendNotices(id);
         return { ok: true };
@@ -23604,7 +23897,13 @@ function rcaSendToSheets(data, onDone){
   }
   _rcaPreflight(data, false).then(function(dec){
     if (dec === 'block'){ rcaSendToSheets.lastErr = 'blocked'; onDone(false); return; }
-    var ok = _rcaMirrorLocal(data, { _cloudPending: true, _notify: ((prev && prev._notify) || []).concat(ev), _cloudAt: prev && prev._cloudAt });
+    var _carExtra = { _cloudPending: true, _notify: ((prev && prev._notify) || []).concat(ev), _cloudAt: prev && prev._cloudAt };
+    // _mirrorLocal replaces the whole local record, so the merge bookkeeping has to be carried over by hand.
+    var _carBase = data._cloudBase || (prev && prev._cloudBase);
+    if (_carBase) _carExtra._cloudBase = _carBase;
+    var _carReview = data._conflictReview || (prev && prev._conflictReview);
+    if (_carReview && Object.keys(_carReview).length) _carExtra._conflictReview = _carReview;
+    var ok = _rcaMirrorLocal(data, _carExtra);
     if (!ok){ rcaSendToSheets.lastErr = 'local'; onDone(false); return; }
     _rcaCloudFlushOne(id).then(function(r){
       rcaSendToSheets.lastErr = '';
@@ -23657,6 +23956,7 @@ function rcaCloudPull(force, cb){
       list.forEach(function(l, k){ if (i < 0 && l && l.cloudId === r.id) i = k; });
       if (r.deleted){ if (i >= 0 && !list[i]._cloudPending){ list.splice(i, 1); changed = true; } return; }
       var rec = Object.assign({}, r.data, { cloudId: r.id, _cloudAt: r.updatedAt, _cloudPending: false });
+      rec._cloudBase = _rcaBaseOf(rec);
       if (i < 0){ fresh.push(rec); changed = true; }
       else if (!list[i]._cloudPending && r.updatedAt > (list[i]._cloudAt || 0)){ rec._notify = list[i]._notify; list[i] = rec; changed = true; }
     });
