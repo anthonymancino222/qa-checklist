@@ -474,11 +474,47 @@ body.sidebar-expanded .nav-status {
   position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
   font-size: 16px; pointer-events: none;
 }
-.faq-group { display: flex; flex-direction: column; gap: 14px; }
-.faq-group-title {
-  font-size: 17px; font-weight: 800; color: var(--text-primary);
-  margin: 6px 0 -2px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
+/* Built to be scanned, not read top to bottom: every topic is its own colored
+   band, and every question is one tappable row that opens its answer (only one
+   open at a time), so a production user sees a short list instead of a wall. */
+.faq-hint { font-size: 15px; color: var(--text-secondary); margin: -4px 2px 0; }
+.faq-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.faq-chip {
+  border: 0; cursor: pointer; color: #fff; background: #475569; font: inherit;
+  font-weight: 800; font-size: 13px; line-height: 1.2; padding: 7px 11px; border-radius: 999px;
+  -webkit-tap-highlight-color: transparent;
 }
+.faq-chip:active { transform: scale(.97); }
+.faq-group { --faq-c: #475569; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.faq-group[data-faq-group="basics"]     { --faq-c: #2563eb; }
+.faq-group[data-faq-group="autoadvance"] { --faq-c: #7c3aed; }
+.faq-group[data-faq-group="checklists"] { --faq-c: #0f8a5f; }
+.faq-group[data-faq-group="shipping"]   { --faq-c: #d9730d; }
+.faq-group[data-faq-group="qadata"]     { --faq-c: #0e7490; }
+.faq-group[data-faq-group="sync"]       { --faq-c: #c0151b; }
+.faq-group[data-faq-group="carncr"]     { --faq-c: #c2185b; }
+.faq-group[data-faq-group="misc"]       { --faq-c: #475569; }
+.faq-group-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--faq-c); color: #fff; font-size: 19px; font-weight: 800; line-height: 1.25;
+  padding: 13px 16px; border-radius: 12px; margin: 0;
+}
+.faq-count {
+  flex: 0 0 auto; background: rgba(255,255,255,.25); border-radius: 999px;
+  font-size: 13px; font-weight: 800; padding: 3px 10px; white-space: nowrap;
+}
+.faq-group .card { padding: 0; margin: 0; border-left: 6px solid var(--faq-c); overflow: hidden; }
+.faq-group .card > .card-label {
+  margin: 0; padding: 15px 14px; font-size: 17px; line-height: 1.35; font-weight: 800; letter-spacing: 0;
+  text-transform: none; color: var(--text-primary); cursor: pointer; user-select: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+.faq-group .card > .card-label::after { content: '▾'; flex: 0 0 auto; color: var(--faq-c); font-size: 22px; transition: transform .15s; }
+.faq-group .card.faq-open > .card-label { background: rgba(128,128,128,.10); }
+.faq-group .card.faq-open > .card-label::after { transform: rotate(180deg); }
+.faq-group .card > .faq-body { display: none; padding: 12px 16px 16px; border-top: 1px solid var(--border); }
+.faq-group .card.faq-open > .faq-body { display: block; }
 
 /* ── Form fields ── */
 .field { margin-bottom: 14px; }
@@ -5128,6 +5164,8 @@ try {
                  placeholder="Search... / Buscar..." data-ph-en="Search..." data-ph-es="Buscar..."
                  style="padding-left:40px;">
         </div>
+        <div class="faq-hint"><span data-en>Tap a topic below to jump to it, then tap a question to see the answer.</span><span data-es>Toque un tema para ir a él, y luego toque una pregunta para ver la respuesta.</span></div>
+        <div class="faq-chips" id="faq-chips"></div>
         <div id="faq-no-results" style="display:none;font-size:16px;color:var(--text-secondary);padding:10px 4px;">
           <span data-en>No matches found. Try a different word.</span><span data-es>No se encontraron resultados. Intente otra palabra.</span>
         </div>
@@ -12231,14 +12269,103 @@ function filterFaq(){
     group.querySelectorAll('.card').forEach(function(card){
       var match = !q || card.textContent.toLowerCase().indexOf(q) !== -1;
       card.style.display = match ? '' : 'none';
+      // Searching opens every match so the answer is already showing; clearing
+      // the search folds everything back to the short list of questions.
+      _faqSetOpen(card, !!q && match);
       if (match) groupHasVisible = true;
     });
     group.style.display = groupHasVisible ? '' : 'none';
     if (groupHasVisible) anyVisible = true;
   });
+  var chips = document.getElementById('faq-chips');
+  if (chips) chips.style.display = q ? 'none' : '';
   var noResults = document.getElementById('faq-no-results');
   if (noResults) noResults.style.display = anyVisible ? 'none' : 'block';
 }
+// Help/FAQ is built as short tappable questions (see the .faq-* CSS): each card's
+// answer is wrapped into a .faq-body that only shows while the card is .faq-open.
+function _faqSetOpen(card, open){
+  card.classList.toggle('faq-open', !!open);
+  var label = card.firstElementChild;
+  if (label) label.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function _faqScrollTo(el){
+  var mc = document.getElementById('mainContent');
+  if (!mc || !el) return;
+  mc.scrollTop = mc.scrollTop + (el.getBoundingClientRect().top - mc.getBoundingClientRect().top) - 8;
+}
+function faqToggle(label){
+  var card = label && label.parentNode;
+  if (!card) return;
+  var willOpen = !card.classList.contains('faq-open');
+  var searching = !!(document.getElementById('faq-search') && document.getElementById('faq-search').value.trim());
+  if (willOpen && !searching) {
+    document.querySelectorAll('.faq-group .card.faq-open').forEach(function(c){ _faqSetOpen(c, false); });
+  }
+  _faqSetOpen(card, willOpen);
+  if (willOpen) _faqScrollTo(label);
+}
+function faqJump(key){
+  var input = document.getElementById('faq-search');
+  if (input && input.value) { input.value = ''; filterFaq(); }
+  document.querySelectorAll('.faq-group .card.faq-open').forEach(function(c){ _faqSetOpen(c, false); });
+  _faqScrollTo(document.querySelector('.faq-group[data-faq-group="' + key + '"] .faq-group-title'));
+}
+function initFaq(){
+  try {
+    var chipBox = document.getElementById('faq-chips');
+    document.querySelectorAll('.faq-group').forEach(function(group){
+      var title = group.querySelector('.faq-group-title');
+      var cards = group.querySelectorAll('.card');
+      if (title && !title.querySelector('.faq-count')) {
+        var name = document.createElement('span');
+        name.innerHTML = title.innerHTML;
+        title.innerHTML = '';
+        title.appendChild(name);
+        var count = document.createElement('span');
+        count.className = 'faq-count';
+        count.textContent = cards.length;
+        title.appendChild(count);
+      }
+      cards.forEach(function(card){
+        var label = card.firstElementChild;
+        if (!label || !label.classList.contains('card-label') || card.querySelector('.faq-body')) return;
+        var body = document.createElement('div');
+        body.className = 'faq-body';
+        while (label.nextSibling) body.appendChild(label.nextSibling);
+        card.appendChild(body);
+        label.setAttribute('role', 'button');
+        label.setAttribute('tabindex', '0');
+        label.setAttribute('aria-expanded', 'false');
+      });
+      var key = group.getAttribute('data-faq-group');
+      if (chipBox && title && key && !chipBox.querySelector('[data-faq-chip="' + key + '"]')) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'faq-chip';
+        chip.setAttribute('data-faq-chip', key);
+        chip.style.background = getComputedStyle(group).getPropertyValue('--faq-c');
+        chip.innerHTML = title.firstChild.innerHTML;
+        chip.onclick = function(){ faqJump(key); };
+        chipBox.appendChild(chip);
+      }
+    });
+    var page = document.getElementById('view-faq');
+    if (page && !page._faqWired) {
+      page._faqWired = true;
+      page.addEventListener('click', function(e){
+        var label = e.target.closest ? e.target.closest('.faq-group .card > .card-label') : null;
+        if (label) faqToggle(label);
+      });
+      page.addEventListener('keydown', function(e){
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var label = e.target.closest ? e.target.closest('.faq-group .card > .card-label') : null;
+        if (label) { e.preventDefault(); faqToggle(label); }
+      });
+    }
+  } catch(e) { /* the Help page's layout must never be able to stop the app from starting */ }
+}
+initFaq();
 
 /* ══════════════════════════════════
    NAV
