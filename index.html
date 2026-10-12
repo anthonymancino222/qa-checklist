@@ -2536,6 +2536,38 @@ try {
   </div>
 </div>
 
+<!-- Sample Box Locations (QA Manager only: Anthony + Mathias via DATA_EDIT_ALLOWED_EMAILS).
+     When two half-empty sample boxes get combined into one, every job whose
+     sample is now in the other box needs its Sample Location changed - one at a
+     time or many at once. See openSampleLocations() and friends. -->
+<div class="continue-overlay" id="sampleLocOverlay" onclick="if(event.target===this)closeSampleLocations()">
+  <div class="continue-modal" style="max-width:720px;">
+    <div class="continue-modal-head">
+      <div style="font-size:17px;font-weight:800;">📦 <span data-en>Sample Box Locations</span><span data-es>Ubicaciones de Cajas de Muestra</span></div>
+      <button class="continue-modal-close" onclick="closeSampleLocations()">✕</button>
+    </div>
+    <div class="continue-modal-body" style="padding-bottom:0;">
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:10px;"><span data-en>Tick the jobs whose sample moved, type the new box, then tap Move. Tick a whole box with its checkbox to move everything in it.</span><span data-es>Marque los trabajos cuya muestra se movió, escriba la caja nueva y toque Mover. Marque una caja completa con su casilla para mover todo lo que tiene.</span></div>
+      <input id="sl-search" class="input" type="text" autocomplete="off" oninput="_slSetQuery(this.value)" placeholder="Search box, job #, product, customer…" data-ph-en="Search box, job #, product, customer…" data-ph-es="Buscar caja, # de trabajo, producto, cliente…" style="margin-bottom:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <button type="button" class="header-pill-btn" onclick="_slSelectShown(true)"><span data-en>Select all shown</span><span data-es>Marcar todos los mostrados</span></button>
+        <button type="button" class="header-pill-btn" onclick="_slSelectShown(false)"><span data-en>Clear</span><span data-es>Quitar marcas</span></button>
+        <button type="button" class="header-pill-btn" id="sl-undo-btn" onclick="_slUndo()" style="display:none;">↩ <span data-en>Undo last move</span><span data-es>Deshacer último cambio</span></button>
+      </div>
+      <div id="sl-summary" style="font-size:13.5px;color:var(--text-secondary);margin-bottom:8px;"></div>
+      <div id="sl-list" style="max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+      <div style="position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 0;margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-weight:700;white-space:nowrap;"><span data-en>Move to:</span><span data-es>Mover a:</span></span>
+          <input id="sl-target" class="input" type="text" list="sl-target-list" autocomplete="off" oninput="_slUpdateMoveBtn()" placeholder="New box location" data-ph-en="New box location" data-ph-es="Nueva ubicación de caja" style="flex:1;">
+          <datalist id="sl-target-list"></datalist>
+        </div>
+        <button type="button" id="sl-move-btn" class="btn-primary" style="margin-top:0;" onclick="_slMove()" disabled>—</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="continue-overlay" id="deletedItemsOverlay" onclick="if(event.target===this)closeDeletedItemsView()">
   <div class="continue-modal" style="max-width:640px;">
     <div class="continue-modal-head">
@@ -4419,6 +4451,7 @@ try {
       <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>QA Manager</span><span data-es>Gerente de Calidad</span></div><div class="view-sub"><span data-en>Admin tools — only visible to Anthony and Mathias</span><span data-es>Herramientas de administración — solo visibles para Anthony y Mathias</span></div></div>
       <div id="qamanager-body" style="display:none;padding:0 16px 24px;flex-direction:column;gap:12px;max-width:420px;">
         <button id="qamgr-data-edit-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="toggleDataEditMode()" title="Show edit pencils on job fields (passcode required)">✏️ DATA EDIT</button>
+        <button id="qamgr-sample-loc-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openSampleLocations()" title="Change the Sample Location on one or many jobs (e.g. after combining two sample boxes)">📦 <span data-en>Sample Box Locations</span><span data-es>Ubicaciones de Cajas de Muestra</span></button>
         <button id="qamgr-deleted-items-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openDeletedItemsView()" title="View and restore deleted jobs/NCRs">🗑️ <span data-en>Deleted Items</span><span data-es>Elementos Eliminados</span></button>
         <button id="qamgr-names-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openRosterManager()" title="Delete or add customer / operator names">👥 <span data-en>Manage Names</span><span data-es>Administrar Nombres</span></button>
         <button id="qamgr-contacts-btn" class="header-pill-btn" style="padding:14px;font-size:16px;" onclick="openCarContacts()" title="Who gets each CAR email — edit names, emails and stations">📧 <span data-en>CAR Contacts</span><span data-es>Contactos de ACR</span></button>
@@ -5792,6 +5825,31 @@ try {
                 <li><span data-en>When you are done, tap <b>🔒 Exit Edit Mode</b> so it is off right away.</span><span data-es>Cuando termine, toque <b>🔒 Salir de Edición</b> para apagarlo al momento.</span></li>
               </ol>
               <div class="faq-done">✅ <span data-en>You are done when the green DATA badge is gone (edit mode is off).</span><span data-es>Listo cuando la etiqueta verde DATA ya no está (el modo de edición está apagado).</span></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>📦 I combined two sample boxes. How do I change the sample location? (QA managers)</span><span data-es>📦 Junté dos cajas de muestra. ¿Cómo cambio la ubicación de la muestra? (gerentes de Calidad)</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>When half-empty sample boxes are combined, the jobs from the emptied box must point to the new box, so the next sample request finds the right place. <b>Sample Box Locations</b> (QA Manager screen) changes one job or many jobs at once. Only Anthony and Mathias can use it.</span><span data-es>Cuando se juntan cajas de muestra a medias, los trabajos de la caja que se vació deben apuntar a la caja nueva. Así el próximo pedido de muestra encuentra el lugar correcto. <b>Ubicaciones de Cajas de Muestra</b> (pantalla de Gerente de Calidad) cambia un trabajo o muchos a la vez. Solo Anthony y Mathias la pueden usar.</span></p>
+              <ul class="faq-ul">
+                <li><span data-en>Every change is saved in that job's history (who, when, old box → new box).</span><span data-es>Cada cambio se guarda en el historial de ese trabajo (quién, cuándo, caja vieja → caja nueva).</span></li>
+                <li><span data-en>Made a mistake? Tap <b>Undo last move</b>.</span><span data-es>¿Se equivocó? Toque <b>Borrar</b>. La casilla se cierra otra vez. Toque el 🔒 y firme de nuevo.</span></li>
+              </ul>
+            </div>
+            <div class="faq-steps">
+              <div class="faq-steps-title"><span data-en>Move a whole box (the fast way)</span><span data-es>Mover una caja completa (la forma rápida)</span></div>
+              <ol class="faq-ol">
+                <li><span data-en>Tap <b>QA</b>, then <b>QA Manager</b>, then <b>📦 Sample Box Locations</b>.</span><span data-es>Toque <b>QA</b>, luego <b>Gerente de Calidad</b>, luego <b>📦 Ubicaciones de Cajas de Muestra</b>.</span></li>
+                <li><span data-en>Find the box you emptied (example: <b>Box 12</b>). Tap the checkbox next to its name. Every job in that box gets ticked.</span><span data-es>Busque la caja que vació (ejemplo: <b>Box 12</b>). Toque la casilla junto a su nombre. Se marcan todos los trabajos de esa caja.</span></li>
+                <li><span data-en>At the bottom, type the box that kept the samples in <b>Move to</b> (example: <b>Box 7</b>). Your existing boxes show up as you type.</span><span data-es>Abajo, en <b>Mover a</b>, escriba la caja que se quedó con las muestras (ejemplo: <b>Box 7</b>). Sus cajas aparecen mientras escribe.</span></li>
+                <li><span data-en>Tap the green <b>Move … jobs →</b> button.</span><span data-es>Toque el botón verde <b>Mover … trabajos →</b>.</span></li>
+                <li><span data-en>Read the pop-up (it says how many jobs and from which box). Tap <b>Yes, move</b>.</span><span data-es>Lea la ventana (dice cuántos trabajos y de qué caja). Toque <b>Sí, mover</b>.</span></li>
+                <li><span data-en>Done! You see a green message. Wrong box? Tap <b>Undo last move</b>.</span><span data-es>¡Listo! Sale un mensaje verde. ¿Caja equivocada? Toque <b>Deshacer último cambio</b>.</span></li>
+              </ol>
+              <div class="faq-example"><div class="faq-example-title"><span data-en>🧪 Example (made-up numbers)</span><span data-es>🧪 Ejemplo (números inventados)</span></div><span data-en>Box 12 and Box 7 are both half empty. You pour Box 12 into Box 7. In the tool: tick the <b>Box 12</b> checkbox (6 jobs), type <b>Box 7</b> in Move to, tap <b>Move 6 jobs →</b>, tap <b>Yes, move</b>. Now all 6 jobs say Box 7.</span><span data-es>La Box 12 y la Box 7 están a medias. Usted pasa la Box 12 a la Box 7. En la herramienta: marque la casilla de <b>Box 12</b> (6 trabajos), escriba <b>Box 7</b> en Mover a, toque <b>Mover 6 trabajos →</b>, toque <b>Sí, mover</b>. Ahora los 6 trabajos dicen Box 7.</span></div>
+              <div class="faq-note"><span data-en>Only some jobs moved? Tap the box name to open it, then tick just those jobs. You can also type a job number, product or customer in the search box.</span><span data-es>¿Solo algunos trabajos se movieron? Toque el nombre de la caja para abrirla y marque solo esos trabajos. También puede escribir un número de trabajo, producto o cliente en la búsqueda.</span></div>
+              <div class="faq-done">✅ <span data-en>You are done when the jobs show the new box name in the tool.</span><span data-es>Listo cuando los trabajos muestran el nombre de la caja nueva en la herramienta.</span></div>
             </div>
           </div>
         </div>
@@ -9069,6 +9127,237 @@ function _recordDeleteAuditEntry(type, id, label, summary) {
    yet, so there's no server-side "deleted" flag for it to undo.
 ══════════════════════════════════ */
 var _deletedItemsCache = []; // [{ type, id, data, updatedAt }] — repopulated each time the view opens
+
+/* ── Sample Box Locations (QA Manager: Anthony + Mathias only) ──
+   A job's sample box lives in its checklist as Sample Location
+   (glr-location on Gluer release, pk-location on Packing). When half-empty
+   boxes get combined, the jobs from the box that was emptied need their
+   location pointed at the box that kept the samples - singly or in bulk.
+   Only the job's CURRENT checklist value changes; every change is written to
+   that job's own history (who, when, old -> new), and the last move can be undone.
+   State lives on a function property (not a top-level var) so nothing here can
+   be touched before the script reaches it. */
+var SAMPLE_LOCATION_IDS = ['glr-location', 'pk-location'];
+function _slState(){ return _slState._s || (_slState._s = { sel: {}, q: '', undo: null, open: {} }); }
+function _slKey(loc){ return String(loc || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+function _slLocItem(job){
+  var cl = job && job.checklist;
+  if (!cl) return null;
+  for (var i = 0; i < cl.length; i++) {
+    var it = cl[i];
+    if (it && SAMPLE_LOCATION_IDS.indexOf(it.id) !== -1 && it.val != null && String(it.val).trim() !== '') return it;
+  }
+  return null;
+}
+function _slEntries(){
+  var out = [];
+  ipLoad().forEach(function(job){
+    var it = _slLocItem(job);
+    if (!it) return;
+    var loc = String(it.val).trim();
+    if (_slKey(loc) === 'test job') return; // test jobs aren't a real box
+    out.push({ job: job, loc: loc });
+  });
+  return out;
+}
+function openSampleLocations(){
+  if (!_isDataEditAllowedUser()) {
+    showAlert(isEsLang() ? 'Esta herramienta está restringida a una cuenta específica.' : 'This tool is restricted to a specific account.');
+    return;
+  }
+  var st = _slState();
+  st.sel = {}; st.q = ''; st.open = {};
+  var inp = document.getElementById('sl-search'); if (inp) inp.value = '';
+  var tgt = document.getElementById('sl-target'); if (tgt) tgt.value = '';
+  document.getElementById('sampleLocOverlay').classList.add('open');
+  _slRender();
+}
+function closeSampleLocations(){
+  document.getElementById('sampleLocOverlay').classList.remove('open');
+}
+function _slSetQuery(v){ _slState().q = String(v || '').trim().toLowerCase(); _slRender(); }
+function _slMatches(e, q){
+  if (!q) return true;
+  var j = e.job;
+  var hay = [e.loc, j.jobNumber, j.productNumber, j.product, j.customer, j.station].join(' ').toLowerCase();
+  return hay.indexOf(q) !== -1;
+}
+function _slVisibleEntries(){
+  var q = _slState().q;
+  return _slEntries().filter(function(e){ return _slMatches(e, q); });
+}
+function _slSelectShown(on){
+  var sel = _slState().sel;
+  _slVisibleEntries().forEach(function(e){ if (on) sel[e.job.id] = true; else delete sel[e.job.id]; });
+  _slRender();
+}
+function _slToggleJob(idx, on){
+  var e = _slState().rows && _slState().rows[idx];
+  if (!e) return;
+  var sel = _slState().sel;
+  if (on) sel[e.job.id] = true; else delete sel[e.job.id];
+  _slRender();
+}
+function _slToggleGroup(key, on){
+  var sel = _slState().sel;
+  _slVisibleEntries().forEach(function(e){
+    if (_slKey(e.loc) !== key) return;
+    if (on) sel[e.job.id] = true; else delete sel[e.job.id];
+  });
+  _slRender();
+  if (on) { var t = document.getElementById('sl-target'); if (t) t.focus(); }
+}
+function _slToggleOpen(key){
+  var st = _slState();
+  st.open[key] = !st.open[key];
+  _slRender();
+}
+function _slSelectedCount(){ return Object.keys(_slState().sel).length; }
+function _slUpdateMoveBtn(){
+  var btn = document.getElementById('sl-move-btn');
+  if (!btn) return;
+  var n = _slSelectedCount();
+  var t = (document.getElementById('sl-target') || {}).value || '';
+  var isEs = isEsLang();
+  btn.disabled = !(n > 0 && t.trim());
+  btn.textContent = n === 0
+    ? (isEs ? 'Marque trabajos para mover' : 'Tick jobs to move')
+    : (isEs ? ('Mover ' + n + (n === 1 ? ' trabajo' : ' trabajos') + ' →') : ('Move ' + n + (n === 1 ? ' job' : ' jobs') + ' →'));
+}
+// Group keys and row indexes (not raw ids/names) go into the onclick handlers,
+// so a box name or job id with a quote in it can never break the markup.
+function _slRender(){
+  var listEl = document.getElementById('sl-list');
+  if (!listEl) return;
+  var isEs = isEsLang();
+  var st = _slState();
+  var all = _slEntries();
+  var valid = {}; all.forEach(function(e){ valid[e.job.id] = true; });
+  Object.keys(st.sel).forEach(function(id){ if (!valid[id]) delete st.sel[id]; });
+  var shown = all.filter(function(e){ return _slMatches(e, st.q); });
+  var groups = {}, order = [];
+  shown.forEach(function(e){
+    var k = _slKey(e.loc);
+    if (!groups[k]) { groups[k] = { key: k, name: e.loc, rows: [] }; order.push(k); }
+    groups[k].rows.push(e);
+  });
+  order.sort(function(a, b){ return groups[a].name.localeCompare(groups[b].name, undefined, { numeric: true, sensitivity: 'base' }); });
+  st.rows = []; st.groupKeys = order.slice();
+  var datalist = document.getElementById('sl-target-list');
+  if (datalist) {
+    var names = {}; all.forEach(function(e){ names[_slKey(e.loc)] = e.loc; });
+    datalist.innerHTML = Object.keys(names).sort().map(function(k){ return '<option value="' + escHtml(names[k]) + '"></option>'; }).join('');
+  }
+  var summary = document.getElementById('sl-summary');
+  if (summary) summary.textContent = isEs
+    ? (shown.length + ' trabajos en ' + order.length + ' cajas' + (st.q ? ' (filtrado)' : ''))
+    : (shown.length + ' jobs in ' + order.length + ' boxes' + (st.q ? ' (filtered)' : ''));
+  var html = '';
+  if (!order.length) {
+    html = '<div style="padding:14px;color:var(--text-secondary);">' + (isEs ? 'No hay trabajos con ubicación de muestra.' : 'No jobs with a sample location found.') + '</div>';
+  }
+  order.forEach(function(k, gi){
+    var g = groups[k];
+    var selCount = g.rows.filter(function(e){ return st.sel[e.job.id]; }).length;
+    var allSel = selCount === g.rows.length;
+    var open = !!st.q || !!st.open[k];
+    g.rows.sort(function(a, b){ return _tsCompare(b.job.approvedAt || b.job.timestamp, a.job.approvedAt || a.job.timestamp); });
+    html += '<div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;">' +
+      '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-raised);">' +
+        '<input type="checkbox" style="width:22px;height:22px;flex:0 0 auto;" ' + (allSel ? 'checked' : '') + ' onchange="_slToggleGroup(_slState().groupKeys[' + gi + '], this.checked)" aria-label="select whole box">' +
+        '<div style="flex:1;min-width:0;cursor:pointer;" onclick="_slToggleOpen(_slState().groupKeys[' + gi + '])">' +
+          '<div style="font-weight:800;font-size:16px;">📦 ' + escHtml(g.name) + '</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);">' + g.rows.length + (isEs ? ' trabajos' : ' jobs') + (selCount ? ' · ' + selCount + (isEs ? ' marcados' : ' ticked') : '') + '</div>' +
+        '</div>' +
+        '<div style="cursor:pointer;font-size:18px;" onclick="_slToggleOpen(_slState().groupKeys[' + gi + '])">' + (open ? '▴' : '▾') + '</div>' +
+      '</div>';
+    if (open) {
+      g.rows.forEach(function(e){
+        var j = e.job;
+        var ri = st.rows.push(e) - 1;
+        var prod = j.productNumber || j.product || '';
+        var line = [(isEs ? 'Trabajo ' : 'Job ') + escHtml(j.jobNumber || '—'), prod ? (isEs ? 'Producto ' : 'Product ') + escHtml(prod) : '', escHtml(j.customer || '')].filter(Boolean).join(' · ');
+        html += '<label style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border-top:1px solid var(--border);cursor:pointer;">' +
+          '<input type="checkbox" style="width:22px;height:22px;flex:0 0 auto;margin-top:1px;" ' + (st.sel[j.id] ? 'checked' : '') + ' onchange="_slToggleJob(' + ri + ', this.checked)">' +
+          '<span style="flex:1;min-width:0;"><span style="display:block;font-weight:700;">' + line + '</span>' +
+          '<span style="display:block;font-size:12.5px;color:var(--text-secondary);">' + escHtml(j.station || '') + (j.approvedAt || j.timestamp ? ' · ' + escHtml(j.approvedAt || j.timestamp) : '') + '</span></span></label>';
+      });
+    }
+    html += '</div>';
+  });
+  var scrollTop = listEl.scrollTop;
+  listEl.innerHTML = html;
+  listEl.scrollTop = scrollTop;
+  var undoBtn = document.getElementById('sl-undo-btn');
+  if (undoBtn) undoBtn.style.display = st.undo && st.undo.length ? '' : 'none';
+  _slUpdateMoveBtn();
+}
+function _slMove(){
+  var st = _slState();
+  var target = ((document.getElementById('sl-target') || {}).value || '').trim();
+  var ids = Object.keys(st.sel);
+  var isEs = isEsLang();
+  if (!target || !ids.length) return;
+  var byId = {}; ipLoad().forEach(function(j){ byId[String(j.id)] = j; });
+  var fromCounts = {}, changing = 0;
+  ids.forEach(function(id){
+    var j = byId[id]; var it = j && _slLocItem(j);
+    if (!it) return;
+    var cur = String(it.val).trim();
+    if (cur === target) return;
+    changing++;
+    fromCounts[cur] = (fromCounts[cur] || 0) + 1;
+  });
+  if (!changing) { showAlert(isEs ? 'Todos los trabajos marcados ya están en esa caja.' : 'Every ticked job is already in that box.'); return; }
+  var fromTxt = Object.keys(fromCounts).map(function(k){ return k + ' (' + fromCounts[k] + ')'; }).join(', ');
+  var msg = isEs
+    ? ('¿Mover ' + changing + ' trabajo(s) a la caja "' + target + '"? De: ' + fromTxt)
+    : ('Move ' + changing + ' job(s) to box "' + target + '"? From: ' + fromTxt);
+  showConfirm(msg, function(){ _slApplyMove(ids, target); }, { title: isEs ? 'Cambiar ubicación de muestra' : 'Change sample location', okLabel: isEs ? 'Sí, mover' : 'Yes, move', danger: false });
+}
+function _slApplyMove(ids, target){
+  if (!_isDataEditAllowedUser()) return;
+  var isEs = isEsLang();
+  var jobs = ipLoad(), undo = [], n = 0;
+  var wanted = {}; ids.forEach(function(id){ wanted[id] = true; });
+  jobs.forEach(function(j){
+    if (!wanted[String(j.id)]) return;
+    var it = _slLocItem(j);
+    if (!it) return;
+    var old = String(it.val).trim();
+    if (old === target) return;
+    it.val = target;
+    _logDataEditAudit(j, 'DATA EDIT — Sample location changed: ' + old + ' → ' + target);
+    undo.push({ id: String(j.id), old: old });
+    n++;
+  });
+  if (!n) return;
+  var st = _slState();
+  st.undo = undo;
+  st.sel = {};
+  ipSave(jobs);
+  showToast(isEs ? (n + ' trabajo(s) movidos a "' + target + '"') : (n + ' job(s) moved to "' + target + '"'), 'pass');
+  _slRender();
+}
+function _slUndo(){
+  var st = _slState();
+  if (!st.undo || !st.undo.length || !_isDataEditAllowedUser()) return;
+  var isEs = isEsLang();
+  var jobs = ipLoad(), back = {}, n = 0;
+  st.undo.forEach(function(u){ back[u.id] = u; });
+  jobs.forEach(function(j){
+    var u = back[String(j.id)]; if (!u) return;
+    var it = _slLocItem(j); if (!it) return;
+    var cur = String(it.val).trim();
+    it.val = u.old;
+    _logDataEditAudit(j, 'DATA EDIT — Sample location change undone: ' + cur + ' → ' + u.old);
+    n++;
+  });
+  st.undo = null;
+  if (n) ipSave(jobs);
+  showToast(isEs ? (n + ' trabajo(s) restaurados') : (n + ' job(s) restored'), 'pass');
+  _slRender();
+}
 
 function openDeletedItemsView() {
   // Belt-and-suspenders, same pattern as toggleDataEditMode() — the button
