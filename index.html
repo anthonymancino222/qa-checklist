@@ -5777,6 +5777,23 @@ try {
               <div class="faq-done">✅ <span data-en>You are done when the job shows the right number of products.</span><span data-es>Listo cuando el trabajo muestra el número correcto de productos.</span></div>
             </div>
           </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>🔒 Why did Edit Mode turn itself off? (QA managers)</span><span data-es>🔒 ¿Por qué se apagó solo el Modo de Edición? (gerentes de Calidad)</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en><b>DATA EDIT</b> lets a QA manager change job details and delete records. To keep it safe, it turns itself <b>off</b> after <b>30 minutes</b> of no touching, tapping or typing on that device. It only affects the device you turned it on with.</span><span data-es><b>EDITAR DATOS</b> deja que un gerente de Calidad cambie datos de un trabajo y borre registros. Para que sea seguro, se apaga solo después de <b>30 minutos</b> sin tocar ni escribir en ese dispositivo. Solo afecta el dispositivo con el que lo prendió.</span></p>
+              <p class="faq-p"><span data-en>It also turns off if you reload the app. Nothing you already saved is lost.</span><span data-es>También se apaga si vuelve a abrir la aplicación. No se pierde nada de lo que ya guardó.</span></p>
+            </div>
+            <div class="faq-steps">
+              <ol class="faq-ol">
+                <li><span data-en>You see the message <b>Edit mode turned off after 30 minutes of no activity</b>, and the green <b>DATA</b> badge at the top goes away.</span><span data-es>Sale el mensaje <b>Modo de edición desactivado por inactividad</b>, y la etiqueta verde <b>DATA</b> de arriba se quita.</span></li>
+                <li><span data-en>To edit again, tap <b>QA</b>, then <b>QA Manager</b>.</span><span data-es>Para editar otra vez, toque <b>QA</b> y luego <b>Gerente de Calidad</b>.</span></li>
+                <li><span data-en>Tap <b>✏️ DATA EDIT</b>. The green <b>DATA</b> badge comes back.</span><span data-es>Toque <b>✏️ DATA EDIT</b>. La etiqueta verde <b>DATA</b> regresa.</span></li>
+                <li><span data-en>When you are done, tap <b>🔒 Exit Edit Mode</b> so it is off right away.</span><span data-es>Cuando termine, toque <b>🔒 Salir de Edición</b> para apagarlo al momento.</span></li>
+              </ol>
+              <div class="faq-done">✅ <span data-en>You are done when the green DATA badge is gone (edit mode is off).</span><span data-es>Listo cuando la etiqueta verde DATA ya no está (el modo de edición está apagado).</span></div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -6080,8 +6097,32 @@ function toggleDataEditMode(onToggled){
     return;
   }
   _dataEditMode = true;
+  _dataEditLastActive = Date.now();
   apply();
 }
+// Edit mode turns itself off after 30 minutes with no touch/click/key/scroll on
+// THIS device (the mode only ever lives in memory on the device that switched it
+// on), so a QA manager walking away can't leave deletes/edits enabled. Checked
+// on a 30-second timer and again when the tab comes back to the foreground
+// (background tabs get their timers slowed down).
+var DATA_EDIT_IDLE_LIMIT_MS = 30 * 60 * 1000;
+var _dataEditLastActive = Date.now();
+function _dataEditNoteActivity(){ _dataEditLastActive = Date.now(); }
+['pointerdown', 'click', 'keydown', 'touchstart', 'scroll'].forEach(function(evt){
+  document.addEventListener(evt, _dataEditNoteActivity, { passive: true, capture: true });
+});
+function _dataEditIdleCheck(){
+  if (!_dataEditMode) return;
+  if (Date.now() - _dataEditLastActive < DATA_EDIT_IDLE_LIMIT_MS) return;
+  _dataEditMode = false;
+  _updateHeaderDataEditBtn();
+  try { if (typeof renderInProgress === 'function') renderInProgress(); } catch(e) {}
+  var cmBtn = document.getElementById('cm-data-edit-btn');
+  if (cmBtn) cmBtn.textContent = isEsLang() ? '✏️ EDITAR DATOS' : '✏️ DATA EDIT';
+  showToast(isEsLang() ? '🔒 Modo de edición desactivado por inactividad (30 min).' : '🔒 Edit mode turned off after 30 minutes of no activity.', 'pass');
+}
+setInterval(_dataEditIdleCheck, 30 * 1000);
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) _dataEditIdleCheck(); });
 function _updateHeaderDataEditBtn(){
   var btn = document.getElementById('qamgr-data-edit-btn');
   if (btn) btn.textContent = _dataEditMode ? (isEsLang() ? '🔒 Salir de Edición' : '🔒 Exit Edit Mode') : '✏️ DATA EDIT';
