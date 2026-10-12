@@ -1833,6 +1833,13 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
   background: var(--green); border-color: var(--green); color: #fff; font-weight: 700;
 }
 #productIdPickerOverlay .job-picker-row:disabled { cursor: default; opacity: .55; }
+/* "Not in the list — type it myself" row at the bottom of every schedule number
+   picker: the schedule pull can miss last-minute changes, so the person can
+   always type the real number instead of being stuck with the pulled ones. */
+.manual-pick-row { margin-top: 6px; }
+.manual-pick-btn { border-style: dashed !important; font-weight: 700; }
+.manual-pick-box { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.manual-pick-box .input { font-size: 18px; font-weight: 700; }
 #productIdPickerOverlay .job-picker-row-selected:disabled { opacity: 1; }
 .continue-modal {
   background: var(--surface); border-radius: var(--radius-lg);
@@ -5310,6 +5317,24 @@ try {
                 <li><span data-en>Want to close the list without picking? Tap the <b>✕</b>.</span><span data-es>¿Quiere cerrar la lista sin elegir? Toque la <b>✕</b>.</span></li>
               </ol>
               <div class="faq-done">✅ <span data-en>You are done when the right number is in the box.</span><span data-es>Listo cuando el número correcto está en la casilla.</span></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>✏️ The number I need is not in the list. What do I do?</span><span data-es>✏️ El número que necesito no está en la lista. ¿Qué hago?</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>Sometimes the schedule was pulled before a last-minute change, so the new number is not in the list yet. You can always type it yourself.</span><span data-es>A veces el programa se bajó antes de un cambio de último momento, y el número nuevo todavía no está en la lista. Siempre lo puede escribir usted.</span></p>
+              <p class="faq-p"><span data-en>Every pop-up list of numbers (Product ID, Die Number, or picking a product for a job) has a dashed button at the bottom: <b>✏️ Not in the list — type it myself</b>.</span><span data-es>Cada lista de números (ID de Producto, Número de Troquel, o elegir un producto de un trabajo) tiene un botón con línea de puntos abajo: <b>✏️ No está en la lista — escribirlo yo</b>.</span></p>
+            </div>
+            <div class="faq-steps">
+              <ol class="faq-ol">
+                <li><span data-en>When the list of numbers pops up, look at the very bottom.</span><span data-es>Cuando sale la lista de números, mire hasta abajo.</span></li>
+                <li><span data-en>Do not see your number? Tap the dashed button <b>✏️ Not in the list — type it myself</b>.</span><span data-es>¿No ve su número? Toque el botón con línea de puntos <b>✏️ No está en la lista — escribirlo yo</b>.</span></li>
+                <li><span data-en>A box opens. Type the number from your job ticket.</span><span data-es>Se abre una casilla. Escriba el número de su ticket de trabajo.</span></li>
+                <li><span data-en>Tap <b>✓ Use this number</b> (or press Enter).</span><span data-es>Toque <b>✓ Usar este número</b> (o presione Enter).</span></li>
+                <li><span data-en>Your number goes into the field, just like a number you picked from the list.</span><span data-es>Su número se pone en el campo, igual que uno que escogió de la lista.</span></li>
+              </ol>
+              <div class="faq-done">✅ <span data-en>You are done when your typed number is in the Product ID (or Die Number) box.</span><span data-es>Listo cuando su número está en la casilla de ID de Producto (o Número de Troquel).</span></div>
             </div>
           </div>
         </div>
@@ -16125,6 +16150,46 @@ function _maybeOfferSetupProductPicker(fieldId) {
   _openProductIdPicker(entry.products, heading, function(p){ el.value = p; });
   return true;
 }
+// Adds the "Not in the list — type it myself" row under a schedule picker's
+// list. Tapping it swaps in a text box + "Use this number" button; onUse gets
+// the typed (trimmed, non-empty) value. Shared by every schedule picker so
+// they all behave the same.
+function _appendManualPickRow(listEl, onUse) {
+  var isEs = isEsLang();
+  var row = document.createElement('div');
+  row.className = 'manual-pick-row';
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'job-picker-row manual-pick-btn';
+  btn.textContent = isEs ? '✏️ No está en la lista — escribirlo yo' : '✏️ Not in the list — type it myself';
+  var box = document.createElement('div');
+  box.className = 'manual-pick-box';
+  box.style.display = 'none';
+  var inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'input';
+  inp.setAttribute('autocomplete', 'off');
+  inp.placeholder = isEs ? 'Escriba el número' : 'Type the number';
+  var use = document.createElement('button');
+  use.type = 'button';
+  use.className = 'btn-primary';
+  use.style.marginTop = '0';
+  use.textContent = isEs ? '✓ Usar este número' : '✓ Use this number';
+  function submit() {
+    var v = inp.value.trim();
+    if (!v) { inp.focus(); return; }
+    use.disabled = true;
+    onUse(v);
+  }
+  btn.onclick = function(){ btn.style.display = 'none'; box.style.display = 'flex'; inp.focus(); };
+  use.onclick = submit;
+  inp.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+  box.appendChild(inp);
+  box.appendChild(use);
+  row.appendChild(btn);
+  row.appendChild(box);
+  listEl.appendChild(row);
+}
 function _openProductIdPicker(remaining, heading, onPick) {
   document.getElementById('product-id-picker-heading').textContent = heading;
   var listEl = document.getElementById('product-id-picker-list');
@@ -16150,6 +16215,7 @@ function _openProductIdPicker(remaining, heading, onPick) {
     };
     listEl.appendChild(b);
   });
+  _appendManualPickRow(listEl, function(v){ closeProductIdPicker(); onPick(v); });
   document.getElementById('productIdPickerOverlay').classList.add('open');
 }
 function closeProductIdPicker() {
@@ -18602,6 +18668,7 @@ function _showJobPickerProductPanel(jobNumber, entry) {
     b.onclick = function(){ _finalizeJobPick(jobNumber, entry, p); };
     listEl.appendChild(b);
   });
+  _appendManualPickRow(listEl, function(v){ _finalizeJobPick(jobNumber, entry, v); });
 }
 
 function _finalizeJobPick(jobNumber, entry, product) {
@@ -18742,6 +18809,7 @@ function openGluerNextProductPicker(jobId) {
     b.onclick = function(){ closeGluerNextProductPicker(); _startGluerNextProduct(job, p); };
     listEl.appendChild(b);
   });
+  _appendManualPickRow(listEl, function(v){ closeGluerNextProductPicker(); _startGluerNextProduct(job, v); });
   document.getElementById('gluerNextProductOverlay').classList.add('open');
 }
 
