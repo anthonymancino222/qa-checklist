@@ -5765,6 +5765,24 @@ try {
               <div class="faq-done">✅ <span data-en>You are done when the words are pasted in your other program.</span><span data-es>Listo cuando las palabras están pegadas en su otro programa.</span></div>
             </div>
           </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>💾 "Could not save — storage full" when I save a CAR</span><span data-es>💾 "No se pudo guardar — almacenamiento lleno" al guardar una ACR</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>The app keeps a small copy of your work <b>inside your web browser</b>. That little space is only about 5 MB, and it is shared by everything in the app. It has <b>nothing to do with your computer hard drive</b>, so your computer can have lots of room and this can still happen.</span><span data-es>La app guarda una copia pequeña de su trabajo <b>dentro del navegador</b>. Ese espacio es de solo unos 5 MB y lo comparte toda la app. <b>No tiene que ver con el disco duro de su computadora</b>, así que la computadora puede tener mucho espacio y aun así pasar esto.</span></p>
+              <p class="faq-p"><span data-en>Now the app <b>makes room by itself</b>: it drops old photo previews and old copies first, then saves your CAR to the server. Your CAR on the server is never touched.</span><span data-es>Ahora la app <b>hace espacio sola</b>: primero quita vistas previas de fotos y copias viejas, y luego guarda su ACR en el servidor. Su ACR en el servidor nunca se toca.</span></p>
+            </div>
+            <div class="faq-steps">
+              <div class="faq-steps-title"><span data-en>If the save message shows up</span><span data-es>Si sale el mensaje de que no se guardó</span></div>
+              <ol class="faq-ol">
+                <li><span data-en>Tap <b>Save</b> one more time. The app frees space and tries again.</span><span data-es>Toque <b>Guardar</b> una vez más. La app libera espacio y lo intenta otra vez.</span></li>
+                <li><span data-en>Still the same message? Make sure you are signed in and online, then tap <b>Save</b> again.</span><span data-es>¿Sigue el mismo mensaje? Revise que haya iniciado sesión y tenga internet, y toque <b>Guardar</b> otra vez.</span></li>
+                <li><span data-en>Still stuck? Close other QA Checklist tabs, reload the page, and open the CAR from <b>Records</b>. Then save again.</span><span data-es>¿Sigue igual? Cierre las otras pestañas de QA Checklist, recargue la página y abra la ACR desde <b>Registros</b>. Luego guarde otra vez.</span></li>
+              </ol>
+              <div class="faq-note"><span data-en>Do not retype your work. If the green "saved" message shows, it is saved.</span><span data-es>No vuelva a escribir su trabajo. Si sale el mensaje verde de guardado, ya quedó guardado.</span></div>
+              <div class="faq-done">✅ <span data-en>You are done when you see the saved message.</span><span data-es>Terminó cuando ve el mensaje de guardado.</span></div>
+            </div>
+          </div>
         </div>
 
         <div class="faq-group" data-faq-group="misc">
@@ -23464,7 +23482,7 @@ function _rcaCarFail(){
   var isEs = isEsLang();
   if (rcaSendToSheets.lastErr === 'blocked'){ rcaSetStatus('draft', isEs?'No guardado — resuelva el aviso':'Not saved — see the message'); return; }
   rcaSetStatus('draft', isEs?'⚠️ No se pudo guardar':'⚠️ Could not save');
-  rcaShowToast(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente de nuevo.':'⚠️ Could not save on this device (storage full?) — try again.', true);
+  rcaShowToast(isEs?'⚠️ No se pudo guardar — el almacenamiento de este navegador está lleno. Toque Guardar otra vez (ahora libera espacio solo), o cierre otras pestañas de QA y recargue.':'⚠️ Could not save — the browser storage is full. Tap Save again (it now frees space automatically), or close other QA tabs and reload.', true);
 }
 function _rcaSaveCarProgress(){
   var isEs = isEsLang();
@@ -25050,17 +25068,29 @@ function _rcaMirrorLocal(data, extra){
     // Records tab on THIS device.
     var RCA_LOCAL_CAP = 150;
     if (list.length > RCA_LOCAL_CAP) list = list.slice(0, RCA_LOCAL_CAP);
-    try {
-      localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
-    } catch(quotaErr){
-      // Retry once with every cached record's photos stripped out — losing
-      // photo previews from this device's local Records view is a much
-      // smaller loss than silently losing the entire draft/record (job #,
-      // 5 Whys, root cause, everything) to a storage-quota failure.
-      var stripped = list.map(function(r){ return Object.assign({}, r, { photos: [], photoData: '' }); });
-      localStorage.setItem(RCA_STORE_KEY, JSON.stringify(stripped));
-      console.error('RCA local mirror hit a storage limit — retried with cached photos stripped. Server-side data (once RCA_LIVE) is unaffected.', quotaErr);
+    // The browser's localStorage is a fixed ~5 MB shared by the whole app
+    // (job sync snapshot + in-progress checklists can fill nearly all of it),
+    // so "storage full" has nothing to do with free disk space. Escalating
+    // fallbacks, each smaller than the last; the last one holds the list in
+    // memory so the save can still reach the server.
+    var _tries = [
+      function(){ return list; },
+      function(){ try { localStorage.removeItem('moquin-qa-rcas-prepurge-backup'); } catch(e){} return list; },
+      function(){ return list.map(function(r){ return Object.assign({}, r, { photos: [], photoData: '' }); }); },
+      function(){
+        var keep = list.filter(function(r, i){ return i === 0 || (r && r._cloudPending); });
+        return keep.concat(list.filter(function(r, i){ return i > 0 && !(r && r._cloudPending); }).slice(0, 15)).map(function(r){ return Object.assign({}, r, { photos: [], photoData: '' }); });
+      },
+      function(){ return list.filter(function(r, i){ return i === 0 || (r && r._cloudPending); }).map(function(r){ return Object.assign({}, r, { photos: [], photoData: '' }); }); }
+    ];
+    var _saved = false;
+    for (var _t = 0; _t < _tries.length && !_saved; _t++){
+      try { localStorage.setItem(RCA_STORE_KEY, JSON.stringify(_tries[_t]())); _saved = true; if (_t) console.warn('RCA local mirror hit a storage limit — saved using fallback level ' + _t + '. Server copy (once RCA_LIVE) is unaffected.'); }
+      catch(quotaErr){}
     }
+    _rcaMirrorLocal.memOnly = !_saved;
+    rcaLoadRecords._mem = _saved ? null : list;
+    if (!_saved) console.error('RCA local mirror: browser storage is full — holding this record in memory so it can still be sent to the server.');
     if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
     return true;
   } catch(e) {
@@ -25127,7 +25157,7 @@ function _rcaPatchLocal(id, patch){
   try {
     var list = rcaLoadRecords(), changed = false;
     list.forEach(function(r){ if (r && r.cloudId === id){ Object.assign(r, patch); changed = true; } });
-    if (changed) localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
+    if (changed && !rcaLoadRecords._mem) localStorage.setItem(RCA_STORE_KEY, JSON.stringify(list));
   } catch(e){}
 }
 function _rcaSlim(rec){
@@ -25282,7 +25312,7 @@ function rcaSendToSheets(data, onDone){
     ev.push('car_milestone'); data.notifiedStatus = data.status;
   } else if (prev && prev.notifiedStatus && a === 'car_save') data.notifiedStatus = prev.notifiedStatus;
   if (!_rcaCloudOn()){
-    var okLocal = _rcaMirrorLocal(data);
+    var okLocal = _rcaMirrorLocal(data) && !_rcaMirrorLocal.memOnly;
     setTimeout(function(){ onDone(okLocal); }, 400);
     return;
   }
@@ -25299,6 +25329,8 @@ function rcaSendToSheets(data, onDone){
     _rcaCloudFlushOne(id).then(function(r){
       rcaSendToSheets.lastErr = '';
       rcaSendToSheets.savedOnDeviceOnly = !r.ok;
+      // Held in memory only (browser storage full) AND not on the server = it would vanish on reload.
+      if (!r.ok && _rcaMirrorLocal.memOnly){ rcaSendToSheets.lastErr = 'local'; onDone(false); return; }
       onDone(true);
     });
   });
@@ -25552,7 +25584,7 @@ function rcaCloseOut(){
       // full) looked identical to a successful one, and locking the form
       // left no way to retry. Now it stays open/editable and says so.
       rcaSetStatus('draft', isEs?'⚠️ No se pudo guardar':'⚠️ Could not save');
-      rcaShowToast(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente de nuevo.':'⚠️ Could not save on this device (storage full?) — try again.', true);
+      rcaShowToast(isEs?'⚠️ No se pudo guardar — el almacenamiento de este navegador está lleno. Toque Guardar otra vez (ahora libera espacio solo), o cierre otras pestañas de QA y recargue.':'⚠️ Could not save — the browser storage is full. Tap Save again (it now frees space automatically), or close other QA tabs and reload.', true);
       btn.disabled=false; btn.textContent = isEs ? '🔒 Cerrar y enviar registro' : '🔒 Close & submit record';
       return;
     }
@@ -25583,7 +25615,7 @@ function rcaSubmitPath1(){
       // See rcaCloseOut's identical fix — a failed save used to lock the
       // form and show the success banner anyway, with no way to retry.
       rcaSetStatus('draft', isEs?'⚠️ No se pudo guardar':'⚠️ Could not save');
-      rcaShowToast(isEs?'⚠️ No se pudo guardar en este dispositivo (¿almacenamiento lleno?) — intente de nuevo.':'⚠️ Could not save on this device (storage full?) — try again.', true);
+      rcaShowToast(isEs?'⚠️ No se pudo guardar — el almacenamiento de este navegador está lleno. Toque Guardar otra vez (ahora libera espacio solo), o cierre otras pestañas de QA y recargue.':'⚠️ Could not save — the browser storage is full. Tap Save again (it now frees space automatically), or close other QA tabs and reload.', true);
       btn.disabled=false; btn.textContent = isEs ? '🔒 Enviar y cerrar registro' : '🔒 Submit & close record';
       return;
     }
@@ -26785,6 +26817,8 @@ var PROCESS_LABEL_KEYS = {
 function processLabel(process){ var k = PROCESS_LABEL_KEYS[process]; return k ? jp(k) : undefined; }
 
 function rcaLoadRecords(){
+  // Set by _rcaMirrorLocal only while browser storage refuses the write.
+  if (rcaLoadRecords._mem) return rcaLoadRecords._mem;
   try { return JSON.parse(localStorage.getItem(RCA_STORE_KEY)) || []; } catch(e){ return []; }
 }
 
