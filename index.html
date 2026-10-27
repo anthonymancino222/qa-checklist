@@ -5741,6 +5741,30 @@ try {
               <div class="faq-done">✅ <span data-en>You are done when it leaves the list.</span><span data-es>Listo cuando sale de la lista.</span></div>
             </div>
           </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>📄 Can I copy the words out of the CAR or NCR PDF?</span><span data-es>📄 ¿Puedo copiar las palabras del PDF de la ACR o la RNC?</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en><b>Yes.</b> The PDF is now made of real words, not a picture. You can select the text, copy it, and paste it into Word, an email or another program. You can also search it with Ctrl+F.</span><span data-es><b>Sí.</b> El PDF ahora está hecho de palabras de verdad, no de una foto. Puede seleccionar el texto, copiarlo y pegarlo en Word, en un correo o en otro programa. También puede buscar con Ctrl+F.</span></p>
+              <ul class="faq-ul">
+                <li><span data-en><b>Photos and signatures</b> are still pictures. That is normal.</span><span data-es><b>Las fotos y las firmas</b> siguen siendo imágenes. Eso es normal.</span></li>
+                <li><span data-en>Accents and ñ work. Emoji and special symbols are left out of the PDF text.</span><span data-es>Los acentos y la ñ funcionan. Los emoji y símbolos especiales no salen en el texto del PDF.</span></li>
+                <li><span data-en>The NCR now has its own <b>Download PDF</b> button too.</span><span data-es>La RNC ahora también tiene su propio botón de <b>Descargar PDF</b>.</span></li>
+              </ul>
+            </div>
+            <div class="faq-steps">
+              <div class="faq-steps-title"><span data-en>Copy text from a CAR PDF</span><span data-es>Copiar texto de un PDF de ACR</span></div>
+              <ol class="faq-ol">
+                <li><span data-en>Open the CAR (QA → <b>CAR</b>), or open a saved one from <b>Records</b>.</span><span data-es>Abra la ACR (QA → <b>ACR</b>), o abra una guardada en <b>Registros</b>.</span></li>
+                <li><span data-en>Tap <b>Download PDF</b>. Wait a few seconds. The file downloads to your device.</span><span data-es>Toque <b>Descargar PDF</b>. Espere unos segundos. El archivo se baja a su dispositivo.</span></li>
+                <li><span data-en>Open the PDF.</span><span data-es>Abra el PDF.</span></li>
+                <li><span data-en>Drag your mouse (or finger) over the words you want to copy. Then press <b>Ctrl+C</b> (or touch and hold, then tap <b>Copy</b>).</span><span data-es>Arrastre el mouse (o el dedo) sobre las palabras que quiere copiar. Luego presione <b>Ctrl+C</b> (o mantenga presionado y toque <b>Copiar</b>).</span></li>
+                <li><span data-en>Open Word or your email and press <b>Ctrl+V</b> to paste.</span><span data-es>Abra Word o su correo y presione <b>Ctrl+V</b> para pegar.</span></li>
+              </ol>
+              <div class="faq-note"><span data-en>For an NCR: QA → <b>NCR in Progress</b> → tap the NCR → tap <b>⬇️ Download PDF</b>. You can also use that button on the summary page before you submit.</span><span data-es>Para una RNC: QA → <b>RNC en Progreso</b> → toque la RNC → toque <b>⬇️ Descargar PDF</b>. También puede usar ese botón en la página de resumen antes de enviar.</span></div>
+              <div class="faq-done">✅ <span data-en>You are done when the words are pasted in your other program.</span><span data-es>Listo cuando las palabras están pegadas en su otro programa.</span></div>
+            </div>
+          </div>
         </div>
 
         <div class="faq-group" data-faq-group="misc">
@@ -21758,7 +21782,8 @@ function ncrSummaryHTML(d, isNew){
   // data) and from any saved NCR (reprint by ncrId). Drafts opened back into
   // the form use the form's own button instead.
   var _ptRef = isNew ? 'current' : (d.ncrId || '');
-  if (_ptRef) h += '<button type="button" class="ncr-secondary" onclick="openPalletTagFromNCR(\'' + _ptRef + '\')">🏷️ ' + (isEs?'Imprimir Etiqueta de Pallet':'Print Pallet Tag') + '</button>';
+  if (_ptRef) h += '<button type="button" class="ncr-secondary" onclick="openPalletTagFromNCR(\'' + _ptRef + '\')">🏷️ ' + (isEs?'Imprimir Etiqueta de Pallet':'Print Pallet Tag') + '</button>' +
+    '<button type="button" class="ncr-secondary" onclick="ncrExportPDF(\'' + _ptRef + '\', this)">⬇️ ' + (isEs?'Descargar PDF':'Download PDF') + '</button>';
   if (isNew) h += qaNotifyPickerHTML('ncr', d.path === 'sales' ? (isEs ? 'Enviar la solicitud de aprobación a… (opcional)' : 'Send the approval request to… (optional)') : (isEs ? 'Notificar también a… (opcional)' : 'Also notify… (optional)'),
     isEs ? 'Al enviar el RNC se manda automáticamente un correo con el resumen a las personas seleccionadas. Todos pueden usar “Responder a todos”.' : 'When you submit, a clear summary email is sent automatically to the people you pick. They can hit “Reply to all” to answer everyone.');
   else if (d.ncrId) h += qaNotifyPickerHTML('ncrd', isEs ? 'Enviar este RNC por correo a…' : 'Email this NCR to…') +
@@ -24318,43 +24343,7 @@ function _rcaBuildReport(presetData){
   var isEs = isEsLang();
   var d = presetData || rcaCollectData(rcaCurrentPath===1 ? _rcaCarStatus : 'Draft', 'export_pdf');
   var report = document.getElementById('rca-pdf-report');
-  var L = isEs ? {
-    title:'Informe de Acción Correctiva (ACR)', subtitle:'Moquin Press — Gestión de Calidad',
-    incidentInfo:'Información del Incidente', jobNumber:'Número de trabajo', productId:'ID de Producto',
-    customer:'Cliente', dateFound:'Fecha de detección', station:'Estación', qaTech:'Técnico de calidad',
-    qualityIssue:'Problema de calidad', rootCause5:'Causa raíz — 5 Por qués', problemStmt:'Declaración del problema',
-    why1:'Por qué 1', why2:'Por qué 2', why3:'Por qué 3', why4:'Por qué 4', why5:'Por qué 5',
-    rootCause:'Causa raíz', rcSummary:'Resumen de causa raíz', deptHandoff:'Transferencia de departamento',
-    reassignedTo:'Reasignado a', notes:'Notas', correctiveActionSec:'Acción correctiva',
-    immAction:'Acción inmediata tomada', approvedCA:'Acción correctiva aprobada', approvedBy:'Aprobado por',
-    approvalDate:'Fecha de aprobación', disposition:'Disposición', qaCloseOut:'Cierre de Calidad',
-    verifyMethod:'Método de verificación', closeDate:'Fecha de cierre', closeNotes:'Notas de cierre',
-    closeQATech:'Técnico de calidad (cierre)', photos:'Fotos',
-    carNo:'ACR / RNC #', status:'Estado', source:'Origen', originatedBy:'Originado por', origRef:'Queja / RNC original',
-    openDate:'Fecha de apertura', targetClose:'Fecha objetivo de cierre', moquinNcr:'RNC Moquin #', customerNcr:'RNC cliente #',
-    lotQty:'Cant. lote', qtyInsp:'Cant. inspeccionada', qtyRej:'Cant. rechazada', responsible:'Responsable', dueDate:'Fecha límite', completedOn:'Completada',
-    custApproval:'Cambio de forma/ajuste/función', sopRef:'SOP nuevo/revisado #', verification:'Verificación del plan de acción',
-    verifiedBy:'Verificado por', verifyDate:'Fecha de verificación', verifyResults:'Resultados / evidencia', evidenceRef:'Documentos adjuntos',
-    effective:'¿Acción efectiva?', closureDate:'Fecha de cierre', rcInvestigation:'Investigación de causa raíz'
-  } : {
-    title:'Corrective Action Report (CAR)', subtitle:'Moquin Press — Quality Management',
-    incidentInfo:'Incident information', jobNumber:'Job number', productId:'Product ID',
-    customer:'Customer', dateFound:'Date found', station:'Station', qaTech:'QA tech',
-    qualityIssue:'Quality issue', rootCause5:"Root cause — 5 Why's", problemStmt:'Problem statement',
-    why1:'Why 1', why2:'Why 2', why3:'Why 3', why4:'Why 4', why5:'Why 5',
-    rootCause:'Root cause', rcSummary:'Root cause summary', deptHandoff:'Department hand-off',
-    reassignedTo:'Reassigned to', notes:'Notes', correctiveActionSec:'Corrective action',
-    immAction:'Immediate action taken', approvedCA:'Approved corrective action', approvedBy:'Approved by',
-    approvalDate:'Approval date', disposition:'Disposition', qaCloseOut:'QA close-out',
-    verifyMethod:'Verification method', closeDate:'Close-out date', closeNotes:'Close-out notes',
-    closeQATech:'QA tech (closing)', photos:'Photos',
-    carNo:'CAR / NCR #', status:'Status', source:'Source', originatedBy:'Originated by', origRef:'Original complaint / NCR',
-    openDate:'Date opened', targetClose:'Target close date', moquinNcr:'Moquin NCR #', customerNcr:'Customer NCR #',
-    lotQty:'Lot qty', qtyInsp:'Qty inspected', qtyRej:'Qty rejected', responsible:'Responsible', dueDate:'Due date', completedOn:'Completed',
-    custApproval:'Form / fit / function change', sopRef:'New / revised SOP #', verification:'Action plan verification',
-    verifiedBy:'Verified by', verifyDate:'Verification date', verifyResults:'Results / evidence', evidenceRef:'Attached documents',
-    effective:'Action effective?', closureDate:'Closure date', rcInvestigation:'Root cause investigation'
-  };
+  var L = _rcaReportLabels(isEs);
   // Georgia rather than the app's own UI font (IBM Plex Sans) — a serif
   // designed for comfortable on-screen reading of long paragraphs, chosen
   // directly for this report's long Why/root-cause/corrective-action text.
@@ -24472,6 +24461,317 @@ var QA_HTML2CANVAS_CDN = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/ht
 function _ensurePdfLibs(){
   return Promise.all([_loadScriptOnce(QA_JSPDF_CDN), _loadScriptOnce(QA_HTML2CANVAS_CDN)]);
 }
+
+/* ══════════════════════════════════
+   TEXT-BASED PDF (real, selectable text)
+   The old Download PDF took a picture of the report (html2canvas) and put the
+   picture in the PDF, so none of it could be selected, copied or searched.
+   This draws the words themselves with jsPDF's text commands instead, so the
+   text can be copied into Word/email, searched, and read by screen readers.
+   Photos and signatures are still images (that's what they are). The standard
+   PDF fonts only cover Western-European characters (English/Spanish are fine);
+   emoji and symbols outside that set are dropped from the text. ══════════════════════════════════ */
+function _rcaReportLabels(isEs){
+  return isEs ? {
+    title:'Informe de Acción Correctiva (ACR)', subtitle:'Moquin Press — Gestión de Calidad',
+    incidentInfo:'Información del Incidente', jobNumber:'Número de trabajo', productId:'ID de Producto',
+    customer:'Cliente', dateFound:'Fecha de detección', station:'Estación', qaTech:'Técnico de calidad',
+    qualityIssue:'Problema de calidad', rootCause5:'Causa raíz — 5 Por qués', problemStmt:'Declaración del problema',
+    why1:'Por qué 1', why2:'Por qué 2', why3:'Por qué 3', why4:'Por qué 4', why5:'Por qué 5',
+    rootCause:'Causa raíz', rcSummary:'Resumen de causa raíz', deptHandoff:'Transferencia de departamento',
+    reassignedTo:'Reasignado a', notes:'Notas', correctiveActionSec:'Acción correctiva',
+    immAction:'Acción inmediata tomada', approvedCA:'Acción correctiva aprobada', approvedBy:'Aprobado por',
+    approvalDate:'Fecha de aprobación', disposition:'Disposición', qaCloseOut:'Cierre de Calidad',
+    verifyMethod:'Método de verificación', closeDate:'Fecha de cierre', closeNotes:'Notas de cierre',
+    closeQATech:'Técnico de calidad (cierre)', photos:'Fotos',
+    carNo:'ACR / RNC #', status:'Estado', source:'Origen', originatedBy:'Originado por', origRef:'Queja / RNC original',
+    openDate:'Fecha de apertura', targetClose:'Fecha objetivo de cierre', moquinNcr:'RNC Moquin #', customerNcr:'RNC cliente #',
+    lotQty:'Cant. lote', qtyInsp:'Cant. inspeccionada', qtyRej:'Cant. rechazada', responsible:'Responsable', dueDate:'Fecha límite', completedOn:'Completada',
+    custApproval:'Cambio de forma/ajuste/función', sopRef:'SOP nuevo/revisado #', verification:'Verificación del plan de acción',
+    verifiedBy:'Verificado por', verifyDate:'Fecha de verificación', verifyResults:'Resultados / evidencia', evidenceRef:'Documentos adjuntos',
+    effective:'¿Acción efectiva?', closureDate:'Fecha de cierre', rcInvestigation:'Investigación de causa raíz'
+  } : {
+    title:'Corrective Action Report (CAR)', subtitle:'Moquin Press — Quality Management',
+    incidentInfo:'Incident information', jobNumber:'Job number', productId:'Product ID',
+    customer:'Customer', dateFound:'Date found', station:'Station', qaTech:'QA tech',
+    qualityIssue:'Quality issue', rootCause5:"Root cause — 5 Why's", problemStmt:'Problem statement',
+    why1:'Why 1', why2:'Why 2', why3:'Why 3', why4:'Why 4', why5:'Why 5',
+    rootCause:'Root cause', rcSummary:'Root cause summary', deptHandoff:'Department hand-off',
+    reassignedTo:'Reassigned to', notes:'Notes', correctiveActionSec:'Corrective action',
+    immAction:'Immediate action taken', approvedCA:'Approved corrective action', approvedBy:'Approved by',
+    approvalDate:'Approval date', disposition:'Disposition', qaCloseOut:'QA close-out',
+    verifyMethod:'Verification method', closeDate:'Close-out date', closeNotes:'Close-out notes',
+    closeQATech:'QA tech (closing)', photos:'Photos',
+    carNo:'CAR / NCR #', status:'Status', source:'Source', originatedBy:'Originated by', origRef:'Original complaint / NCR',
+    openDate:'Date opened', targetClose:'Target close date', moquinNcr:'Moquin NCR #', customerNcr:'Customer NCR #',
+    lotQty:'Lot qty', qtyInsp:'Qty inspected', qtyRej:'Qty rejected', responsible:'Responsible', dueDate:'Due date', completedOn:'Completed',
+    custApproval:'Form / fit / function change', sopRef:'New / revised SOP #', verification:'Action plan verification',
+    verifiedBy:'Verified by', verifyDate:'Verification date', verifyResults:'Results / evidence', evidenceRef:'Attached documents',
+    effective:'Action effective?', closureDate:'Closure date', rcInvestigation:'Root cause investigation'
+  };
+}
+function _tpClean(v){
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/\r/g, '').replace(/\u2192/g, '->').replace(/[\u2713\u2714]/g, 'Yes').replace(/[\u2715\u2717\u2718]/g, 'No')
+    .replace(/[^\n\u0020-\u007E\u00A0-\u00FF\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026\u20AC\u2122]/g, '');
+}
+function _tpStrip(html){
+  if (html && typeof html === 'object' && html.html !== undefined) html = html.html;
+  var d = document.createElement('div'); d.innerHTML = String(html === undefined || html === null ? '' : html);
+  return d.textContent || '';
+}
+// Loads an image (data URL or http address) and returns { data, w, h } as a JPEG data URL, or null if it can't be read.
+function _tpLoadImage(src){
+  return new Promise(function(resolve){
+    if (!src) return resolve(null);
+    var img = new Image();
+    if (!/^data:/i.test(src)) img.crossOrigin = 'anonymous';
+    img.onload = function(){
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) return resolve(null);
+        var k = Math.min(1, 1600 / w);
+        var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+        var cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height); cx.drawImage(img, 0, 0, c.width, c.height);
+        resolve({ data: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height });
+      } catch(e){ resolve(null); }
+    };
+    img.onerror = function(){ resolve(null); };
+    img.src = src;
+  });
+}
+function _tpNew(title, isEs){
+  var pdf = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
+  var M = 46, PW = 612, PH = 792, CW = PW - 2 * M, FOOT = 28;
+  var BLUE = [29, 78, 216], INK = [28, 35, 43], GREY = [92, 107, 122];
+  var S = { pdf: pdf, y: M, M: M, CW: CW, cur: '' };
+  S.font = function(style, size, color){ pdf.setFont('times', style); pdf.setFontSize(size); var c = color || INK; pdf.setTextColor(c[0], c[1], c[2]); };
+  S.lines = function(text, width){ return pdf.splitTextToSize(_tpClean(text), width); };
+  S.need = function(h){ if (S.y + h > PH - M - FOOT) S.page(); };
+  S.page = function(){
+    pdf.addPage(); S.y = M;
+    if (S.cur){
+      S.font('bold', 9, BLUE); pdf.text(_tpClean(S.cur).toUpperCase() + (isEs ? ' (continuación)' : ' (continued)'), M, S.y + 8);
+      pdf.setDrawColor(BLUE[0], BLUE[1], BLUE[2]); pdf.setLineWidth(0.8); pdf.line(M, S.y + 13, M + CW, S.y + 13); S.y += 24;
+    }
+  };
+  S.header = function(ttl, sub, dateStr){
+    S.font('bold', 20); pdf.text(_tpClean(ttl), M, S.y + 16);
+    S.font('normal', 11.5, GREY); pdf.text(_tpClean(sub), M, S.y + 32);
+    S.font('normal', 10, GREY); pdf.text(_tpClean(dateStr), M + CW, S.y + 16, { align: 'right' });
+    pdf.setDrawColor(BLUE[0], BLUE[1], BLUE[2]); pdf.setLineWidth(2); pdf.line(M, S.y + 42, M + CW, S.y + 42); S.y += 56;
+  };
+  S.chips = function(items){
+    items = items.filter(function(i){ return i && i[1]; });
+    if (!items.length) return;
+    var x = M, rowH = 34;
+    S.need(rowH + 6);
+    items.forEach(function(it){
+      var lab = _tpClean(it[0]).toUpperCase(), val = _tpClean(it[1]);
+      S.font('bold', 7.5, GREY); var lw = pdf.getTextWidth(lab);
+      S.font('normal', 11); var vw = pdf.getTextWidth(val);
+      var w = Math.min(CW, Math.max(lw, vw) + 16);
+      if (x + w > M + CW + 0.5){ x = M; S.y += rowH + 6; S.need(rowH + 6); }
+      pdf.setFillColor(243, 245, 249); pdf.setDrawColor(222, 226, 233); pdf.setLineWidth(0.6); pdf.roundedRect(x, S.y, w, rowH, 4, 4, 'FD');
+      S.font('bold', 7.5, GREY); pdf.text(lab, x + 8, S.y + 12);
+      S.font('normal', 11); pdf.text(S.lines(val, w - 12)[0] || '', x + 8, S.y + 26);
+      x += w + 8;
+    });
+    S.y += rowH + 12;
+  };
+  S.section = function(ttl){
+    S.cur = ttl; S.need(46);
+    pdf.setFillColor(234, 239, 248); pdf.rect(M, S.y, CW, 20, 'F');
+    pdf.setFillColor(BLUE[0], BLUE[1], BLUE[2]); pdf.rect(M, S.y, 3, 20, 'F');
+    S.font('bold', 12.5, [24, 52, 120]); pdf.text(_tpClean(ttl), M + 10, S.y + 14);
+    S.y += 28;
+  };
+  S.endSection = function(){ S.cur = ''; S.y += 6; };
+  // label + value pairs in two columns; each pair is kept whole on a page
+  S.grid = function(fields){
+    fields = fields.filter(function(f){ return f && f[1] !== undefined && f[1] !== null && String(f[1]).trim() !== ''; });
+    if (!fields.length) return;
+    var gap = 16, colW = (CW - gap) / 2;
+    for (var i = 0; i < fields.length; i += 2){
+      var pair = [fields[i], fields[i + 1]].filter(Boolean);
+      var hs = pair.map(function(f){ return 12 + S.lines(f[1], colW).length * 13.5 + 8; });
+      var rowH = Math.max.apply(null, hs);
+      S.need(rowH);
+      pair.forEach(function(f, ci){
+        var x = M + ci * (colW + gap);
+        S.font('bold', 9, GREY); pdf.text(_tpClean(f[0]).toUpperCase(), x, S.y + 9);
+        S.font('normal', 11.5); pdf.text(S.lines(f[1], colW), x, S.y + 22);
+      });
+      S.y += rowH;
+    }
+    S.y += 2;
+  };
+  // a long text block with a blue bar on its left edge; flows across pages line by line
+  S.narrative = function(label, value){
+    if (value === undefined || value === null || String(value).trim() === '') return;
+    var lines = S.lines(value, CW - 16);
+    S.need(12 + Math.min(lines.length, 3) * 14 + 10);
+    var barTop = S.y;
+    function flushBar(){ if (S.y > barTop){ pdf.setFillColor(BLUE[0], BLUE[1], BLUE[2]); pdf.rect(M, barTop, 2.5, S.y - barTop, 'F'); } }
+    S.font('bold', 9, GREY); pdf.text(_tpClean(label).toUpperCase(), M + 12, S.y + 9); S.y += 15;
+    S.font('normal', 11.5);
+    lines.forEach(function(ln){
+      if (S.y + 14 > PH - M - FOOT){ flushBar(); S.page(); barTop = S.y; S.font('normal', 11.5); }
+      pdf.text(ln, M + 12, S.y + 10); S.y += 14;
+    });
+    flushBar(); S.y += 8;
+  };
+  S.numbered = function(n, label, value){
+    if (!value) return;
+    var lines = S.lines(value, CW - 40);
+    S.need(16 + lines.length * 14 + 8);
+    pdf.setFillColor(BLUE[0], BLUE[1], BLUE[2]); pdf.circle(M + 9, S.y + 9, 9, 'F');
+    S.font('bold', 10, [255, 255, 255]); pdf.text(String(n), M + 9, S.y + 12.5, { align: 'center' });
+    S.font('bold', 10, GREY); pdf.text(_tpClean(label), M + 28, S.y + 9); S.y += 14;
+    S.font('normal', 11.5);
+    lines.forEach(function(ln){ if (S.y + 14 > PH - M - FOOT){ S.page(); S.font('normal', 11.5); } pdf.text(ln, M + 28, S.y + 10); S.y += 14; });
+    S.y += 6;
+  };
+  S.badge = function(label, value, bg, fg){
+    if (!value) return;
+    S.need(36);
+    S.font('bold', 9, GREY); pdf.text(_tpClean(label).toUpperCase(), M, S.y + 9);
+    S.font('bold', 11); var w = pdf.getTextWidth(_tpClean(value)) + 16;
+    pdf.setFillColor(bg[0], bg[1], bg[2]); pdf.roundedRect(M, S.y + 14, w, 18, 9, 9, 'F');
+    S.font('bold', 11, fg); pdf.text(_tpClean(value), M + 8, S.y + 27); S.y += 40;
+  };
+  S.photos = function(list, titleTxt){
+    list = (list || []).filter(Boolean);
+    if (!list.length) return Promise.resolve();
+    S.section(titleTxt);
+    var chain = Promise.resolve();
+    list.forEach(function(src, i){
+      chain = chain.then(function(){ return _tpLoadImage(src).then(function(im){
+        var linked = /^https?:/i.test(src);
+        var cap = (isEs ? 'Foto ' : 'Photo ') + (i + 1) + (linked ? (isEs ? ' — clic en la foto para verla en tamaño completo' : ' — click the photo to open it full size') : '');
+        if (!im){
+          S.need(30); S.font('normal', 10.5, GREY);
+          if (linked) pdf.textWithLink(_tpClean(cap) + (isEs ? ' (no se pudo incrustar)' : ' (could not embed)'), M, S.y + 12, { url: src });
+          else pdf.text(_tpClean(cap) + (isEs ? ' (no se pudo incrustar)' : ' (could not embed)'), M, S.y + 12);
+          S.y += 26; return;
+        }
+        var maxH = 380, w = CW, h = im.h * w / im.w;
+        if (h > maxH){ h = maxH; w = im.w * h / im.h; }
+        S.need(h + 28);
+        pdf.addImage(im.data, 'JPEG', M, S.y, w, h);
+        if (linked){ try { pdf.link(M, S.y, w, h, { url: src }); } catch(e){} }
+        S.font('italic', 9.5, GREY); pdf.text(_tpClean(cap), M, S.y + h + 12);
+        S.y += h + 26;
+      }); });
+    });
+    return chain.then(function(){ S.endSection(); });
+  };
+  S.finish = function(fileName){
+    var n = pdf.getNumberOfPages();
+    for (var p = 1; p <= n; p++){
+      pdf.setPage(p); S.font('normal', 8.5, GREY);
+      pdf.text(_tpClean(title), M, PH - 20);
+      pdf.text((isEs ? 'Página ' : 'Page ') + p + (isEs ? ' de ' : ' of ') + n, M + CW, PH - 20, { align: 'right' });
+    }
+    pdf.save(fileName + '.pdf');
+  };
+  return S;
+}
+function _tpDispositionColors(value){
+  var v = String(value || '').toLowerCase();
+  if (/scrap|discard|do not use/.test(v)) return [[251, 234, 234], [156, 44, 46]];
+  if (/hold|inspect|sort|rework|rerun|relabel|repack/.test(v)) return [[251, 241, 220], [138, 94, 14]];
+  if (/continue|use with approval/.test(v)) return [[231, 243, 236], [28, 107, 66]];
+  return [[236, 239, 244], [74, 91, 122]];
+}
+// CAR as a real-text PDF. Same sections, same order and the same "leave out anything left blank" rule as the on-screen/print report (_rcaBuildReport).
+function _rcaBuildPdfText(d, filenameBase){
+  var isEs = isEsLang(), L = _rcaReportLabels(isEs), S = _tpNew(L.title, isEs);
+  var hasCar = !!(d.carNo || d.carTbd);
+  S.header(L.title, L.subtitle, formatTS());
+  S.chips([[L.jobNumber, d.jobNumber], [L.customer, d.customer], [L.station, d.station ? stationLabel(d.station) : ''], [L.disposition, d.disposition]]);
+
+  S.section(L.incidentInfo);
+  S.grid([[L.jobNumber, d.jobNumber], [L.productId, d.productNumber], [L.customer, d.customer], [L.dateFound, d.dateFound], [L.station, d.station ? stationLabel(d.station) : ''], [L.qaTech, d.qaTech]]);
+  if (hasCar){
+    S.grid([[L.carNo, _rcaCarLabel(d)], [L.status, rcaStatusLabel(d.status)], [L.source, d.carSource], [L.originatedBy, d.originatedBy], [L.openDate, d.openDate], [L.targetClose, d.targetClose],
+      [L.moquinNcr, d.moquinNcr], [L.customerNcr, d.customerNcr], [L.lotQty, d.lotQty], [L.qtyInsp, d.qtyInsp], [L.qtyRej, d.qtyRej]]);
+    S.narrative(L.origRef, d.origRef);
+  }
+  S.narrative(L.qualityIssue, d.issueDesc);
+  S.endSection();
+
+  var whys = [[L.why1, d.why1], [L.why2, d.why2], [L.why3, d.why3], [L.why4, d.why4], [L.why5, d.why5]].filter(function(w){ return !!w[1]; });
+  if (d.problemStmt || whys.length || d.rcSummary || d.rcResp || d.rcDue || d.rcDone){
+    S.section(L.rootCause5);
+    S.narrative(L.problemStmt, d.problemStmt);
+    whys.forEach(function(w, i){ S.numbered(i + 1, w[0], w[1]); });
+    S.narrative(L.rcSummary, d.rcSummary);
+    S.grid([[L.responsible, d.rcResp], [L.dueDate, d.rcDue], [L.completedOn, d.rcDone]]);
+    S.endSection();
+  }
+  if (d.handoffDept || d.handoffNotes){ S.section(L.deptHandoff); S.grid([[L.reassignedTo, d.handoffDept], [L.notes, d.handoffNotes]]); S.endSection(); }
+
+  if (d.immAction || d.correctiveAction || d.caResp || d.caDue || d.caDone || d.custApproval || d.sopRef || d.approvedBy || d.approvalDate){
+    S.section(L.correctiveActionSec);
+    S.narrative(L.immAction, d.immAction);
+    S.narrative(L.approvedCA, d.correctiveAction);
+    S.grid([[L.responsible, d.caResp], [L.dueDate, d.caDue], [L.completedOn, d.caDone]]);
+    S.grid([[L.custApproval, d.custApproval], [L.sopRef, d.sopRef]]);
+    S.grid([[L.approvedBy, d.approvedBy], [L.approvalDate, d.approvalDate]]);
+    S.endSection();
+  }
+  if (d.disposition || d.dispNotes){
+    S.section(L.disposition);
+    var dc = _tpDispositionColors(d.disposition);
+    S.badge(L.disposition, d.disposition, dc[0], dc[1]);
+    S.narrative(L.notes, d.dispNotes);
+    S.endSection();
+  }
+  if (d.verifyMethod || d.closeDate || d.closeQATech || d.closeNotes || (hasCar && (d.verifiedBy || d.verifyDate || d.effective || d.verifyResults || d.evidenceRef))){
+    S.section(hasCar ? L.verification : L.qaCloseOut);
+    S.grid([[L.verifyMethod, d.verifyMethod], [hasCar ? L.closureDate : L.closeDate, d.closeDate], [L.closeQATech, d.closeQATech]]);
+    if (hasCar){ S.grid([[L.verifiedBy, d.verifiedBy], [L.verifyDate, d.verifyDate], [L.effective, d.effective]]); S.narrative(L.verifyResults, d.verifyResults); S.grid([[L.evidenceRef, d.evidenceRef]]); }
+    S.narrative(L.closeNotes, d.closeNotes);
+    S.endSection();
+  }
+  return S.photos(d.photos, L.photos).then(function(){ S.finish(filenameBase); });
+}
+function _ensureJsPdfOnly(){ return _loadScriptOnce(QA_JSPDF_CDN); }
+// NCR / Sales Approval Request as a real-text PDF. ref = 'current' (the summary shown before Submit) or a saved NCR's id.
+function ncrExportPDF(ref, btnEl){
+  var isEs = isEsLang();
+  var d = ref === 'current' ? ncrState.d : (ncrLoad().filter(function(x){ return x.ncrId === ref; })[0]);
+  if (!d) return;
+  var btn = btnEl || null, btnOrig = btn ? btn.innerHTML : null;
+  if (btn){ btn.disabled = true; btn.innerHTML = isEs ? '⏳ Generando…' : '⏳ Generating…'; }
+  _ensureJsPdfOnly().then(function(){
+    var title = ncrPathTitle(d.path) || (isEs ? 'RNC' : 'NCR');
+    var S = _tpNew(title + (d.ncrId ? ' ' + d.ncrId : ''), isEs);
+    S.header(title, isEs ? 'Moquin Press — Gestión de Calidad' : 'Moquin Press — Quality Management', formatTS());
+    S.chips([[isEs ? 'RNC #' : 'NCR #', d.ncrId], [isEs ? 'Estado' : 'Status', d.status ? ncrStatusLabel(d.status) : ''], [isEs ? 'Cliente' : 'Customer', d.customerFinal], [isEs ? 'Trabajo #' : 'Job #', d.jobNumber]]);
+    S.section(isEs ? 'Detalles' : 'Details');
+    var short = [], long = [];
+    ncrSummaryRows(d).forEach(function(r){
+      var v = _tpStrip(r[1]).trim();
+      if (!v || v === '—' || (r[0] === (isEs ? 'Fotos' : 'Photos'))) return;
+      if (v.length > 60 || /\n/.test(v)) long.push([r[0], v]); else short.push([r[0], v]);
+    });
+    S.grid(short);
+    long.forEach(function(r){ S.narrative(r[0], r[1]); });
+    if (d.emailedTo && d.emailedTo.length) S.grid([[isEs ? 'Enviado por correo a' : 'Emailed to', d.emailedTo.map(function(p){ return p.name; }).join(', ')]]);
+    S.grid([[isEs ? 'Creado' : 'Created', d.createdAt], [isEs ? 'Cerrado' : 'Closed', d.closedAt], [isEs ? 'Cerrado por' : 'Closed by', d.dispositionedBy]]);
+    S.narrative(isEs ? 'Nota de cierre' : 'Closing note', d.dispositionNote);
+    S.endSection();
+    var pics = (d.photos || []).map(function(p){ return p && (p.src || p); });
+    return S.photos(pics, isEs ? 'Fotos' : 'Photos').then(function(){
+      S.finish('NCR_' + String(d.ncrId || 'draft').replace(/[^a-z0-9_-]+/gi, '') + '_' + String(d.jobNumber || 'job').replace(/[^a-z0-9_-]+/gi, '') + '_' + new Date().toISOString().slice(0, 10));
+    });
+  }).catch(function(err){
+    showToast(isEs ? 'No se pudo generar el PDF — revise la conexión' : 'Could not generate the PDF — check your connection', 'fail');
+    console.error('ncrExportPDF failed:', err);
+  }).finally(function(){ if (btn){ btn.disabled = false; btn.innerHTML = btnOrig; } });
+}
 var _RCA_LIGHT_VARS = {
   '--bg':'#f5f5f3', '--surface':'#ffffff', '--surface-raised':'#fafafa',
   '--text-primary':'#1c232b', '--text-secondary':'#5c6b7a', '--text-tertiary':'#5e6b78',
@@ -24485,7 +24785,7 @@ var _RCA_LIGHT_VARS = {
 // Records-list popup's buttons have a different onclick signature entirely
 // and pass themselves in this way to still get the same disabled/spinner
 // treatment while the PDF renders.
-function rcaExportPDF(presetData, btnEl){
+function _rcaExportPDFImage(presetData, btnEl){
   var isEs = isEsLang();
   var built = _rcaBuildReport(presetData);
   var report = built.report;
@@ -24631,6 +24931,26 @@ function rcaExportPDF(presetData, btnEl){
     report.setAttribute('style', 'display:none;');
     if (btn){ btn.disabled = false; btn.innerHTML = btnOrigHTML; }
   });
+}
+
+
+// Download PDF: real-text PDF first. If anything goes wrong building it, fall back to the older
+// picture-style PDF so the person always still gets a file.
+function rcaExportPDF(presetData, btnEl){
+  var isEs = isEsLang();
+  var built;
+  try { built = _rcaBuildReport(presetData); } catch(e){ return _rcaExportPDFImage(presetData, btnEl); }
+  var btn = btnEl || document.querySelector('button[onclick="rcaExportPDF()"]');
+  var btnOrigHTML = btn ? btn.innerHTML : null;
+  if (btn){ btn.disabled = true; btn.innerHTML = isEs ? '⏳ Generando…' : '⏳ Generating…'; }
+  function restore(){ if (btn){ btn.disabled = false; btn.innerHTML = btnOrigHTML; } }
+  _ensureJsPdfOnly().then(function(){ return _rcaBuildPdfText(built.d, built.filenameBase); })
+    .then(restore)
+    .catch(function(err){
+      console.error('text PDF failed, using picture PDF instead:', err);
+      restore();
+      _rcaExportPDFImage(presetData, btnEl);
+    });
 }
 
 function rcaGetVal(id){const e=document.getElementById('rca-'+id);return e?e.value.trim():'';}
