@@ -4682,6 +4682,7 @@ try {
             <option value="Samples">Samples</option>
             <option value="Vendor">Vendor</option>
             <option value="SQF">SQF</option>
+            <option value="Other">Other / Not listed</option>
             <option value="Combination">Combination (more than one station)</option>
           </select>
         </div>
@@ -5042,6 +5043,7 @@ try {
             <option value="Follow-up audit">Follow-up audit</option>
             <option value="Customer confirmation">Customer confirmation</option>
             <option value="Manager sign-off">Manager sign-off</option>
+            <option value="Other">Other (explain in results)</option>
             <option value="No further action needed">No verification needed (explain in notes)</option>
           </select>
         </div>
@@ -5781,6 +5783,29 @@ try {
               </ol>
               <div class="faq-note"><span data-en>Do not retype your work. If the green "saved" message shows, it is saved.</span><span data-es>No vuelva a escribir su trabajo. Si sale el mensaje verde de guardado, ya quedó guardado.</span></div>
               <div class="faq-done">✅ <span data-en>You are done when you see the saved message.</span><span data-es>Terminó cuando ve el mensaje de guardado.</span></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>🧩 My CAR does not fit any choice. What do I pick?</span><span data-es>🧩 Mi ACR no encaja en ninguna opción. ¿Qué elijo?</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>Pick <b>Other</b>. Two CAR boxes now have it: <b>Station</b> ("Other / Not listed") and <b>Verification method</b> ("Other"). The Source, Root cause, Corrective action and Disposition boxes already had Other.</span><span data-es>Elija <b>Otro</b>. Dos cajas de la ACR ahora lo tienen: <b>Estación</b> ("Otra / No está en la lista") y <b>Método de verificación</b> ("Otro"). Las cajas de Origen, Causa raíz, Acción correctiva y Disposición ya tenían Otro.</span></p>
+              <p class="faq-p"><span data-en>When you pick Other, write what it really is in the notes box next to it. That way the next person can read it.</span><span data-es>Cuando elija Otro, escriba lo que realmente es en la caja de notas de al lado. Así la siguiente persona lo puede leer.</span></p>
+              <ul class="faq-ul">
+                <li><span data-en>If you pick Station = Other, no manager gets the automatic email. Use <b>Email this CAR to…</b> to pick who should see it.</span><span data-es>Si elige Estación = Otra, ningún gerente recibe el correo automático. Use <b>Enviar esta ACR a…</b> para elegir quién debe verla.</span></li>
+              </ul>
+            </div>
+            <div class="faq-steps">
+              <div class="faq-steps-title"><span data-en>Use Other on a CAR</span><span data-es>Usar Otro en una ACR</span></div>
+              <ol class="faq-ol">
+                <li><span data-en>Open the CAR and go to the box that does not have your choice.</span><span data-es>Abra la ACR y vaya a la caja que no tiene su opción.</span></li>
+                <li><span data-en>Tap the box and pick <b>Other</b> (for Station it says <b>Other / Not listed</b>).</span><span data-es>Toque la caja y elija <b>Otro</b> (en Estación dice <b>Otra / No está en la lista</b>).</span></li>
+                <li><span data-en>Write what it really is. For Verification method, write it in <b>Verification results</b>. For Root cause or Corrective action, write it in the box that appears.</span><span data-es>Escriba lo que realmente es. En Método de verificación, escríbalo en <b>Resultados de la verificación</b>. En Causa raíz o Acción correctiva, escríbalo en la caja que aparece.</span></li>
+                <li><span data-en>If you used Station = Other, open <b>Email this CAR to…</b> and tick the people who should get it.</span><span data-es>Si usó Estación = Otra, abra <b>Enviar esta ACR a…</b> y marque a las personas que deben recibirla.</span></li>
+                <li><span data-en>Tap <b>Save</b>.</span><span data-es>Toque <b>Guardar</b>.</span></li>
+              </ol>
+              <div class="faq-note"><span data-en>Use Other only when nothing else fits. A real choice makes reports easier to read.</span><span data-es>Use Otro solo cuando nada más encaja. Una opción real hace los reportes más fáciles de leer.</span></div>
+              <div class="faq-done">✅ <span data-en>You are done when the CAR shows your Other choice and your note.</span><span data-es>Terminó cuando la ACR muestra su opción Otro y su nota.</span></div>
             </div>
           </div>
         </div>
@@ -13283,7 +13308,8 @@ var STATION_LABELS = {
   'Shipping':         ['Shipping', 'Envíos'],
   'Samples':          ['Samples', 'Trabajos de Muestra'],
   'Vendor':           ['Vendor', 'Trabajos de Vendedor'],
-  'SQF':              ['SQF', 'SQF']
+  'SQF':              ['SQF', 'SQF'],
+  'Other':            ['Other / Not listed', 'Otra / No está en la lista']
 };
 function stationLabel(station){
   var pair = STATION_LABELS[station];
@@ -13309,7 +13335,8 @@ function _translateStationSelects(){
   var verifyMethodLabels = {
     'Visual inspection': 'Inspección visual', 'Sample check': 'Verificación de muestra',
     '100% inspection': 'Inspección al 100%', 'Manager sign-off': 'Aprobación del gerente',
-    'No further action needed': 'No se necesita más acción'
+    'No further action needed': 'No se necesita más acción',
+    'Other': 'Otro (explicar en resultados)'
   };
   var verifySel = document.getElementById('rca-verify-method');
   if (verifySel) {
