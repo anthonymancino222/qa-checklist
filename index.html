@@ -7642,7 +7642,14 @@ function _syncPushDelta(type, list){
   var idField = _syncIdField(type);
 
   var migrationKey = _syncMigrationKey(type);
-  var needsMigration = !localStorage.getItem(migrationKey);
+  // The migration flag and its retry cooldown are ALSO kept in memory: when the
+  // browser's storage is full, localStorage.setItem fails silently, so a
+  // storage-only cooldown never starts and this function re-entered itself
+  // instantly, thousands of requests per second (found 2026-10-28: 259k
+  // rejected pulls from one full-storage PC in about an hour).
+  if (!_syncPushDelta._mem) _syncPushDelta._mem = { done: {}, tried: {} };
+  var _pm = _syncPushDelta._mem;
+  var needsMigration = !localStorage.getItem(migrationKey) && !_pm.done[type];
   if (needsMigration) {
     // A multi-product submit (e.g. Bindery/Pressroom Cutter QC approval)
     // calls ipAdd — and so this — once per product in a tight synchronous
@@ -7699,10 +7706,11 @@ function _syncPushDelta(type, list){
     // _uploadPhotoToDrive) rather than staying embedded, so this store's
     // actual size is far smaller than that incident today.
     var cooldownKey = 'qa_sync_migration_cooldown_' + type;
-    var lastAttempt = parseInt(localStorage.getItem(cooldownKey) || '0', 10) || 0;
+    var lastAttempt = Math.max(parseInt(localStorage.getItem(cooldownKey) || '0', 10) || 0, _pm.tried[type] || 0);
     if (Date.now() - lastAttempt < 5 * 60 * 1000) {
       return Promise.resolve(false); // genuinely didn't push this cycle — honest "not done", not a lie
     }
+    _pm.tried[type] = Date.now();
     try { localStorage.setItem(cooldownKey, String(Date.now())); } catch(e) {}
 
     var migration = fetch(QA_BACKEND_URL + '/records?type=' + type, { headers: _authHeaders() })
@@ -7727,6 +7735,7 @@ function _syncPushDelta(type, list){
         // reason to keep re-asking. Kept separate from the snapshot map
         // itself specifically so an all-mismatch result (an empty {}
         // snapshot) can't be mistaken for "migration never ran" and loop.
+        _pm.done[type] = true;
         try { localStorage.setItem(migrationKey, '1'); } catch(e) {}
       })
       .catch(function(){ /* couldn't confirm (offline/auth) — retried after cooldown, migrationKey stays unset */ });

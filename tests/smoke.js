@@ -234,6 +234,35 @@ function loadPage(file, scenario) {
   });
 }
 
+
+// ---- request-storm guard: a signed-in device whose browser storage is FULL must not hammer the backend.
+// 2026-10-27: a full-storage PC sent ~259k rejected pulls in an hour (the sync cooldown was kept only in
+// localStorage, whose writes silently fail when full). Fake server answers 401 to everything; counts requests.
+async function stormCheck(file) {
+  console.log('\n-- request-storm guard (signed in, browser storage full, server rejects everything)');
+  const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  let count = 0;
+  const vc = new VirtualConsole();
+  const dom = new JSDOM(html, {
+    url: 'http://localhost:8000/', runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vc,
+    beforeParse(w) {
+      w.localStorage.setItem('qa_local_session_v1', JSON.stringify({ name: 'T', email: 'anthony.mancino@moquinpress.com', idToken: 'x', sessionToken: 's', sessionExp: Date.now() + 30 * 86400000, sessionEmail: 'anthony.mancino@moquinpress.com', sessionRefreshedAt: Date.now(), lastActivityAt: Date.now() }));
+      try { let i = 0; const c = 'x'.repeat(50000); while (true) w.localStorage.setItem('fill' + i++, c); } catch (e) {}
+      try { let i = 0; while (true) w.localStorage.setItem('pad' + i++, 'y'); } catch (e) {}
+      w.fetch = () => { count++; return Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve({ error: 'unauthorized' }), text: () => Promise.resolve('') }); };
+      w.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} });
+      w.scrollTo = () => {}; w.print = () => {};
+      w.HTMLElement.prototype.scrollIntoView = function () {};
+      w.HTMLCanvasElement.prototype.getContext = () => new Proxy({}, { get: () => () => {}, set: () => true });
+      w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} };
+      w.ResizeObserver = class { observe() {} disconnect() {} unobserve() {} };
+    }
+  });
+  await new Promise((r) => setTimeout(r, 4000));
+  log(count < 100, 'backend requests in 4s with full storage: ' + count + ' (must stay under 100)');
+  dom.window.close();
+}
+
 (async () => {
   for (const file of FILES) {
     console.log('\n=== ' + file + ' ===');
@@ -257,6 +286,7 @@ function loadPage(file, scenario) {
       w.close();
     }
   }
+  await stormCheck(FILES[0]);
   console.log('\n' + (failures ? 'RESULT: ' + failures + ' CHECK(S) FAILED — do NOT ship this version.' : 'RESULT: all checks passed.'));
   process.exit(failures ? 1 : 0);
 })();
