@@ -287,6 +287,11 @@ async function stormCheck(file) {
     }
   }
   await stormCheck(FILES[0]);
+  console.log('\n-- older-job trim (tests/trim.js)');
+  {
+    const r = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'trim.js')], { encoding: 'utf8', timeout: 120000 });
+    log(r.status === 0, 'old finished jobs leave the device safely: no server writes/deletes, no re-adds, still visible in Records + QA Data' + (r.status === 0 ? '' : '\n' + String(r.stdout || '').split('\n').filter((l) => /FAIL/.test(l)).join('\n')));
+  }
   console.log('\n' + (failures ? 'RESULT: ' + failures + ' CHECK(S) FAILED — do NOT ship this version.' : 'RESULT: all checks passed.'));
   process.exit(failures ? 1 : 0);
 })();

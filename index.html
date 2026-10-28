@@ -5223,6 +5223,7 @@ try {
           <button type="button" class="tgl" data-recfilter="rca" onclick="setRecordsFilter('rca',this)">CAR</button>
         </div>
         <div id="records-year-month-nav"></div>
+        <div class="older-jobs-note-slot"></div>
         <div id="records-list"></div>
       </div>
     </div>
@@ -5587,6 +5588,29 @@ try {
                 <li><span data-en>Wait. The file downloads to your device.</span><span data-es>Espere. El archivo se baja a su dispositivo.</span></li>
               </ol>
               <div class="faq-done">✅ <span data-en>You are done when the file is in your downloads.</span><span data-es>Listo cuando el archivo está en sus descargas.</span></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>🗄️ Where are jobs older than 30 days?</span><span data-es>🗄️ ¿Dónde están los trabajos de más de 30 días?</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>Finished jobs older than 30 days are kept on the <b>server</b> (the big filing cabinet), not on this device. This frees space so the app keeps saving. Nothing is deleted.</span><span data-es>Los trabajos terminados de más de 30 días se guardan en el <b>servidor</b> (el archivero grande), no en este dispositivo. Esto libera espacio para que la app siga guardando. No se borra nada.</span></p>
+              <p class="faq-p"><span data-en><b>Records</b> and <b>QA Data &amp; Export</b> still show them, with the same filters, charts and exports. When you open one of those screens the app loads the old jobs from the server, so it can take a few seconds.</span><span data-es><b>Registros</b> y <b>Datos y Exportación de Calidad</b> todavía los muestran, con los mismos filtros, gráficas y exportaciones. Cuando abre una de esas pantallas, la app carga los trabajos viejos desde el servidor, así que puede tardar unos segundos.</span></p>
+              <ul class="faq-ul">
+                <li><span data-en>You need internet and to be signed in to see jobs older than 30 days. Without internet you see the last 30 days.</span><span data-es>Necesita internet y haber iniciado sesión para ver trabajos de más de 30 días. Sin internet ve los últimos 30 días.</span></li>
+                <li><span data-en>Old jobs open to read only on this device. Edit or delete them with DATA EDIT on a device that still holds the job.</span><span data-es>Los trabajos viejos se abren solo para leer en este dispositivo. Edítelos o elimínelos con EDICIÓN DE DATOS en un dispositivo que todavía tenga el trabajo.</span></li>
+              </ul>
+            </div>
+            <div class="faq-steps">
+              <div class="faq-steps-title"><span data-en>Look at an old job</span><span data-es>Ver un trabajo viejo</span></div>
+              <ol class="faq-ol">
+                <li><span data-en>Open <b>QA</b> then <b>Records</b> (or <b>QA Data &amp; Export</b>).</span><span data-es>Abra <b>QA</b> y luego <b>Registros</b> (o <b>Datos y Exportación de Calidad</b>).</span></li>
+                <li><span data-en>Wait for the line that says <b>Loading jobs older than 30 days</b> to go away.</span><span data-es>Espere a que desaparezca la línea que dice <b>Cargando trabajos de más de 30 días</b>.</span></li>
+                <li><span data-en>Search the job number, or pick the year and month, and tap the job.</span><span data-es>Busque el número de trabajo, o elija el año y el mes, y toque el trabajo.</span></li>
+                <li><span data-en>If you see <b>Could not load jobs older than 30 days</b>, check your internet and tap <b>Retry</b>.</span><span data-es>Si ve <b>No se pudieron cargar los trabajos de más de 30 días</b>, revise su internet y toque <b>Reintentar</b>.</span></li>
+              </ol>
+              <div class="faq-note"><span data-en>Jobs that still wait for Shipping Approval, jobs that are not finished, and jobs with a sample box location always stay on the device.</span><span data-es>Los trabajos que todavía esperan la Aprobación de Envío, los que no están terminados y los que tienen ubicación de caja de muestras siempre se quedan en el dispositivo.</span></div>
+              <div class="faq-done">✅ <span data-en>You are done when the old job opens with its checklist, photos and signatures.</span><span data-es>Terminó cuando el trabajo viejo abre con su lista, fotos y firmas.</span></div>
             </div>
           </div>
         </div>
@@ -7606,6 +7630,152 @@ function _syncSnapshotSet(type, snap){
     }
   }
 }
+/* ── Older finished jobs live on the server, not in this device's storage ──
+   A finished job older than 30 days is removed from THIS device's job list
+   and sync snapshot (they were ~5MB of the browser's ~5MB quota). Nothing is
+   deleted on the server: the id goes into a small "trimmed" set so that
+     - the sync pull never re-adds it or re-seeds its snapshot entry (a snapshot
+       id missing from the list is how a real delete is detected), and
+     - Records / QA Data & Export read it back from the server on demand and
+       merge it into their lists in memory only (never written to storage).
+   Every function here is hoisted and keeps state on function properties, so
+   the early-startup sync pull can call them before later `var`s are assigned. */
+function _trimKey(){ return 'qa_trimmed_job_ids_v1'; }
+function _trimmedJobIds(){
+  if (!_trimmedJobIds._m) {
+    var m = {};
+    try { (JSON.parse(localStorage.getItem(_trimKey()) || '[]') || []).forEach(function(id){ m[String(id)] = 1; }); } catch(e) {}
+    _trimmedJobIds._m = m;
+  }
+  return _trimmedJobIds._m;
+}
+function _trimmedJobIdsSave(){
+  try { localStorage.setItem(_trimKey(), JSON.stringify(Object.keys(_trimmedJobIds()))); return true; } catch(e) { return false; }
+}
+function _hasTrimmedJobs(){ return Object.keys(_trimmedJobIds()).length > 0; }
+function _olderJobsState(){
+  return _olderJobsState._s || (_olderJobsState._s = { map: {}, loaded: false, loading: false, failed: false, waiters: [] });
+}
+// Trimmed jobs that are not in the local list, as full job records.
+function _olderJobsList(){
+  if (!_hasTrimmedJobs()) return [];
+  var map = _olderJobsState().map, local = {}, out = [];
+  ipLoad().forEach(function(j){ local[String(j.id)] = 1; });
+  Object.keys(map).forEach(function(id){ if (!local[id]) out.push(map[id]); });
+  return out;
+}
+function _jobsForReports(){
+  var l = ipLoad(), o = _olderJobsList();
+  return o.length ? l.concat(o) : l;
+}
+function _isOlderOnlyJob(id){
+  if (!_hasTrimmedJobs()) return false;
+  var s = String(id), isLocal = false;
+  ipLoad().forEach(function(j){ if (String(j.id) === s) isLocal = true; });
+  return !isLocal && !!_olderJobsState().map[s];
+}
+function _olderJobsRerender(){
+  try { if (document.getElementById('records-list') && typeof renderRecords === 'function') renderRecords(); } catch(e) {}
+  try { if (document.getElementById('ncrpie-body') && document.getElementById('ncrpie-body').firstChild && typeof renderQAData === 'function') renderQAData(); } catch(e) {}
+}
+function _olderJobsNoteHTML(){
+  if (!_hasTrimmedJobs()) return '';
+  var st = _olderJobsState(), es = isEsLang(), base = 'margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:14px;background:var(--surface-raised);color:var(--text-secondary);';
+  if (st.loading || (!st.loaded && !st.failed)) {
+    return '<div class="older-jobs-note" style="' + base + '">⏳ ' + (es ? 'Cargando trabajos de más de 30 días desde el servidor…' : 'Loading jobs older than 30 days from the server…') + '</div>';
+  }
+  if (st.failed && !st.loaded) {
+    return '<div class="older-jobs-note" style="' + base + '">⚠️ ' + (es ? 'No se pudieron cargar los trabajos de más de 30 días (sin conexión?). Mostrando los últimos 30 días. ' : 'Could not load jobs older than 30 days (offline?). Showing the last 30 days only. ') +
+      '<a href="#" onclick="_olderJobsEnsure(true);return false;" style="font-weight:700;">' + (es ? 'Reintentar' : 'Retry') + '</a></div>';
+  }
+  return '';
+}
+function _olderJobsFillNotes(){
+  var html = _olderJobsNoteHTML();
+  var els = document.querySelectorAll('.older-jobs-note-slot');
+  for (var i = 0; i < els.length; i++) els[i].innerHTML = html;
+}
+// Reads the full job list from the server once per session (the app's sync
+// pull already does this same read on every sync, and fills the same store —
+// this only runs when no pull has finished yet, e.g. right after opening
+// Records). Memory only; a failure is remembered so a render never retries in
+// a loop — only the Retry link or the next sync pull tries again.
+function _olderJobsEnsure(force){
+  if (!_hasTrimmedJobs() || !QA_BACKEND_URL) return;
+  var st = _olderJobsState();
+  if (st.loading || (st.loaded && !force) || (st.failed && !force)) return;
+  st.loading = true; st.failed = false;
+  _olderJobsFillNotes();
+  fetch(QA_BACKEND_URL + '/records?type=job', { headers: _authHeaders() })
+    .then(function(res){
+      if (!res.ok) { if (res.status === 401) _reactiveAuthRefresh(); throw new Error('HTTP ' + res.status); }
+      return res.json();
+    })
+    .then(function(json){
+      _olderJobsAbsorb(json.records || []);
+    })
+    .catch(function(){ st.failed = true; })
+    .then(function(){
+      st.loading = false;
+      _olderJobsFillNotes();
+      _olderJobsRerender();
+    });
+}
+// Takes a full server job list (from either the pull or _olderJobsEnsure):
+// keeps the trimmed ids' records in memory, and un-trims any job the server
+// has deleted or re-opened so the normal sync owns it again.
+function _olderJobsAbsorb(records){
+  var tr = _trimmedJobIds(), st = _olderJobsState(), map = {}, changed = false;
+  records.forEach(function(r){
+    var id = String(r.id);
+    if (!tr[id]) return;
+    if (r.deleted || !r.data || r.data.process !== 'finished') { delete tr[id]; changed = true; return; }
+    map[id] = r.data;
+  });
+  if (changed) _trimmedJobIdsSave();
+  st.map = map; st.loaded = true; st.failed = false;
+}
+// Moves finished jobs older than 30 days off this device. Runs synchronously
+// (no awaits, so nothing can be edited mid-trim) and only after a full server
+// read has succeeded this session. A job is only trimmed when the server's
+// last-confirmed copy is byte-for-byte what this device holds.
+function _trimOldJobs(){
+  if (_trimOldJobs._busy || !_olderJobsState().loaded) return 0;
+  _trimOldJobs._busy = true;
+  try {
+    var jobs = ipLoad(), snap = _syncSnapshotGet('job'), tr = _trimmedJobIds(), cutoff = Date.now() - 30 * 86400000;
+    var cand = jobs.filter(function(j){
+      if (!j || j.id == null || j.process !== 'finished') return false;
+      var id = String(j.id);
+      if (_isJobPendingShippingApproval(j) || _jobIsGluerFirstPass(j)) return false;
+      if (j._conflictReview && Object.keys(j._conflictReview).length) return false;
+      if (_slLocItem(j)) return false; // sample-box locations stay on the device
+      if (snap[id] !== JSON.stringify(j)) return false; // server copy must be identical
+      var newest = 0;
+      [j.finishedAt, j.packerFinishedAt, j.shippingApprovedAt, j.lastUpdated, j.lastTouchedAt].forEach(function(t){
+        var d = _recordsValidDate(t); if (d && d.getTime() > newest) newest = d.getTime();
+      });
+      return newest > 0 && newest < cutoff;
+    });
+    if (!cand.length) return 0;
+    var drop = {};
+    // Held in memory too (identical to the server copy, by the check above), so
+    // Records / QA Data keep showing them without waiting for the next pull.
+    var olderMap = _olderJobsState().map;
+    cand.forEach(function(j){ drop[String(j.id)] = 1; tr[String(j.id)] = 1; });
+    // 1) remember the ids first (abort if that can't be stored), 2) snapshot, 3) list.
+    if (!_trimmedJobIdsSave()) { cand.forEach(function(j){ delete tr[String(j.id)]; }); return 0; }
+    cand.forEach(function(j){ olderMap[String(j.id)] = j; });
+    cand.forEach(function(j){ delete snap[String(j.id)]; });
+    _syncSnapshotSet('job', snap);
+    ipSave(jobs.filter(function(j){ return !drop[String(j.id)]; }), { preserveTouch: true });
+    return cand.length;
+  } catch(e) {
+    return 0;
+  } finally {
+    _trimOldJobs._busy = false;
+  }
+}
 // Per-record circuit breaker. A record being pushed more than this many
 // times inside the window is almost certainly a loop, not editing (a person
 // tapping through a form saves it a handful of times, not a dozen in ten
@@ -7791,7 +7961,10 @@ function _syncPushDelta(type, list){
     var json = JSON.stringify(r);
     if (snap[idStr] !== json) dirty.push({ id: idStr, json: json, data: r });
   });
-  var removedIds = Object.keys(snap).filter(function(id){ return !seen[id]; });
+  // A job trimmed off this device (see _trimOldJobs) is absent from the list on
+  // purpose — never treat that as a delete.
+  var _trimmedNow = type === 'job' ? _trimmedJobIds() : {};
+  var removedIds = Object.keys(snap).filter(function(id){ return !seen[id] && !_trimmedNow[id]; });
   if (removedIds.length) {
     // Disappeared from the list since the last confirmed snapshot — a real
     // delete, not just "hasn't loaded yet." Soft-deletes on the server (see
@@ -8024,9 +8197,14 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       var deletedIds = {};
       records.forEach(function(r){ if (r.deleted) deletedIds[String(r.id)] = true; });
 
+      // Jobs trimmed off this device (see _trimOldJobs) are kept in memory only:
+      // never re-added to the local list, never re-seeded into the snapshot.
+      if (type === 'job') _olderJobsAbsorb(records);
+      var trimmedIds = type === 'job' ? _trimmedJobIds() : {};
+
       var localById = {};
       currentList.forEach(function(r){ localById[String(r[idField])] = r; });
-      var additions = remote.filter(function(r){ return !localById[String(r.id)]; }).map(function(r){ return r.data; });
+      var additions = remote.filter(function(r){ return !localById[String(r.id)] && !trimmedIds[String(r.id)]; }).map(function(r){ return r.data; });
 
       // Computed against the snapshot as it stood BEFORE this pull (read
       // now, overwritten further down) — that's what makes "does local
@@ -8097,8 +8275,9 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // local edit): the snapshot gets the REMOTE version, which still
       // won't match that local record's own JSON, so it correctly stays
       // "dirty" and gets pushed for real on the next delta pass.
-      remote.forEach(function(r){ snap[String(r.id)] = JSON.stringify(r.data); });
+      remote.forEach(function(r){ if (!trimmedIds[String(r.id)]) snap[String(r.id)] = JSON.stringify(r.data); });
       Object.keys(deletedIds).forEach(function(id){ delete snap[id]; });
+      Object.keys(trimmedIds).forEach(function(id){ delete snap[id]; });
       _syncSnapshotSet(type, snap);
 
       var changed = additions.length || Object.keys(updates).length || Object.keys(rekeyed).length || pruned.length !== currentList.length;
@@ -8110,6 +8289,9 @@ function _syncPullAndMerge(type, currentList, saveFn) {
       // remote-driven change look local and let this device wrongly win
       // every future real conflict on that record.
       if (changed) saveFn(merged.concat(additions), _syncMergesType(type) ? {preserveTouch:true} : undefined);
+      // The snapshot was just refreshed from the server, so this is the safest
+      // moment to move old finished jobs off the device (a no-op when none qualify).
+      if (type === 'job') setTimeout(_trimOldJobs, 1500);
       return {ok:true, changed:changed};
     })
     .catch(function(){ /* offline, or a genuine auth failure — either way, leave local as-is; retried on the normal cycle */ return {ok:false, changed:false}; });
@@ -21327,7 +21509,7 @@ function _ncrProductIdPool(){
     v = (v||'').trim();
     if (v && !seen[v]) { seen[v] = true; out.push(v); }
   }
-  ipLoad().forEach(function(j){ add(j.formNumber || j.productNumber || j.product); });
+  _jobsForReports().forEach(function(j){ add(j.formNumber || j.productNumber || j.product); });
   ncrLoad().forEach(function(n){ (n.products||[]).forEach(add); });
   return out;
 }
@@ -22022,7 +22204,8 @@ function getRecordRootCause(record){
 }
 
 function computeQADataset(){
-  var jobs      = _recNorm(ipLoad(), 'job');
+  _olderJobsEnsure();
+  var jobs      = _recNorm(_jobsForReports(), 'job');
   var ncrs      = _recNorm(ncrLoad(), 'ncr');
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
@@ -22651,6 +22834,7 @@ function renderQAData(){
   var isProd = _qaViewMode === 'productivity';
   el.innerHTML =
     '<div class="qad-wrap">' +
+      '<div class="older-jobs-note-slot">' + _olderJobsNoteHTML() + '</div>' +
       _qaFilterBarHTML(list.length) +
       _qaTopExportBarHTML() +
       _qaViewTabsHTML() +
@@ -26963,6 +27147,10 @@ function deleteRecordEntry(type, id){
 }
 function _deleteRecordById(type, id){
   var idStr = String(id);
+  if (type === 'job' && _isOlderOnlyJob(idStr)){
+    showAlert(isEsLang() ? 'Este trabajo tiene más de 30 días y se guarda solo en el servidor. No se puede eliminar desde este dispositivo.' : 'This job is older than 30 days and is kept on the server only. It cannot be deleted from this device.');
+    return;
+  }
   if (type === 'job'){
     ipSave(ipLoad().filter(function(j){ return String(j.id) !== idStr; }));
   } else if (type === 'ncr'){
@@ -27074,7 +27262,8 @@ function _computeFilteredRecords(){
   var searchEl = document.getElementById('records-search');
   var q = searchEl ? searchEl.value.trim().toLowerCase() : '';
 
-  var jobs      = _recNorm(ipLoad(), 'job');
+  _olderJobsEnsure();
+  var jobs      = _recNorm(_jobsForReports(), 'job');
   var ncrs      = _recNorm(ncrLoad(), 'ncr');
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
@@ -27157,6 +27346,7 @@ function renderRecords(){
   _syncViewToggle('records-view-tile-btn', 'records-view-list-btn', getRecordsViewMode());
 
   var computed = _computeFilteredRecords();
+  _olderJobsFillNotes();
   renderRecordsYearMonthNav(computed.typeFiltered, computed.hasSearch);
 
   var _recEs = isEsLang();
@@ -27294,7 +27484,8 @@ function exportRecordsCSV(){
 // prevention, and the type toggle (All/Jobs/NCR/RCA) still applies too.
 function exportAllRecordsCSV(){
   var isEs = isEsLang();
-  var jobs      = _recNorm(ipLoad(), 'job');
+  _olderJobsEnsure();
+  var jobs      = _recNorm(_jobsForReports(), 'job');
   var ncrs      = _recNorm(ncrLoad(), 'ncr');
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
@@ -27461,7 +27652,7 @@ function _renderRvJobSummary(job){
 }
 function openRecordJob(jobId){
   var job = null;
-  ipLoad().forEach(function(j){ if (j.id === jobId) job = j; });
+  _jobsForReports().forEach(function(j){ if (j.id === jobId) job = j; });
   if (!job) return;
 
   var inFlight = !job.shippingApproved && job.process !== 'finished';
@@ -27618,6 +27809,10 @@ function editRecordJob(){
   if (!canEditRecords()){ showAlert(isEsLang() ? 'No tiene permiso para editar este registro.' : 'You do not have permission to edit this record.'); return; }
   var job = null;
   ipLoad().forEach(function(j){ if (j.id === rvContext.id) job = j; });
+  if (!job && _isOlderOnlyJob(rvContext.id)){
+    showAlert(isEsLang() ? 'Este trabajo tiene más de 30 días y se guarda solo en el servidor. Es de solo lectura en este dispositivo.' : 'This job is older than 30 days and is kept on the server only. It is read-only on this device.');
+    return;
+  }
   if (!job) return;
   closeRecordView();
   if (job.shippingApproved || job.process === 'finished'){
