@@ -7446,13 +7446,22 @@ function _setPathOnJob(job, path, value) {
 }
 function _backgroundUploadPhoto(jobId, dataUrl, topField, stageIndex, stageField) {
   if (!dataUrl || dataUrl.indexOf('data:') !== 0) return;
+  // One upload at a time per job field, so the idle self-heal can never
+  // send the same photo to Drive a second time while this one is in flight.
+  if (!_backgroundUploadPhoto._busy) _backgroundUploadPhoto._busy = {};
+  var _busyKey = jobId + '|' + topField;
+  if (_backgroundUploadPhoto._busy[_busyKey]) return;
+  _backgroundUploadPhoto._busy[_busyKey] = true;
   _uploadPhotoToDrive(dataUrl).then(function(url) {
+    delete _backgroundUploadPhoto._busy[_busyKey];
     if (!url || url === dataUrl) return;
     var jobs = ipLoad();
     for (var i = 0; i < jobs.length; i++) {
       if (jobs[i].id !== jobId) continue;
       _setPathOnJob(jobs[i], topField, url);
-      if (stageIndex != null && jobs[i].stageHistory && jobs[i].stageHistory[stageIndex] && jobs[i].stageHistory[stageIndex].data) {
+      // The make-ready photo is stored once (job.mrPhoto) — its timeline
+      // card draws from there, so no second copy is patched in.
+      if (stageField !== 'photo' && stageIndex != null && jobs[i].stageHistory && jobs[i].stageHistory[stageIndex] && jobs[i].stageHistory[stageIndex].data) {
         jobs[i].stageHistory[stageIndex].data[stageField] = url;
       }
       break;
@@ -7491,6 +7500,7 @@ function _healEmbeddedPhotos(){
   jobs.forEach(function(job){
     _JOB_PHOTO_FIELDS.forEach(function(path){
       var v = _getPathOnJob(job, path);
+      if (_backgroundUploadPhoto._busy && _backgroundUploadPhoto._busy[job.id + '|' + path]) return;
       if (typeof v === 'string' && v.indexOf('data:') === 0) candidates.push({ jobId: job.id, path: path, dataUrl: v });
     });
   });
@@ -9101,7 +9111,12 @@ function _stageSnapshot(existingHistory, stage, label, data) {
   // DATA_EDIT_ALLOWED_EMAILS' own comment for why these aren't the same
   // thing). null on a shared floor login just means "an authorized device,
   // no individual identity" — not a bug, just what a shared login can tell you.
-  hist.push({ stage: stage, label: label, ts: formatTS(), signedInAs: (_signedInUser ? _signedInUser.email : null), data: _stripEmbeddedImagesForHistory(data) });
+  var _hd = _stripEmbeddedImagesForHistory(data);
+  // A job's make-ready photo lives once, at job.mrPhoto — the timeline card
+  // just shows a flag here and draws the image from the job itself, so the
+  // same photo is never stored twice in one record.
+  if (_hd && _hd.photo) _hd.photo = true;
+  hist.push({ stage: stage, label: label, ts: formatTS(), signedInAs: (_signedInUser ? _signedInUser.email : null), data: _hd });
   return hist;
 }
 // Every DATA EDIT change is gated to a named account (DATA_EDIT_ALLOWED_EMAILS)
@@ -17126,7 +17141,6 @@ async function _submitJobInner() {
           for (var i = 0; i < jobs.length; i++) {
             if (jobs[i].id !== id) continue;
             jobs[i].mrPhoto = url;
-            if (jobs[i].stageHistory && jobs[i].stageHistory[0] && jobs[i].stageHistory[0].data) jobs[i].stageHistory[0].data.photo = url;
             break;
           }
         });
@@ -27516,7 +27530,7 @@ function openRecordJob(jobId){
   // here is editable; it exists purely so the history can be reviewed.
   if (job.stageHistory && job.stageHistory.length){
     h += '<div style="font-size:15px;font-weight:800;color:var(--text-primary);margin:18px 2px 8px;">📋 ' + (_rvjEs?'Cronología del Trabajo':'Job Timeline') + '</div>';
-    h += job.stageHistory.map(_renderStageHistoryCard).join('');
+    h += job.stageHistory.map(function(e){ return _renderStageHistoryCard(e, job); }).join('');
   }
 
   document.getElementById('rv-body').innerHTML = h;
@@ -27548,8 +27562,10 @@ function _stageFieldLabel(k){
    and short/no-overs release notes get their own special-cased display;
    everything else falls back to a plain label/value row. Never renders
    any input, button, or other editable control. */
-function _renderStageHistoryCard(entry){
+function _renderStageHistoryCard(entry, job){
   var d = entry.data || {};
+  // New records keep only a flag in the timeline; the photo itself is job.mrPhoto.
+  var _stagePhoto = typeof d.photo === 'string' ? d.photo : (d.photo && job && typeof job.mrPhoto === 'string' ? job.mrPhoto : '');
   var _shEs = isEsLang();
   var special = ['checklist','releaseNotes','photo','opSignature','qaSignature','signature','cutterPicture'];
   var out = '<div class="card" style="margin:0 0 10px;border-left:3px solid var(--brand);">' +
@@ -27588,7 +27604,7 @@ function _renderStageHistoryCard(entry){
       '<br><b>' + (_shEs?'Notificado':'Notified') + ':</b> ' + escHtml((d.releaseNotes.notify||[]).join(', ')) +
       '</div>';
   }
-  if (d.photo) out += '<img src="'+d.photo+'" style="width:100%;border-radius:8px;margin-top:8px;" alt="">';
+  if (_stagePhoto) out += '<img src="'+_stagePhoto+'" style="width:100%;border-radius:8px;margin-top:8px;" alt="">';
   if (d.opSignature) out += '<div style="font-size:13.5px;color:var(--text-tertiary);margin-top:8px;">' + (_shEs?'Firma del Operador':'Operator Signature') + '</div><img src="'+d.opSignature+'" style="width:100%;border-radius:8px;background:#fff;border:1px solid var(--border);" alt="">';
   if (d.qaSignature) out += '<div style="font-size:13.5px;color:var(--text-tertiary);margin-top:8px;">' + (_shEs?'Firma de Calidad':'QA Signature') + '</div><img src="'+d.qaSignature+'" style="width:100%;border-radius:8px;background:#fff;border:1px solid var(--border);" alt="">';
   if (d.signature) out += '<div style="font-size:13.5px;color:var(--text-tertiary);margin-top:8px;">' + (_shEs?'Firma':'Signature') + '</div><img src="'+d.signature+'" style="width:100%;border-radius:8px;background:#fff;border:1px solid var(--border);" alt="">';
