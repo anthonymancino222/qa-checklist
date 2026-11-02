@@ -297,6 +297,11 @@ async function stormCheck(file) {
     const r2 = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'ship_photo_race.js')], { encoding: 'utf8', timeout: 180000 });
     log(r2.status === 0, 'Shipping Approval keeps the make-ready photo once; a pull started before a trim cannot re-send trimmed jobs' + (r2.status === 0 ? '' : '\n' + String(r2.stdout || '').split('\n').filter((l) => /FAIL/.test(l)).join('\n')));
   }
+  console.log('\n-- spike guard: real Worker + simulated shift/outage (tests/spike_guard.js)');
+  {
+    const r3 = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'spike_guard.js')], { encoding: 'utf8', timeout: 400000 });
+    log(r3.status === 0, 'No usage spike: write/request budgets hold over a shift and a photo-upload outage, oversize records are never sent or stored, held jobs cost no network' + (r3.status === 0 ? '' : '\n' + String(r3.stdout || '').split('\n').filter((l) => /FAIL|ERROR/.test(l)).join('\n')));
+  }
   console.log('\n' + (failures ? 'RESULT: ' + failures + ' CHECK(S) FAILED — do NOT ship this version.' : 'RESULT: all checks passed.'));
   process.exit(failures ? 1 : 0);
 })();

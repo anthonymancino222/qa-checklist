@@ -5704,6 +5704,29 @@ try {
               <div class="faq-done">✅ <span data-en>You are done when your name shows at the top. Your saved work was never touched.</span><span data-es>Listo cuando su nombre sale arriba. Su trabajo guardado nunca se tocó.</span></div>
             </div>
           </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>📷 It says a photo is still uploading — what does that mean?</span><span data-es>📷 Dice que una foto aún se está subiendo — ¿qué significa?</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>A photo is saved on this device first, then sent to the cloud. If the Wi-Fi is slow or drops, the photo stays safely on this device and the app keeps trying again by itself.</span><span data-es>Una foto se guarda primero en este dispositivo y luego se envía a la nube. Si el Wi-Fi está lento o se cae, la foto se queda segura en este dispositivo y la aplicación sigue intentando sola.</span></p>
+              <p class="faq-p"><span data-en>While the photo is waiting, that job is <b>not</b> sent to the other devices yet. This protects the system from getting overloaded. As soon as the photo is uploaded, the job syncs by itself.</span><span data-es>Mientras la foto espera, ese trabajo <b>todavía no</b> se envía a los otros dispositivos. Esto protege el sistema para que no se sobrecargue. En cuanto la foto se sube, el trabajo se sincroniza solo.</span></p>
+              <ul class="faq-ul">
+                <li><span data-en>Nothing is lost. The photo and the job are still on this device.</span><span data-es>No se pierde nada. La foto y el trabajo siguen en este dispositivo.</span></li>
+                <li><span data-en>The app retries at 1, 2, 4, 8, 16 and 32 minutes, then about once an hour.</span><span data-es>La aplicación reintenta a 1, 2, 4, 8, 16 y 32 minutos, y después más o menos una vez por hora.</span></li>
+              </ul>
+            </div>
+            <div class="faq-steps">
+              <div class="faq-steps-title"><span data-en>What to do</span><span data-es>Qué hacer</span></div>
+              <ol class="faq-ol">
+                <li><span data-en>Check that this device is on Wi-Fi.</span><span data-es>Revise que este dispositivo esté en Wi-Fi.</span></li>
+                <li><span data-en>Leave the app open for a few minutes. It retries by itself.</span><span data-es>Deje la aplicación abierta unos minutos. Reintenta sola.</span></li>
+                <li><span data-en>Tap <b>Sync</b> at the top if you want to push things along.</span><span data-es>Toque <b>Sincronizar</b> arriba si quiere ayudar a que avance.</span></li>
+                <li><span data-en>Do not clear the browser data on this device until the message is gone.</span><span data-es>No borre los datos del navegador en este dispositivo hasta que el mensaje desaparezca.</span></li>
+              </ol>
+              <div class="faq-note"><span data-en>If it is still waiting after an hour on good Wi-Fi, tell the QA lead.</span><span data-es>Si sigue esperando después de una hora con buen Wi-Fi, avise al líder de Calidad.</span></div>
+              <div class="faq-done">✅ <span data-en>You are done when the message stops showing up.</span><span data-es>Terminó cuando el mensaje deja de aparecer.</span></div>
+            </div>
+          </div>
         </div>
 
         <div class="faq-group" data-faq-group="carncr">
@@ -7498,7 +7521,7 @@ function _backgroundUploadPhoto(jobId, dataUrl, topField, stageIndex, stageField
   _backgroundUploadPhoto._busy[_busyKey] = true;
   _uploadPhotoToDrive(dataUrl).then(function(url) {
     delete _backgroundUploadPhoto._busy[_busyKey];
-    if (!url || url === dataUrl) return;
+    if (!url || url === dataUrl){ _schedulePhotoHeal(30000); return; } // failed: the photo stays local and is retried with backoff
     var jobs = ipLoad();
     for (var i = 0; i < jobs.length; i++) {
       if (jobs[i].id !== jobId) continue;
@@ -7530,40 +7553,119 @@ function _getPathOnJob(job, path) {
 // Confirmed live 2026-09-29: one job's make-ready photo (mrPhoto) was
 // still a ~3.9MB embedded data URL weeks after the job finished.
 var _JOB_PHOTO_FIELDS = ['mrPhoto', 'opSignature', 'qaSignature', 'shipping.cutterPicture', 'shipping.signature'];
-// Opportunistic self-heal — called from _idleBackgroundCheckTick, so this
-// only ever runs on a device that's genuinely idle (never mid-task) and at
-// most once per idle stretch, same gating as the update check it runs
-// alongside. One photo at a time (not all in parallel) so it doesn't burst
-// a pile of uploads onto a connection that's already doing normal sync
-// traffic. Anything that fails again just gets retried on the next idle
-// tick — no different from the original upload's own retry-free fallback,
-// just no longer a dead end.
+// Photo upload safety net (rules added 2026-11-02 after three 3-5MB make-ready
+// photos ended up embedded in job records on 2026-10-30 and quadrupled the
+// database). A photo whose upload failed stays embedded locally so it is never
+// lost, but it is NEVER sent to the server in that state: _syncPushDelta holds a
+// record back while it is oversized, and this retries the upload until it works.
+//  - Covers jobs, NCRs and NCR drafts, any field, any depth (not just known fields).
+//  - One upload at a time. Each photo backs off 1, 2, 4, 8, 16, 32, then 60 min
+//    between tries, so a photo that keeps failing costs at most one request an
+//    hour — it can never become a retry storm.
+//  - All of its state lives on function properties (not module vars) because
+//    _syncPushDelta can reach this very early in page load.
+function _photoHealState(){
+  if (!_photoHealState._s) _photoHealState._s = { tries: {}, timer: null, at: 0, running: false, lastReset: 0, lastToast: 0 };
+  return _photoHealState._s;
+}
+function _photoHealStores(){
+  return [
+    { type: 'job', idField: 'id', load: ipLoad, save: ipSave },
+    { type: 'ncr', idField: 'ncrId', load: ncrLoad, save: ncrSave },
+    { type: 'ncr_draft', idField: '__draftId', load: ncrDraftLoad, save: ncrDraftSave }
+  ];
+}
+function _pathGet(obj, arr){
+  for (var i = 0; i < arr.length; i++){ if (obj == null) return undefined; obj = obj[arr[i]]; }
+  return obj;
+}
+function _pathSet(obj, arr, value){
+  for (var i = 0; i < arr.length - 1; i++){ if (obj[arr[i]] == null || typeof obj[arr[i]] !== 'object') return false; obj = obj[arr[i]]; }
+  obj[arr[arr.length - 1]] = value; return true;
+}
+// Every embedded image (data URL of 20,000+ characters) anywhere inside a record.
+// Smaller ones (signatures) ride along in the record; the fixed job fields below
+// are healed at any size, as before.
+function _embeddedImagePaths(node, path, out, depth){
+  if (node == null || depth > 8) return out;
+  if (typeof node === 'string'){ if (node.indexOf('data:image') === 0 && node.length >= 20000) out.push(path.slice()); return out; }
+  if (typeof node !== 'object') return out;
+  var keys = Object.keys(node);
+  for (var i = 0; i < keys.length; i++){ path.push(keys[i]); _embeddedImagePaths(node[keys[i]], path, out, depth + 1); path.pop(); }
+  return out;
+}
+function _schedulePhotoHeal(delayMs){
+  var st = _photoHealState();
+  var at = Date.now() + Math.max(15000, delayMs || 0);
+  if (st.timer && st.at <= at) return;
+  clearTimeout(st.timer);
+  st.at = at;
+  st.timer = setTimeout(function(){ st.timer = null; st.at = 0; _healEmbeddedPhotos(); }, at - Date.now());
+}
 function _healEmbeddedPhotos(){
-  var jobs = ipLoad();
-  var candidates = [];
-  jobs.forEach(function(job){
-    _JOB_PHOTO_FIELDS.forEach(function(path){
-      var v = _getPathOnJob(job, path);
-      if (_backgroundUploadPhoto._busy && _backgroundUploadPhoto._busy[job.id + '|' + path]) return;
-      if (typeof v === 'string' && v.indexOf('data:') === 0) candidates.push({ jobId: job.id, path: path, dataUrl: v });
-    });
-  });
-  if (!candidates.length) return;
-  candidates.reduce(function(chain, c){
-    return chain.then(function(){
-      return _uploadPhotoToDrive(c.dataUrl).then(function(url){
-        if (!url || url === c.dataUrl) return; // still failed — left as-is, retried again next idle tick
-        var current = ipLoad();
-        for (var i = 0; i < current.length; i++){
-          if (current[i].id !== c.jobId) continue;
-          _setPathOnJob(current[i], c.path, url);
-          break;
-        }
-        ipSave(current);
+  var st = _photoHealState();
+  if (st.running) return;
+  var now = Date.now(), cands = [], wait = 0;
+  _photoHealStores().forEach(function(store){
+    var list; try { list = store.load() || []; } catch(e){ return; }
+    list.forEach(function(rec){
+      var id = rec && rec[store.idField];
+      if (id == null) return;
+      var paths = _embeddedImagePaths(rec, [], [], 0);
+      if (store.type === 'job') _JOB_PHOTO_FIELDS.forEach(function(p){
+        var arr = p.split('.'), v = _pathGet(rec, arr);
+        if (typeof v === 'string' && v.indexOf('data:') === 0 && !paths.some(function(q){ return q.join('.') === p; })) paths.push(arr);
+      });
+      paths.forEach(function(arr){
+        var v = _pathGet(rec, arr);
+        if (typeof v !== 'string') return;
+        if (_backgroundUploadPhoto._busy && _backgroundUploadPhoto._busy[id + '|' + arr.join('.')]) return;
+        var key = store.type + '|' + id + '|' + v.length + ':' + v.slice(-24);
+        var t = st.tries[key];
+        if (t && t.next > now){ wait = wait ? Math.min(wait, t.next) : t.next; return; }
+        cands.push({ store: store, id: String(id), dataUrl: v, key: key });
       });
     });
-  }, Promise.resolve());
+  });
+  if (!cands.length){ if (wait) _schedulePhotoHeal(wait - now); return; }
+  st.running = true;
+  var seenKeys = {};
+  cands.filter(function(c){ if (seenKeys[c.key]) return false; seenKeys[c.key] = true; return true; })
+    .reduce(function(chain, c){
+      return chain.then(function(){
+        return _uploadPhotoToDrive(c.dataUrl).then(function(url){
+          if (!url || url.indexOf('data:') === 0){
+            var tr = st.tries[c.key] || (st.tries[c.key] = { n: 0, next: 0 });
+            tr.n++; tr.next = Date.now() + Math.min(3600000, 30000 * Math.pow(2, tr.n));
+            return;
+          }
+          delete st.tries[c.key];
+          var current = c.store.load();
+          for (var i = 0; i < current.length; i++){
+            if (!current[i] || String(current[i][c.store.idField]) !== c.id) continue;
+            var ps = _embeddedImagePaths(current[i], [], [], 0);
+            if (c.store.type === 'job') _JOB_PHOTO_FIELDS.forEach(function(p){ ps.push(p.split('.')); });
+            ps.forEach(function(arr){ if (_pathGet(current[i], arr) === c.dataUrl) _pathSet(current[i], arr, url); });
+            break;
+          }
+          try { c.store.save(current); } catch(e){}
+        });
+      });
+    }, Promise.resolve())
+    .catch(function(){})
+    .then(function(){
+      st.running = false;
+      var nxt = 0, nowT = Date.now();
+      Object.keys(st.tries).forEach(function(k){ if (st.tries[k].next > nowT) nxt = nxt ? Math.min(nxt, st.tries[k].next) : st.tries[k].next; });
+      if (nxt) _schedulePhotoHeal(nxt - nowT);
+    });
 }
+window.addEventListener('online', function(){
+  var st = _photoHealState();
+  if (Date.now() - st.lastReset > 5 * 60 * 1000){ st.lastReset = Date.now(); st.tries = {}; }
+  _schedulePhotoHeal(5000);
+});
+setTimeout(function(){ _schedulePhotoHeal(0); }, 25000);
 
 // qc_draft (a shared Save Progress entry) keys off plain `id`, same as a job —
 // only NCR's own stores use ncrId/__draftId.
@@ -7577,13 +7679,47 @@ function _syncMarkPending(type, isPending) {
     localStorage.setItem(SYNC_PENDING_KEY, JSON.stringify(pending));
   } catch(e) {}
 }
+// Records currently held back because they are too big to send (embedded photo
+// not uploaded yet). Key 'type|id' -> size in characters. Kept on a function
+// property: reachable at the very start of page load (see _photoHealState).
+function _syncHeldMap(){
+  if (!_syncHeldMap._m) _syncHeldMap._m = { _rej: {} };
+  return _syncHeldMap._m;
+}
+// Must stay below the Worker's MAX_RECORD_CHARS (262144), which is its backstop.
+function _syncMaxRecordChars(){ return 150000; }
+function _syncHoldOversize(type, dirty){
+  var held = _syncHeldMap(), prefix = type + '|', max = _syncMaxRecordChars();
+  var ok = [], nowHeld = {}, fresh = 0, dirtyIds = {};
+  dirty.forEach(function(d){
+    dirtyIds[d.id] = true;
+    // Also held: a record the Worker already refused, until the record itself changes.
+    if (d.json.length <= max && held._rej[prefix + d.id] !== d.json){ ok.push(d); return; }
+    var k = prefix + d.id;
+    nowHeld[k] = d.json.length;
+    if (!held[k]) fresh++;
+  });
+  // A held id that is no longer dirty-and-oversize (photo uploaded, record deleted) is released.
+  Object.keys(held).forEach(function(k){ if (k.indexOf(prefix) === 0 && !nowHeld[k]) delete held[k]; });
+  Object.keys(nowHeld).forEach(function(k){ held[k] = nowHeld[k]; });
+  if (fresh){
+    try { console.warn('[sync] holding ' + fresh + ' ' + type + ' record(s) over ' + max + ' chars — waiting for photo upload'); } catch(e){}
+    _schedulePhotoHeal(0);
+    var st = _photoHealState();
+    if (Date.now() - st.lastToast > 10 * 60 * 1000 && typeof showToast === 'function' && document.body){
+      st.lastToast = Date.now();
+      showToast(isEsLang() ? '📷 Una foto aún se está subiendo — este trabajo se sincronizará cuando termine.' : '📷 A photo is still uploading — this job will sync when it finishes.', 'fail');
+    }
+  }
+  return { ok: ok, heldCount: Object.keys(nowHeld).length };
+}
 // Pushes an EXACT given list of records for a store via the bulk upsert
 // endpoint. Internal primitive now — every real call site goes through
 // _syncPushDelta() below instead of calling this directly, so it only ever
 // gets handed the records that actually need pushing, not the whole store.
 // Resolves true/false (not just "didn't throw") so a caller can tell
 // whether it's actually safe to treat these records as synced.
-function _syncPushAll(type, list) {
+function _syncPushAll(type, list, onRejected) {
   if (!QA_BACKEND_URL) return Promise.resolve(false);
   var idField = _syncIdField(type);
   var records = (list || []).map(function(r){
@@ -7599,7 +7735,13 @@ function _syncPushAll(type, list) {
   }).then(function(res){
     if (res.ok) _syncMarkPending(type, false);
     else if (res.status === 401) _reactiveAuthRefresh();
-    return res.ok;
+    if (!res.ok) return false;
+    // The Worker skips an oversize record instead of storing it and lists it in
+    // `rejected`. Those ids must NOT be treated as synced (the caller holds them).
+    return res.json().then(function(j){
+      if (onRejected && j && j.rejected && j.rejected.length) onRejected(j.rejected.map(function(x){ return String(x.id); }));
+      return true;
+    }, function(){ return true; });
   }).catch(function(){ return false; /* offline — stays pending, retried below */ });
 }
 
@@ -7995,25 +8137,52 @@ function _syncPushDelta(type, list){
     _syncSnapshotSet(type, snap);
   }
   if (!dirty.length) return Promise.resolve(true);
+  // Size guard: a record this big is an embedded photo (the biggest real record is
+  // ~51KB). It is NOT sent — it stays dirty on this device, costs no network
+  // while held, and goes out as soon as the photo upload finishes. Checked
+  // before the circuit breaker and the reconcile fetches so a held record can
+  // never burn either.
+  var _bigKept = _syncHoldOversize(type, dirty);
+  dirty = _bigKept.ok;
+  if (!dirty.length) return Promise.resolve(_bigKept.heldCount ? false : true);
+  // A record whose exact current version is already on its way to the server is
+  // not sent a second time. Without this, every save made while an earlier push
+  // was still in flight re-sent all of those still-unconfirmed records (a
+  // 5-product submit pushed 15 times instead of 5; photos healing one after
+  // another pushed every earlier job again each time). Callers get the in-flight
+  // push's own result. Entries expire after 60s so a hung request cannot block a record.
+  var _fl = _syncPushDelta._flight || (_syncPushDelta._flight = {});
+  var _nowMs = Date.now(), _waitOn = [];
+  dirty = dirty.filter(function(d){
+    var f = _fl[type + '|' + d.id];
+    if (f && f.json === d.json && _nowMs - f.at < 60000){ _waitOn.push(f.p); return false; }
+    return true;
+  });
+  if (!dirty.length) return _waitOn.length ? Promise.all(_waitOn).then(function(r){ return r.every(Boolean); }) : Promise.resolve(true);
   dirty = _syncPushBreaker(type, dirty);
   if (!dirty.length) return Promise.resolve(false); // everything held back by the circuit breaker — honest "not pushed"
 
   // Jobs, NCRs and NCR drafts get reconciled against the server first — see
   // _syncReconcileBeforePush's own comment for why. qc_draft stays a plain push.
   var pushReady = _syncMergesType(type) ? _syncReconcileBeforePush(type, dirty, snap) : Promise.resolve(dirty);
-  return pushReady.then(function(toPush){
-    return _syncPushAll(type, toPush.map(function(d){ return d.data; })).then(function(ok){
+  var pushP = pushReady.then(function(toPush){
+    var _rej = {};
+    return _syncPushAll(type, toPush.map(function(d){ return d.data; }), function(ids){ ids.forEach(function(i){ _rej[i] = true; toPush.forEach(function(d){ if (d.id === i) _syncHeldMap()._rej[type + '|' + i] = d.json; }); }); _schedulePhotoHeal(0); }).then(function(ok){
       if (!ok) return false; // stays "dirty" against the unchanged snapshot — next save/retry finds it again
       // Re-read instead of reusing the `snap` captured before the network
       // round trip — a pull that finished in the meantime may have updated
       // other ids, and writing back the stale copy would undo that.
       var cur = _syncSnapshotGet(type);
-      toPush.forEach(function(d){ cur[d.id] = d.json; });
+      toPush.forEach(function(d){ if (!_rej[d.id]) cur[d.id] = d.json; });
       _syncSnapshotSet(type, cur);
       if (_syncMergesType(type)) _syncAdoptMergedLocally(type, toPush);
       return true;
     });
   });
+  dirty.forEach(function(d){ _fl[type + '|' + d.id] = { json: d.json, at: _nowMs, p: pushP }; });
+  var _clearFlight = function(){ dirty.forEach(function(d){ var f = _fl[type + '|' + d.id]; if (f && f.p === pushP) delete _fl[type + '|' + d.id]; }); };
+  pushP.then(_clearFlight, _clearFlight);
+  return pushP;
 }
 // _syncPushDelta decides what's "dirty" purely from THIS device's own
 // bookkeeping (its local copy vs. the last snapshot it confirmed) — it
@@ -8677,13 +8846,30 @@ setInterval(_activeUserAutoSyncTick, 60000);
 // instead of claiming a hand-off that never landed.
 function _syncShareDraft(draft) {
   if (!QA_BACKEND_URL) return Promise.resolve(false);
-  return fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(draft.id), {
-    method: 'PUT',
-    headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
-    body: JSON.stringify({ type: 'qc_draft', data: draft })
-  })
-    .then(function(res){ return !!res.ok; })
-    .catch(function(){ return false; });
+  // A draft still holds its photos as embedded data (they were never uploaded).
+  // Sending those would store MBs in the database, so upload them first and share
+  // a copy with Drive links; the local draft is left exactly as it was. If an
+  // upload fails the share fails honestly — nothing oversize is ever sent.
+  var copy = JSON.parse(JSON.stringify(draft)), paths = _embeddedImagePaths(copy, [], [], 0);
+  var ups = {};
+  return paths.reduce(function(chain, arr){
+    return chain.then(function(good){
+      if (!good) return false;
+      var v = _pathGet(copy, arr);
+      if (ups[v]){ _pathSet(copy, arr, ups[v]); return true; }
+      return _uploadPhotoToDrive(v).then(function(url){
+        if (!url || url.indexOf('data:') === 0) return false;
+        ups[v] = url; _pathSet(copy, arr, url); return true;
+      });
+    });
+  }, Promise.resolve(true)).then(function(good){
+    if (!good || JSON.stringify(copy).length > _syncMaxRecordChars()) return false;
+    return fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(draft.id), {
+      method: 'PUT',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
+      body: JSON.stringify({ type: 'qc_draft', data: copy })
+    }).then(function(res){ return !!res.ok; });
+  }).catch(function(){ return false; });
 }
 
 /* ══════════════════════════════════
