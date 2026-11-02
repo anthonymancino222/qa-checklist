@@ -746,6 +746,14 @@ select.input.station-select-picked {
 .ci-name { font-size: 16px; font-weight: 600; color: var(--text-primary); padding-top: 2px; }
 .ci-desc { font-size: 15px; color: var(--text-tertiary); margin-top: 2px; }
 .toggle-group { display: flex; gap: 6px; flex-shrink: 0; }
+/* Station buttons (#setup-station-btns): 6 options with flex:1 wrap cleanly
+   until the row can't fit all of them, then the lone leftover button has
+   nothing to share its row with and flex:1 stretches it to the full
+   container width instead of matching its siblings' size. Grid doesn't
+   have that failure mode — a leftover item just sits in one track. */
+@media (min-width: 681px) {
+  #setup-station-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+}
 .tgl {
   padding: 11px 16px; border-radius: 8px; border: 1.5px solid var(--border);
   background: var(--bg); font-size: 16px; font-weight: 700; font-family: var(--font);
