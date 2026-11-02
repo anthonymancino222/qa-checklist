@@ -5533,6 +5533,26 @@ try {
               <div class="faq-done">✅ <span data-en>You are done when you can see the old job.</span><span data-es>Listo cuando ve el trabajo viejo.</span></div>
             </div>
           </div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>📷 Why do I only see one photo for a job?</span><span data-es>📷 ¿Por qué solo veo una foto por trabajo?</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>Each product or form keeps <b>one</b> make-ready photo. Shipping Approval shows that same photo for you to check. It does not save a second copy.</span><span data-es>Cada producto o forma guarda <b>una</b> foto de preparación. La Aprobación de Envío muestra esa misma foto para que la revise. No guarda una segunda copia.</span></p>
+              <p class="faq-p"><span data-en>If you tap <b>Markup</b> and change the photo, the new marked-up photo is saved too. That is the only time a second photo is kept.</span><span data-es>Si toca <b>Anotar</b> y cambia la foto, la nueva foto anotada también se guarda. Esa es la única vez que se guarda una segunda foto.</span></p>
+              <p class="faq-p"><span data-en>NCRs and CARs are different. They can have more than one photo.</span><span data-es>Las RNC y las ACR son diferentes. Pueden tener más de una foto.</span></p>
+            </div>
+            <div class="faq-steps">
+              <div class="faq-steps-title"><span data-en>Check the photo at Shipping Approval</span><span data-es>Revisar la foto en la Aprobación de Envío</span></div>
+              <ol class="faq-ol">
+                <li><span data-en>Open <b>QA</b> then <b>Shipping Approval</b> and tap the job.</span><span data-es>Abra <b>QA</b> y luego <b>Aprobación de Envío</b> y toque el trabajo.</span></li>
+                <li><span data-en>Look at the picture. It says <b>Carried over from make-ready</b>.</span><span data-es>Mire la imagen. Dice <b>Trasladada desde preparación</b>.</span></li>
+                <li><span data-en>Only tap <b>Markup</b> if you need to circle or write on the photo.</span><span data-es>Solo toque <b>Anotar</b> si necesita marcar o escribir en la foto.</span></li>
+                <li><span data-en>Sign and tap <b>Approve for Shipping</b>.</span><span data-es>Firme y toque <b>Aprobar para Envío</b>.</span></li>
+              </ol>
+              <div class="faq-note"><span data-en>Jobs approved before this change may still show the photo twice. That is old data, and it is safe.</span><span data-es>Los trabajos aprobados antes de este cambio todavía pueden mostrar la foto dos veces. Son datos viejos y es seguro.</span></div>
+              <div class="faq-done">✅ <span data-en>You are done when the job shows one photo.</span><span data-es>Terminó cuando el trabajo muestra una foto.</span></div>
+            </div>
+          </div>
         </div>
 
         <div class="faq-group" data-faq-group="qadata">
@@ -8199,7 +8219,15 @@ function _syncPullAndMerge(type, currentList, saveFn) {
 
       // Jobs trimmed off this device (see _trimOldJobs) are kept in memory only:
       // never re-added to the local list, never re-seeded into the snapshot.
-      if (type === 'job') _olderJobsAbsorb(records);
+      if (type === 'job') {
+        _olderJobsAbsorb(records);
+        // The list handed in was captured BEFORE this request went out. If a trim
+        // (or any save) ran while it was in flight, merging against that stale
+        // copy would write the trimmed jobs back into the local list, where the
+        // next push would re-send all of them to the server. Always merge against
+        // the list as it is now.
+        currentList = ipLoad();
+      }
       var trimmedIds = type === 'job' ? _trimmedJobIds() : {};
 
       var localById = {};
@@ -26996,6 +27024,15 @@ function submitShippingApproval(){
     if (!ok) return;
     var photoEl = document.getElementById('ship-photo-preview');
     var _shipStageIdx = (_getJobStageHistory(shipState.jobId) || []).length;
+    // The photo shown here is normally just the make-ready photo carried over
+    // (job.mrPhoto). Saving it again as shipping.cutterPicture stored a second
+    // copy (and uploaded a second file to Drive), so the job showed the same
+    // photo several times. It is only saved here when QA actually changed it
+    // (marked it up or replaced it) — i.e. it is no longer the make-ready photo.
+    var _shipJob = null;
+    ipLoad().forEach(function(j){ if (j.id === shipState.jobId) _shipJob = j; });
+    var _shipPhotoSrc = (photoEl && photoEl.style.display !== 'none') ? (photoEl.getAttribute('src') || photoEl.src) : null;
+    var _shipPhotoIsCarriedOver = !!(_shipPhotoSrc && _shipJob && _shipJob.mrPhoto && _shipPhotoSrc === _shipJob.mrPhoto);
     var shipping = {
       passFail: d.passFail,
       transportRate: d.transportRate,
@@ -27004,7 +27041,7 @@ function submitShippingApproval(){
       dimensionApproval: d.dimensionApproval,
       labelApplied: d.labelApplied,
       productIdMatch: d.productIdMatch,
-      cutterPicture: (photoEl && photoEl.style.display !== 'none') ? photoEl.src : null,
+      cutterPicture: _shipPhotoIsCarriedOver ? null : _shipPhotoSrc,
       signature: shipSigHasMark.val ? shipSigCanvas.toDataURL('image/png') : d.__existingSignature,
       signatureAt: formatTS()
     };
@@ -27710,7 +27747,8 @@ function openRecordJob(jobId){
       '<div class="ncr-sumrow"><b>' + (_rvjEs?'Etiqueta Aplicada':'Label Applied') + '</b><span>'+escHtml(s.labelApplied||'—')+'</span></div>' +
       '<div class="ncr-sumrow"><b>' + (_rvjEs?'Coincidencia de ID de Producto':'Product ID Match') + '</b><span>'+escHtml(s.productIdMatch||'—')+'</span></div>' +
       '<div class="ncr-sumrow"><b>' + (_rvjEs?'Firmado':'Signed') + '</b><span>'+escHtml(s.signatureAt||'—')+'</span></div>' +
-      (s.cutterPicture ? '<img src="'+s.cutterPicture+'" style="width:100%;border-radius:10px;margin-top:8px;">' : '') +
+      // Shown once: when the job has a timeline, its Shipping Approval card already draws this photo.
+      ((s.cutterPicture && !(job.stageHistory && job.stageHistory.length)) ? '<img src="'+s.cutterPicture+'" style="width:100%;border-radius:10px;margin-top:8px;">' : '') +
       (s.signature ? '<img src="'+s.signature+'" style="width:100%;border-radius:10px;margin-top:8px;background:#fff;border:1px solid var(--border);">' : '') +
       '</div>';
   }

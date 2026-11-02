@@ -292,6 +292,11 @@ async function stormCheck(file) {
     const r = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'trim.js')], { encoding: 'utf8', timeout: 120000 });
     log(r.status === 0, 'old finished jobs leave the device safely: no server writes/deletes, no re-adds, still visible in Records + QA Data' + (r.status === 0 ? '' : '\n' + String(r.stdout || '').split('\n').filter((l) => /FAIL/.test(l)).join('\n')));
   }
+  console.log('\n-- shipping photo once + stale-pull/trim race (tests/ship_photo_race.js)');
+  {
+    const r2 = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'ship_photo_race.js')], { encoding: 'utf8', timeout: 180000 });
+    log(r2.status === 0, 'Shipping Approval keeps the make-ready photo once; a pull started before a trim cannot re-send trimmed jobs' + (r2.status === 0 ? '' : '\n' + String(r2.stdout || '').split('\n').filter((l) => /FAIL/.test(l)).join('\n')));
+  }
   console.log('\n' + (failures ? 'RESULT: ' + failures + ' CHECK(S) FAILED — do NOT ship this version.' : 'RESULT: all checks passed.'));
   process.exit(failures ? 1 : 0);
 })();
