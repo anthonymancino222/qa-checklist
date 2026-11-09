@@ -1949,8 +1949,17 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
 #view-rca .why-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 #view-rca .why-num{background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;width:56px;height:36px;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;color:var(--text-secondary);flex-shrink:0}
-#view-rca .why-row input{flex:1}
+#view-rca .why-row input{flex:1 1 0;min-width:0}
 #view-rca .arrow-down{display:flex;justify-content:center;margin:2px 0;color:var(--text-tertiary);font-size:18px}
+/* Remove ("✕") buttons inside a row of inputs (why-rows, job/product rows):
+   .btn is width:100% by default (meant for full-width action buttons), which
+   — given only `gap` on the flex row, no basis override on this button —
+   takes 100% of the row as its flex-basis and squeezes the input next to it
+   down to almost nothing, so it looks oversized and the input becomes
+   unusable. Needs its own narrow, auto-width sizing. */
+#view-rca .rca-row-remove{width:auto;flex:0 0 auto;min-height:36px;padding:7px 12px;margin-top:0;font-size:14px}
+#view-rca .rca-jobprod-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+#view-rca .rca-jobprod-row input{flex:1 1 0;min-width:0}
 #view-rca .disposition-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
 #view-rca .disp-option{border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;font-size:14px;font-weight:600;color:var(--text-secondary);transition:all .15s;background:var(--surface)}
 #view-rca .disp-option:hover{border-color:var(--brand);background:var(--brand-soft)}
@@ -4642,16 +4651,15 @@ try {
           </div>
         </div>
       </div>
-      <div class="field-row">
+      <div class="field-row single">
         <div class="field-group">
-          <label><span data-en>Job number</span><span data-es>Número de trabajo</span><span class="req">*</span></label>
-          <input type="text" inputmode="numeric" placeholder="e.g. JOB-20240604" data-ph-en="e.g. JOB-20240604" data-ph-es="ej. JOB-20240604" id="rca-job-num">
-        </div>
-        <div class="field-group">
-          <label><span data-en>Product ID</span><span data-es>ID de Producto</span><span class="req">*</span></label>
-          <input type="text" inputmode="numeric" placeholder="e.g. P-10045" data-ph-en="e.g. P-10045" data-ph-es="ej. P-10045" id="rca-prod-num">
-          <div id="rca-extra-prods"></div>
-          <button type="button" class="btn rca-add-prod" style="margin-top:6px;font-size:13px;padding:5px 12px" onclick="rcaAddProduct()">＋ <span data-en>Add another Product ID</span><span data-es>Agregar otro ID de Producto</span></button>
+          <label><span data-en>Job number</span><span data-es>Número de trabajo</span><span class="req">*</span> <span style="text-transform:none;font-weight:400;color:var(--text-tertiary)">/ <span data-en>Product ID</span><span data-es>ID de Producto</span> (<span data-en>add another row if more than one job is on this CAR</span><span data-es>agregue otra fila si hay más de un trabajo en esta ACR</span>)</span></label>
+          <div class="rca-jobprod-row">
+            <input type="text" inputmode="numeric" placeholder="e.g. JOB-20240604" data-ph-en="e.g. JOB-20240604" data-ph-es="ej. JOB-20240604" id="rca-job-num">
+            <input type="text" inputmode="numeric" placeholder="Product ID (optional)" data-ph-en="Product ID (optional)" data-ph-es="ID de Producto (opcional)" id="rca-prod-num">
+          </div>
+          <div id="rca-extra-jobprod"></div>
+          <button type="button" class="btn rca-add-prod" style="margin-top:6px;font-size:13px;padding:5px 12px" onclick="rcaAddJobProduct()">＋ <span data-en>Add another job</span><span data-es>Agregar otro trabajo</span></button>
         </div>
       </div>
       <div class="field-row">
@@ -24385,35 +24393,90 @@ function _rcaRestoreUi(ui){
   _rcaOtherText = ui.other || {};
 }
 
-/* ── Extra Product IDs and extra 5-Why rows ──
+/* ── Extra Job/Product rows and extra 5-Why rows ──
    Extra Whys are saved appended to Why 5 as " ¦ Why 6: …" (the sheet only has
-   five Why columns) and split back out when a record is reopened. Extra
-   Product IDs are saved comma-joined in the one Product Number field. ── */
-function rcaAddProduct(val){
-  var box = document.getElementById('rca-extra-prods');
+   five Why columns) and split back out when a record is reopened.
+
+   A CAR can cover more than one job number (e.g. one PO spanning several
+   jobs), and a given job can have more than one defective Product ID (e.g.
+   two different items held out of the same lot) — so each row pairs one Job
+   # with one optional Product ID, not a flat product list under a single
+   job. Still only two columns on the backend sheet, so both stay saved as
+   comma-joined strings: Job Number gets every row's job (deduped, in display
+   order); Product Number gets "<product> (Job <job>)" for each row that has
+   a product — but only once this CAR actually has more than one job, so an
+   ordinary single-job CAR's Product ID field still reads exactly as before. */
+function rcaAddJobProduct(jobVal, prodVal){
+  var box = document.getElementById('rca-extra-jobprod');
   if (!box) return;
   var row = document.createElement('div');
-  row.style.cssText = 'display:flex;gap:6px;margin-top:6px;';
-  var inp = document.createElement('input');
-  inp.type = 'text'; inp.inputMode = 'numeric'; inp.style.flex = '1';
-  inp.placeholder = isEsLang() ? 'Otro ID de Producto' : 'Another Product ID';
-  inp.value = val || '';
+  row.className = 'rca-jobprod-row';
+  var jobInp = document.createElement('input');
+  jobInp.type = 'text'; jobInp.inputMode = 'numeric';
+  jobInp.placeholder = isEsLang() ? 'Otro # de trabajo' : 'Another job #';
+  jobInp.value = jobVal || '';
+  var prodInp = document.createElement('input');
+  prodInp.type = 'text'; prodInp.inputMode = 'numeric';
+  prodInp.placeholder = isEsLang() ? 'ID de Producto (opcional)' : 'Product ID (optional)';
+  prodInp.value = prodVal || '';
   var x = document.createElement('button');
-  x.type = 'button'; x.className = 'btn'; x.textContent = '✕'; x.title = isEsLang() ? 'Quitar' : 'Remove';
+  x.type = 'button'; x.className = 'btn rca-row-remove'; x.textContent = '✕'; x.title = isEsLang() ? 'Quitar' : 'Remove';
   x.onclick = function(){ row.remove(); };
-  row.appendChild(inp); row.appendChild(x); box.appendChild(row);
-  if (!val) inp.focus();
+  row.appendChild(jobInp); row.appendChild(prodInp); row.appendChild(x);
+  box.appendChild(row);
+  if (!jobVal) jobInp.focus();
 }
+function _rcaJobProductRows(){
+  var rows = [{ job: rcaGetVal('job-num'), prod: rcaGetVal('prod-num') }];
+  Array.prototype.forEach.call(document.querySelectorAll('#rca-extra-jobprod .rca-jobprod-row'), function(r){
+    var inps = r.querySelectorAll('input');
+    rows.push({ job: inps[0].value.trim(), prod: inps[1].value.trim() });
+  });
+  return rows.filter(function(r){ return r.job || r.prod; });
+}
+// Legacy/simple case: a flat product list under the CAR's one job (used by
+// NCR/schedule prefill, which only ever knows a single job). Each extra
+// product row inherits whatever job is already in the primary field.
 function _rcaSetProductIds(str){
   var parts = String(str || '').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
   document.getElementById('rca-prod-num').value = parts[0] || '';
-  var box = document.getElementById('rca-extra-prods');
+  var box = document.getElementById('rca-extra-jobprod');
   if (box) box.innerHTML = '';
-  parts.slice(1).forEach(function(p){ rcaAddProduct(p); });
+  var job = rcaGetVal('job-num');
+  parts.slice(1).forEach(function(p){ rcaAddJobProduct(job, p); });
+}
+// Rebuilds every job/product row from a saved CAR's jobNumber + productNumber
+// strings — understands both the "<product> (Job <job>)" format this CAR
+// writes for multi-job records and plain legacy/single-job product lists.
+function _rcaSetJobsProducts(jobNumberStr, productNumberStr){
+  var jobs = String(jobNumberStr || '').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  var prodTokens = String(productNumberStr || '').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  var rows = prodTokens.map(function(t){
+    var m = t.match(/^(.*)\s\(Job\s+(.+)\)$/);
+    return m ? { job: m[2].trim(), prod: m[1].trim() } : { job: '', prod: t };
+  });
+  if (rows.length && !rows[0].job) rows.forEach(function(r){ r.job = jobs[0] || ''; });
+  var covered = {}; rows.forEach(function(r){ if (r.job) covered[r.job] = true; });
+  jobs.forEach(function(j){ if (!covered[j]) rows.push({ job: j, prod: '' }); });
+  if (!rows.length) rows.push({ job: jobs[0] || '', prod: '' });
+  document.getElementById('rca-job-num').value = rows[0].job;
+  document.getElementById('rca-prod-num').value = rows[0].prod;
+  var box = document.getElementById('rca-extra-jobprod');
+  if (box) box.innerHTML = '';
+  rows.slice(1).forEach(function(r){ rcaAddJobProduct(r.job, r.prod); });
+}
+function _rcaJobNumbers(){
+  var seen = {}, out = [];
+  _rcaJobProductRows().forEach(function(r){ if (r.job && !seen[r.job]){ seen[r.job] = true; out.push(r.job); } });
+  return out.join(', ');
 }
 function _rcaProductIds(){
-  var extra = Array.prototype.map.call(document.querySelectorAll('#rca-extra-prods input'), function(i){ return i.value.trim(); });
-  return [rcaGetVal('prod-num')].concat(extra).filter(Boolean).join(', ');
+  var rows = _rcaJobProductRows();
+  var jobSet = {}; rows.forEach(function(r){ if (r.job) jobSet[r.job] = true; });
+  var multiJob = Object.keys(jobSet).length > 1;
+  return rows.filter(function(r){ return r.prod; }).map(function(r){
+    return (multiJob && r.job) ? (r.prod + ' (Job ' + r.job + ')') : r.prod;
+  }).join(', ');
 }
 function _rcaRenumberWhys(prefix){
   var isEs = isEsLang();
@@ -24426,7 +24489,7 @@ function rcaAddWhy(prefix, val){
   if (!box) return;
   var isEs = isEsLang();
   var wrap = document.createElement('div');
-  wrap.innerHTML = '<div class="arrow-down">↓</div><div class="why-row"><div class="why-num"></div><input type="text" placeholder="' + (isEs ? '¿Y por qué?' : 'And why?') + '"><button type="button" class="btn" style="padding:6px 10px" title="' + (isEs ? 'Quitar' : 'Remove') + '">✕</button></div>';
+  wrap.innerHTML = '<div class="arrow-down">↓</div><div class="why-row"><div class="why-num"></div><input type="text" placeholder="' + (isEs ? '¿Y por qué?' : 'And why?') + '"><button type="button" class="btn rca-row-remove" title="' + (isEs ? 'Quitar' : 'Remove') + '">✕</button></div>';
   var inp = wrap.querySelector('input');
   inp.value = val || '';
   wrap.querySelector('button').onclick = function(){ wrap.remove(); _rcaRenumberWhys(prefix); };
@@ -24452,7 +24515,7 @@ function _rcaSetWhy5(prefix, str){
   segs.slice(1).forEach(function(t){ rcaAddWhy(prefix, t.replace(/^Why \d+: /, '')); });
 }
 function _rcaClearExtras(){
-  var b = document.getElementById('rca-extra-prods'); if (b) b.innerHTML = '';
+  var b = document.getElementById('rca-extra-jobprod'); if (b) b.innerHTML = '';
   ['w','mw'].forEach(function(p){ var w = document.getElementById('rca-extra-whys-' + p); if (w) w.innerHTML = ''; });
 }
 
@@ -25442,7 +25505,7 @@ function rcaCollectData(status, action){
   const dispNotes = rcaGetVal('disp-notes') || rcaGetVal('m-disp-notes');
   return {
     action:action||status.toLowerCase().replace(/ /g,'_'),
-    jobNumber:rcaGetVal('job-num'), productNumber:_rcaProductIds(), customer:rcaGetVal('customer'),
+    jobNumber:_rcaJobNumbers(), productNumber:_rcaProductIds(), customer:rcaGetVal('customer'),
     dateFound:rcaGetVal('date-found'), station:_rcaStationValue(), qaTech:rcaGetQAName(),
     issueCategory:_rcaIssueComposed(),
     issueDesc:_rcaIssueComposed('issue-desc'),
@@ -26127,8 +26190,7 @@ function _rcaJsonpGet(token, onOk, onErr){
 // (from the fetched record, not local job/NCR data — a manager's device
 // won't have any) and then locked read-only.
 function _rcaFillIncidentInfo(rec){
-  document.getElementById('rca-job-num').value = rec.jobNumber || '';
-  _rcaSetProductIds(rec.productNumber);
+  _rcaSetJobsProducts(rec.jobNumber, rec.productNumber);
   document.getElementById('rca-date-found').value = rec.dateFound || '';
   if (rec.customer) _rcaSetCustomer(rec.customer);
   var stationSel = document.getElementById('rca-station');
@@ -26167,7 +26229,7 @@ function _rcaLockIncidentInfo(){
    'rca-date-found','rca-station','rca-qa-name','rca-qa-name-other','rca-issue-desc','rca-photo-input'
   ].forEach(function(id){ var e = document.getElementById(id); if (e) e.disabled = true; });
   document.querySelectorAll('#rca-issuecat-grid .disp-option').forEach(function(el){ el.style.pointerEvents = 'none'; el.style.opacity = '.7'; });
-  document.querySelectorAll('#rca-extra-prods input, #rca-extra-prods button, .rca-add-prod').forEach(function(e){ e.disabled = true; });
+  document.querySelectorAll('#rca-extra-jobprod input, #rca-extra-jobprod button, .rca-add-prod').forEach(function(e){ e.disabled = true; });
 }
 
 function _rcaSetTokenLoading(state, opts){
