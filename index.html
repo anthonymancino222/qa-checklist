@@ -2136,6 +2136,152 @@ body.sidebar-expanded .menu-btn { margin: 0 0 14px; }
 #view-rca .path-selector{grid-template-columns:1fr}
 #view-rca .disposition-grid{grid-template-columns:repeat(2,1fr)}
 }
+/* ── 8D module: the same card/tab/chip/button styles as the CAR, scoped under #view-eightd ── */
+#view-eightd .rca-page-wrap{max-width:700px;margin:0 auto;font-family:var(--font);background:var(--bg);color:var(--text-primary);padding:2rem 1rem}
+#view-eightd .form-header{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
+#view-eightd .form-title{font-size:22px;font-weight:600;color:var(--text-primary)}
+#view-eightd .form-subtitle{font-size:15px;color:var(--text-secondary);margin-top:3px}
+#view-eightd .badge-rca{background:var(--brand-soft);color:var(--brand-dark);font-size:13.5px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.04em;margin-left:auto;white-space:nowrap}
+#view-eightd .path-selector{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem}
+#view-eightd .path-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .15s,background .15s}
+#view-eightd .path-card:hover{border-color:var(--brand);background:var(--brand-soft)}
+#view-eightd .path-card.active{border:2px solid var(--brand);background:var(--brand-soft)}
+#view-eightd .path-label{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px}
+#view-eightd .path-desc{font-size:14px;color:var(--text-secondary);line-height:1.5}
+#view-eightd .path-icon{font-size:22px;margin-bottom:8px}
+#view-eightd .path-card.active .path-label{color:var(--brand-dark)}
+#view-eightd .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+#view-eightd .section-header{display:flex;align-items:center;gap:8px;margin-bottom:1rem;padding-bottom:10px;border-bottom:1px solid var(--border)}
+#view-eightd .section-num{width:27px;height:27px;border-radius:50%;background:var(--brand);color:#fff;font-size:13.5px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#view-eightd .section-title{font-size:14px;font-weight:600;color:var(--text-primary)}
+#view-eightd .section-badge{font-size:13.5px;padding:2px 8px;border-radius:12px;margin-left:auto;font-weight:500}
+#view-eightd .badge-qa{background:var(--green-soft);color:var(--green)}
+#view-eightd .badge-mgr{background:var(--amber-soft);color:var(--amber-ink)}
+#view-eightd .badge-close{background:var(--green-soft);color:var(--green)}
+#view-eightd .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+#view-eightd .field-row.single{grid-template-columns:1fr}
+#view-eightd .field-group{display:flex;flex-direction:column;gap:5px}
+#view-eightd label{font-size:14px;color:var(--text-secondary);font-weight:600;letter-spacing:.02em}
+#view-eightd .req{color:var(--red);margin-left:2px}
+#view-eightd input[type=text], #view-eightd input[type=date], #view-eightd select, #view-eightd textarea{width:100%;font-size:15px;font-family:inherit;color:var(--text-primary);background:var(--surface-raised);border:1px solid var(--border-mid);border-radius:8px;padding:8px 10px;outline:none;transition:border-color .15s;-webkit-appearance:none}
+#view-eightd input[type=text]:focus, #view-eightd input[type=date]:focus, #view-eightd select:focus, #view-eightd textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+#view-eightd textarea{resize:vertical;min-height:72px;line-height:1.5}
+#view-eightd select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+#view-eightd .why-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#view-eightd .why-num{background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;width:56px;height:36px;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:600;color:var(--text-secondary);flex-shrink:0}
+#view-eightd .why-row input{flex:1 1 0;min-width:0}
+#view-eightd .arrow-down{display:flex;justify-content:center;margin:2px 0;color:var(--text-tertiary);font-size:18px}
+#view-eightd .rca-row-remove{width:auto;flex:0 0 auto;min-height:36px;padding:7px 12px;margin-top:0;font-size:14px}
+#view-eightd .rca-jobprod-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+#view-eightd .rca-jobprod-row input{flex:1 1 0;min-width:0}
+#view-eightd .disposition-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px}
+#view-eightd .disp-option{border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;font-size:14px;font-weight:600;color:var(--text-secondary);transition:all .15s;background:var(--surface)}
+#view-eightd .disp-option:hover{border-color:var(--brand);background:var(--brand-soft)}
+#view-eightd .disp-option.selected{border:2px solid var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+#view-eightd .disp-icon{font-size:20px;margin-bottom:4px}
+#view-eightd .disposition-grid.rca-grid-collapsed{display:none}
+#view-eightd .rca-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+#view-eightd .rca-per-block{grid-column:1/-1;border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--surface-raised)}
+#view-eightd .rca-per-title{font-size:14px;font-weight:800;color:var(--text-primary);margin-bottom:8px}
+#view-eightd .rca-per-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media (max-width:560px){#view-eightd .rca-per-opts{grid-template-columns:repeat(2,1fr)}}
+#view-eightd .rca-other-box{margin-top:8px}
+#view-eightd .rca-other-box input{width:100%}
+#view-eightd .rca-other-box.hidden{display:none}
+#view-eightd .rca-chip{border:1.5px solid var(--border-mid);border-radius:20px;padding:7px 14px;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-secondary);background:var(--surface);transition:all .15s;user-select:none}
+#view-eightd .rca-chip:hover{border-color:var(--brand);background:var(--brand-soft)}
+#view-eightd .rca-chip.selected{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+#view-eightd .rca-assign{margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface-raised)}
+#view-eightd .rca-assign-title{font-size:14px;font-weight:700;color:var(--text-secondary);margin-bottom:8px}
+#view-eightd .rca-assign-row{padding:8px 0;border-top:1px solid var(--border)}
+#view-eightd .rca-assign-row:first-of-type{border-top:none}
+#view-eightd .rca-assign-issue{font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+#view-eightd .rca-quickbar{ margin:4px 0 14px; }
+#view-eightd .rca-quickbar-label{ font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px; }
+#view-eightd .rca-quickbar-row{ display:flex; gap:10px; flex-wrap:wrap; }
+#view-eightd .rca-quickbtn{ flex:1 1 220px; display:flex; align-items:center; justify-content:center; gap:8px; padding:13px 14px; min-height:48px; border:2px solid var(--orange); background:var(--orange-soft); color:var(--orange-ink); border-radius:12px; font:inherit; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 3px 0 rgba(0,0,0,.28); transition:transform .08s, box-shadow .08s, background .15s; }
+#view-eightd .rca-quickbtn:hover{ background:var(--orange); color:#fff; }
+#view-eightd .rca-quickbtn:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(0,0,0,.28); }
+#view-eightd .rca-quickbtn:disabled{ opacity:.6; cursor:wait; }
+#view-eightd .rca-phasebar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:stretch}
+#view-eightd .rca-phasetab{flex:1 1 150px;display:flex;align-items:center;gap:10px;border:1.5px solid var(--border-mid);border-radius:10px;padding:10px 12px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:var(--text-secondary)}
+#view-eightd .rca-phasetab .rca-phasenum{flex:0 0 28px;height:28px;border-radius:50%;background:var(--border-mid);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+#view-eightd .rca-phasetab .rca-phasename{font-weight:700;font-size:14px;line-height:1.2}
+#view-eightd .rca-phasetab .rca-phasesub{font-size:12px;color:var(--text-tertiary);font-weight:500}
+#view-eightd .rca-phasetab.active{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+#view-eightd .rca-phasetab.active .rca-phasenum{background:var(--brand)}
+#view-eightd .rca-phasetab.done .rca-phasenum{background:var(--green)}
+#view-eightd .rca-carpill{display:inline-block;border-radius:12px;padding:2px 10px;font-size:13px;font-weight:700;background:var(--brand-soft);color:var(--brand-dark);margin-left:8px}
+#view-eightd .rca-carpill.pv{background:var(--amber-soft,#fff3cd);color:var(--amber-ink,#7a5a00)}
+#view-eightd .rca-carpill.cl{background:var(--green-soft);color:var(--green)}
+#view-eightd .rca-phase-nav{margin:0 0 1.25rem}
+#view-eightd .rca-assign-note{font-size:13px;color:var(--text-tertiary);margin-top:8px;line-height:1.4}
+#view-eightd .rca-grid-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border:2px solid var(--border-mid);border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;color:var(--text-secondary);background:var(--surface-raised);margin-top:4px;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+#view-eightd .rca-grid-toggle:hover{border-color:var(--text-tertiary);background:var(--border)}
+#view-eightd .rca-grid-toggle:not(.rca-grid-collapsed-bar){border-radius:10px 10px 0 0;border-bottom-width:0;margin-bottom:0}
+#view-eightd .disposition-grid:not(.rca-grid-collapsed){border:2px solid var(--border-mid);border-top:none;border-radius:0 0 10px 10px;padding:10px;margin-top:0!important}
+#view-eightd .rca-grid-toggle .rca-grid-toggle-chevron{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border-mid);border-radius:20px;padding:4px 10px 4px 8px}
+#view-eightd .rca-grid-toggle .rca-grid-toggle-chevron .arrow{font-size:15px;line-height:1;transition:transform .2s}
+#view-eightd .rca-grid-toggle.rca-grid-has-selection{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+#view-eightd .rca-grid-toggle.rca-grid-has-selection .rca-grid-toggle-chevron{border-color:var(--green);color:var(--green)}
+#view-eightd .rca-grid-toggle.rca-grid-needs-selection{background:var(--amber-soft);border-color:var(--amber);color:var(--amber-ink)}
+#view-eightd .rca-grid-toggle.rca-grid-needs-selection .rca-grid-toggle-chevron{border-color:var(--amber);color:var(--amber-ink)}
+#view-eightd .action-row{display:flex;gap:8px;margin-top:1.25rem;flex-wrap:wrap}
+#view-eightd .btn{font-size:15px;font-weight:600;font-family:inherit;border-radius:8px;padding:9px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;border:1px solid var(--border-mid);background:var(--surface);color:var(--text-primary)}
+#view-eightd .btn:hover{background:var(--surface-raised)}
+#view-eightd .btn:disabled{opacity:.5;cursor:not-allowed}
+#view-eightd .btn-primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+#view-eightd .btn-primary:hover{background:var(--brand-dark)}
+#view-eightd .btn-warn{background:var(--amber-soft);color:var(--amber-ink);border-color:var(--amber)}
+#view-eightd .btn-warn:hover{background:var(--amber)}
+#view-eightd .btn-success{background:var(--green-soft);color:var(--green);border-color:var(--green)}
+#view-eightd .btn-success:hover{background:var(--green)}
+#view-eightd .status-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--surface);border-radius:8px;font-size:14px;margin-bottom:1rem;border:1px solid var(--border);font-weight:500}
+#view-eightd .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+#view-eightd .dot-draft{background:var(--amber)}
+#view-eightd .dot-pending{background:var(--blue)}
+#view-eightd .dot-closed{background:var(--green)}
+#view-eightd .dot-saving{background:var(--blue);animation:pulse 1s infinite}
+#view-eightd .divider-label{font-size:13.5px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.06em;margin:1.25rem 0 .75rem;display:flex;align-items:center;gap:8px;font-weight:600}
+#view-eightd .divider-label::before, #view-eightd .divider-label::after{content:'';flex:1;height:1px;background:var(--border)}
+#view-eightd .hidden{display:none!important}
+#view-eightd .manager-section{border-left:3px solid var(--amber)!important}
+#view-eightd .close-section{border-left:3px solid var(--green)!important}
+#view-eightd .other-input{margin-top:6px}
+#view-eightd .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:15px;font-weight:600;padding:11px 22px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999;white-space:nowrap}
+#view-eightd .toast.show{opacity:1}
+#view-eightd .toast.error{background:var(--red);color:#fff}
+#view-eightd .section-path2-mgr{border-left:3px solid var(--amber)}
+#view-eightd .success-banner{background:var(--green-soft);border:1px solid var(--green);border-radius:10px;padding:16px 20px;text-align:center;font-size:14px;font-weight:600;color:var(--green);margin-top:1rem}
+#view-eightd .test-banner{background:var(--amber-soft);border:1px solid var(--amber);border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--amber-ink);margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:12px}
+#view-eightd .test-banner span{line-height:1.5}
+#view-eightd .toggle-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
+#view-eightd .toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+#view-eightd .toggle input{opacity:0;width:0;height:0}
+#view-eightd .toggle-slider{position:absolute;inset:0;background:var(--border-mid);border-radius:22px;cursor:pointer;transition:.2s}
+#view-eightd .toggle-slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+#view-eightd .toggle input:checked + .toggle-slider{background:var(--amber)}
+#view-eightd .toggle input:checked + .toggle-slider:before{transform:translateX(18px)}
+@media(max-width:520px){
+#view-eightd .field-row{grid-template-columns:1fr}
+#view-eightd .path-selector{grid-template-columns:1fr}
+#view-eightd .disposition-grid{grid-template-columns:repeat(2,1fr)}
+}
+#view-eightd .hidden{display:none !important}
+#view-eightd .d8-sec-off{display:none !important}
+#view-eightd .d8-hint{text-transform:none;font-weight:400;color:var(--text-tertiary)}
+#view-eightd .d8-listrow{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border)}
+#view-eightd .d8-note{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--green-soft);border:1px solid var(--green);color:var(--green);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px;font-weight:600}
+#view-eightd .d8-readonly .rca-chip,#view-eightd .d8-readonly .disp-option{cursor:default}
+#view-eightd .section-num{width:auto;min-width:27px;padding:0 7px;border-radius:14px;height:27px}
+#view-eightd .rca-quickbtn{flex:1 1 220px}
+#view-eightd .d8-readonly .d8-pv-intro{display:none}
+#view-eightd .field-row{align-items:end}
+#view-eightd .field-group{align-self:end}
+#view-eightd input[type=date]{height:37px;box-sizing:border-box}
+#view-eightd .disposition-grid:not(.rca-grid-collapsed){border:none;border-radius:0;padding:0;margin-top:4px!important}
+#view-eightd .why-row{align-items:center}
+
 /* ══════════════════════════════════════════════════════════════════
    PALLET ISSUE TAG (embedded from the standalone Moquin Pallet Tag app)
    Form UI is scoped under #ptOverlay; the printable sheet uses pt-
@@ -4423,6 +4569,52 @@ try {
       </div>
       <div id="shipping-list" style="padding:0 16px 24px;"></div>
     </div>
+    <div id="view-eightd" class="screen">
+      <div class="view-header"><button type="button" class="qa-back-btn" onclick="switchView('qa')">← <span data-en>Back to QA</span><span data-es>Volver a Calidad</span></button><div class="view-title"><span data-en>8D</span><span data-es>8D</span></div><div class="view-sub"><span data-en>8-Discipline report — containment, root cause, corrective action, prevention</span><span data-es>Informe de 8 disciplinas — contención, causa raíz, acción correctiva, prevención</span></div></div><div class="rca-page-wrap">
+
+  <div class="form-header">
+    <div>
+      <div class="form-title"><span data-en>8D Report</span><span data-es>Informe 8D</span></div>
+      <div class="form-subtitle"><span data-en>Quality Management — Moquin Press</span><span data-es>Gestión de Calidad — Moquin Press</span></div>
+    </div>
+    <span class="badge-rca">8D-FORM</span>
+  </div>
+
+  <div class="status-bar" id="ed-status-bar">
+    <div class="status-dot dot-draft" id="ed-status-dot"></div>
+    <span id="ed-status-text">Pick an 8D or start a new one</span>
+  </div>
+
+  <div id="ed-list-box">
+    <div class="section" style="margin-bottom:1rem">
+      <div class="rca-quickbar"><div class="rca-quickbar-label"><span data-en>Quick actions</span><span data-es>Acciones rápidas</span></div><div class="rca-quickbar-row">
+        <button type="button" class="rca-quickbtn" onclick="d8NewClick()"><span aria-hidden="true">＋</span> <span data-en>Start a new 8D</span><span data-es>Iniciar nuevo 8D</span></button>
+      </div></div>
+      <div id="ed-list-inner"></div>
+    </div>
+  </div>
+
+  <div id="ed-form-body" class="hidden">
+    <div id="ed-closed-note" class="hidden d8-note">
+      <span>🔒 <span data-en>This 8D is closed and read-only. You can print it or save it as a PDF.</span><span data-es>Este 8D está cerrado y es de solo lectura. Puede imprimirlo o guardarlo como PDF.</span></span>
+      <button type="button" class="btn" id="ed-btn-reopen" style="display:none" onclick="d8ReopenClosed()">↩️ <span data-en>Reopen to correct</span><span data-es>Reabrir para corregir</span></button>
+    </div>
+    <div style="font-size:14px;color:var(--text-secondary);margin-bottom:6px;font-weight:600"><span data-en>8D status:</span><span data-es>Estado del 8D:</span><span class="rca-carpill" id="ed-status-pill">Open</span></div>
+    <div class="rca-phasebar" id="ed-phasebar">
+      <button type="button" class="rca-phasetab" id="ed-phasetab-1" onclick="d8GoPhase(1)"><span class="rca-phasenum">1</span><span><span class="rca-phasename"><span data-en>D1–D3 Team &amp; containment</span><span data-es>D1–D3 Equipo y contención</span></span><br><span class="rca-phasesub"><span data-en>What happened &amp; what we did first</span><span data-es>Qué pasó y qué hicimos primero</span></span></span></button>
+      <button type="button" class="rca-phasetab" id="ed-phasetab-2" onclick="d8GoPhase(2)"><span class="rca-phasenum">2</span><span><span class="rca-phasename"><span data-en>D4–D5 Root cause &amp; action</span><span data-es>D4–D5 Causa raíz y acción</span></span><br><span class="rca-phasesub"><span data-en>Why it happened, how we fix it</span><span data-es>Por qué pasó, cómo lo arreglamos</span></span></span></button>
+      <button type="button" class="rca-phasetab" id="ed-phasetab-3" onclick="d8GoPhase(3)"><span class="rca-phasenum">3</span><span><span class="rca-phasename"><span data-en>D6–D8 Validate &amp; close</span><span data-es>D6–D8 Validar y cerrar</span></span><br><span class="rca-phasesub"><span data-en>Did it work? Prevent it, close it</span><span data-es>¿Funcionó? Prevenirlo y cerrar</span></span></span></button>
+    </div>
+
+    <div id="ed-form-sections"></div>
+
+    <div class="action-row" style="margin-top:8px">
+      <button type="button" class="btn" onclick="d8ShowList()">← <span data-en>All 8Ds</span><span data-es>Todos los 8D</span></button>
+      <button type="button" class="btn" onclick="d8PrintClick()">🖨️ <span data-en>Print / Save as PDF</span><span data-es>Imprimir / Guardar como PDF</span></button>
+    </div>
+  </div>
+
+</div></div>
     <div id="view-qa" class="screen">
       <div class="view-header"><div class="view-title"><span data-en>QA</span><span data-es>Calidad</span></div><div class="view-sub"><span data-en>Nonconformance, root cause &amp; records</span><span data-es>No conformidades, causa raíz y registros</span></div></div>
       <div class="qa-dash-grid">
@@ -4441,6 +4633,10 @@ try {
         <div class="qa-dash-icon" onclick="switchView('rca')" title="CAR">
           <div class="qa-dash-icon-tile" style="background:var(--steel);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
           <span class="qa-dash-icon-label"><span data-en>CAR</span><span data-es>ACR</span></span>
+        </div>
+        <div class="qa-dash-icon" onclick="switchView('eightd')" title="8D">
+          <div class="qa-dash-icon-tile" style="background:var(--indigo-mid);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+          <span class="qa-dash-icon-label"><span data-en>8D</span><span data-es>8D</span></span>
         </div>
         <div class="qa-dash-icon" onclick="switchView('records')" title="Records">
           <div class="qa-dash-icon-tile" style="background:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
@@ -5237,6 +5433,7 @@ try {
           <button type="button" class="tgl" data-recfilter="job" onclick="setRecordsFilter('job',this)"><span data-en>Jobs</span><span data-es>Trabajos</span></button>
           <button type="button" class="tgl" data-recfilter="ncr" onclick="setRecordsFilter('ncr',this)">NCR</button>
           <button type="button" class="tgl" data-recfilter="rca" onclick="setRecordsFilter('rca',this)">CAR</button>
+          <button type="button" class="tgl" data-recfilter="8d" onclick="setRecordsFilter('8d',this)">8D</button>
         </div>
         <div id="records-year-month-nav"></div>
         <div class="older-jobs-note-slot"></div>
@@ -5747,6 +5944,32 @@ try {
 
         <div class="faq-group" data-faq-group="carncr">
           <div class="faq-group-title"><span data-en>📝 CAR &amp; NCR</span><span data-es>📝 ACR y RNC</span></div>
+
+          <div class="card" style="margin:0;">
+            <div class="card-label"><span data-en>🎯 What is an 8D and how do I fill one out?</span><span data-es>🎯 ¿Qué es un 8D y cómo se llena?</span></div>
+            <div class="faq-explain">
+              <p class="faq-p"><span data-en>An <b>8D</b> is a longer report for bigger problems. It walks through <b>8 steps (D1 to D8)</b>: pick a team, describe the problem, stop it from spreading, find the root cause, choose a permanent fix, make sure it worked, prevent it everywhere, and close it. It sits next to the CAR and works the same way.</span><span data-es>Un <b>8D</b> es un reporte más largo para problemas más grandes. Sigue <b>8 pasos (D1 a D8)</b>: elegir un equipo, describir el problema, evitar que se extienda, encontrar la causa raíz, elegir una solución permanente, comprobar que funcionó, prevenirlo en todos lados y cerrarlo. Está junto a la ACR y funciona igual.</span></p>
+              <ul class="faq-ul">
+                <li><span data-en><b>Tab 1 – D1 to D3:</b> team, problem description, and what you did right away to protect the customer.</span><span data-es><b>Pestaña 1 – D1 a D3:</b> equipo, descripción del problema y lo que hizo de inmediato para proteger al cliente.</span></li>
+                <li><span data-en><b>Tab 2 – D4 and D5:</b> why it happened (5 Why's), why it was not caught, and the permanent fix.</span><span data-es><b>Pestaña 2 – D4 y D5:</b> por qué pasó (5 Por qué), por qué no se detectó y la solución permanente.</span></li>
+                <li><span data-en><b>Tab 3 – D6 to D8:</b> did the fix work, what was done to prevent it, and close it.</span><span data-es><b>Pestaña 3 – D6 a D8:</b> si la solución funcionó, qué se hizo para prevenirlo y cerrarlo.</span></li>
+                <li><span data-en>An 8D is saved <b>on this device only</b>. It does not store photos — list where the photos are kept in <b>Attached documents</b>. Print or save the PDF to share it.</span><span data-es>Un 8D se guarda <b>solo en este dispositivo</b>. No guarda fotos — escriba dónde están en <b>Documentos adjuntos</b>. Imprima o guarde el PDF para compartirlo.</span></li>
+              </ul>
+            </div>
+            <div class="faq-steps">
+              <ol class="faq-ol">
+                <li><span data-en>Tap <b>QA</b> on the left menu, then tap the <b>8D</b> tile.</span><span data-es>Toque <b>QA</b> en el menú de la izquierda. Luego toque el cuadro de <b>8D</b>.</span></li>
+                <li><span data-en>Tap <b>＋ Start a new 8D</b>. To keep working on one, tap <b>Continue</b> next to it in the list.</span><span data-es>Toque <b>＋ Iniciar nuevo 8D</b>. Para seguir con uno, toque <b>Continuar</b> junto a él en la lista.</span></li>
+                <li><span data-en>Have an NCR or CAR for the same problem? Use <b>Pull from existing record</b> to fill in the job, customer and station. Check every field it fills.</span><span data-es>¿Ya hay una RNC o ACR del mismo problema? Use <b>Extraer de un registro existente</b> para llenar trabajo, cliente y estación. Revise cada campo que llene.</span></li>
+                <li><span data-en>Fill in <b>tab 1</b>. Type a unique <b>8D #</b>. Tap <b>Next</b>.</span><span data-es>Llene la <b>pestaña 1</b>. Escriba un <b>8D #</b> único. Toque <b>Siguiente</b>.</span></li>
+                <li><span data-en>Fill in <b>tab 2</b>, then tap <b>Submit plan → Pending Verification</b>.</span><span data-es>Llene la <b>pestaña 2</b> y toque <b>Enviar plan → Pendiente de verificación</b>.</span></li>
+                <li><span data-en>When the fix is really in place, open the 8D again (tap <b>Verify</b>) and fill in <b>tab 3</b>. If the fix did not work, tap <b>Not effective — reopen plan</b>.</span><span data-es>Cuando la solución ya esté puesta, abra el 8D otra vez (toque <b>Verificar</b>) y llene la <b>pestaña 3</b>. Si no funcionó, toque <b>No efectiva — reabrir plan</b>.</span></li>
+                <li><span data-en>Tap <b>Approve &amp; close 8D</b>. Closed 8Ds are in <b>Records</b> (filter <b>8D</b>).</span><span data-es>Toque <b>Aprobar y cerrar 8D</b>. Los 8D cerrados están en <b>Registros</b> (filtro <b>8D</b>).</span></li>
+                <li><span data-en>Not done yet? Tap <b>Save</b> and come back later.</span><span data-es>¿No ha terminado? Toque <b>Guardar</b> y siga después.</span></li>
+              </ol>
+              <div class="faq-done">✅ <span data-en>You are done when the 8D is approved and closed.</span><span data-es>Listo cuando el 8D está aprobado y cerrado.</span></div>
+            </div>
+          </div>
 
           <div class="card" style="margin:0;">
             <div class="card-label"><span data-en>📝 What is a CAR and how do I fill one out?</span><span data-es>📝 ¿Qué es una ACR y cómo se llena?</span></div>
@@ -8351,7 +8574,7 @@ setInterval(_syncRetryPending, 30000);
 // the backend at all yet, so this is a no-op for that type — the local
 // removal is the whole story there.
 function _syncDeleteRecord(type, id){
-  if (!QA_BACKEND_URL || type === 'rca') return;
+  if (!QA_BACKEND_URL || type === 'rca' || type === '8d') return;
   fetch(QA_BACKEND_URL + '/records/' + encodeURIComponent(id), {
     method: 'DELETE',
     headers: _authHeaders()
@@ -9585,6 +9808,10 @@ function _deleteAuditSummary(type, id) {
       return isDraft
         ? { jobNumber: rec.jobNumber||'', products: (rec.products||[]).filter(Boolean).join(', '), customer: rec.customerIsOther ? (rec.customerManual||'') : (rec.customer||''), station: rec.station||'' }
         : { jobNumber: rec.jobNumber||'', product: rec.product||'', customer: rec.customerFinal||'', station: rec.station||'', status: rec.status||'', issueCategory: rec.issueCategory||'', rootCause: rec.rootCause||'' };
+    }
+    if (type === '8d') {
+      var e8 = d8Load().filter(function(x){ return x && String(x.id) === idStr; })[0];
+      return e8 ? { jobNumber: e8.jobNumber||'', productNumber: e8.productNumber||'', customer: e8.customer||'', station: e8.station||'', status: e8.status||'', rootCause: e8.rcSummary||'' } : {};
     }
     if (type === 'rca') {
       var idx = parseInt(idStr.replace('rca-', ''), 10);
@@ -13633,7 +13860,7 @@ initFaq();
 // NCR/RCA/Records live inside the "QA" dashboard screen (app-icon tiles) —
 // this maps each of those sub-screens back to the "qa" tab so the sidebar
 // and bottom nav highlight QA as active while one of them is open.
-var QA_DASH_SUBVIEWS = { ncr: 'qa', ncrprog: 'qa', ncrpie: 'qa', rca: 'qa', records: 'qa', qamanager: 'qa' };
+var QA_DASH_SUBVIEWS = { ncr: 'qa', ncrprog: 'qa', ncrpie: 'qa', rca: 'qa', eightd: 'qa', records: 'qa', qamanager: 'qa' };
 
 function switchView(id) {
   var navId = QA_DASH_SUBVIEWS[id] || id;
@@ -13654,6 +13881,7 @@ function switchView(id) {
   if (id === 'ncrprog')    renderNCRProgress();
   if (id === 'ncrpie')     renderQAData();
   if (id === 'rca')      { rcaPopulatePrefill(); rcaRenderDraftList(); rcaCloudPull(false); rcaFlushPending(); carContactsPull(false); }
+  if (id === 'eightd')     d8OnOpen();
   if (id === 'shipping')   renderShipping();
   if (id === 'records')    { renderRecords(); rcaCloudPull(false); }
   if (id === 'qamanager')  _renderQaManagerAccess();
@@ -27406,6 +27634,14 @@ function _recNorm(list, type){
       status    = 'CAR — ' + rcaStatusLabel(r.status);
       ts        = r.closeDate || r.savedAt || '';
       id        = 'rca-' + idx;
+    } else if (type === '8d'){
+      jobNumber = r.jobNumber || '';
+      product   = r.productNumber || '';
+      customer  = r.customer || '';
+      station   = r.station || '';
+      status    = '8D — ' + d8StatusLabel(r.status);
+      ts        = r.closeDate || r.savedAt || '';
+      id        = r.id;
     }
     return { type: type, id: id, jobNumber: jobNumber, product: product, customer: customer, station: station, status: status, ts: ts, raw: r };
   });
@@ -27450,6 +27686,8 @@ function _deleteRecordById(type, id){
     ncrSave(ncrLoad().filter(function(n){ return String(n.ncrId) !== idStr; }));
   } else if (type === 'ncr_draft'){
     ncrDraftSave(ncrDraftLoad().filter(function(d){ return String(d.__draftId) !== idStr; }));
+  } else if (type === '8d'){
+    d8Store(d8Load().filter(function(r){ return !(r && String(r.id) === idStr); }));
   } else if (type === 'rca'){
     // RCA ids are synthetic ('rca-<index>') since RCA records have no
     // stable id of their own — splice out that index directly.
@@ -27560,8 +27798,9 @@ function _computeFilteredRecords(){
   var ncrs      = _recNorm(ncrLoad(), 'ncr');
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
+  var eightds   = _recNorm(d8Load(), '8d');
 
-  var typeFiltered = [].concat(jobs, ncrs, ncrDrafts, rcas);
+  var typeFiltered = [].concat(jobs, ncrs, ncrDrafts, rcas, eightds);
   if (recordsFilter !== 'all'){
     typeFiltered = typeFiltered.filter(function(r){
       if (recordsFilter === 'ncr') return r.type === 'ncr' || r.type === 'ncr_draft';
@@ -27665,7 +27904,8 @@ function renderRecords(){
     job:       { label: 'JOB',       color: '#3b82f6' },
     ncr:       { label: 'NCR',       color: '#ff1f8f' },
     ncr_draft: { label: _recEs ? 'BORRADOR RNC' : 'NCR DRAFT', color: '#e8a020' },
-    rca:       { label: 'CAR',       color: '#8b5cf6' }
+    rca:       { label: 'CAR',       color: '#8b5cf6' },
+    '8d':      { label: '8D',        color: '#0d9488' }
   };
 
   var tileMode = getRecordsViewMode() === 'tile';
@@ -27731,8 +27971,8 @@ function _downloadRecordsCSV(list, filename){
   var rows = list.map(function(r){
     var raw = r.raw || {};
     var operator = raw.operatorName || raw.qaTech || '';
-    var rootCause = r.type === 'rca' ? (raw.rootCause || '') : '';
-    var correctiveAction = r.type === 'rca' ? (raw.correctiveAction || '') : (r.type === 'ncr' ? (raw.disposition || '') : '');
+    var rootCause = r.type === 'rca' ? (raw.rootCause || '') : (r.type === '8d' ? (raw.rcSummary || '') : '');
+    var correctiveAction = r.type === 'rca' ? (raw.correctiveAction || '') : (r.type === '8d' ? (raw.pca || '') : (r.type === 'ncr' ? (raw.disposition || '') : ''));
     return [r.type.toUpperCase(), r.jobNumber, r.product, r.customer, stationLabel(r.station), r.status, r.ts, operator, rootCause, correctiveAction];
   });
 
@@ -27782,8 +28022,9 @@ function exportAllRecordsCSV(){
   var ncrs      = _recNorm(ncrLoad(), 'ncr');
   var ncrDrafts = _recNorm(ncrDraftLoad(), 'ncr_draft');
   var rcas      = _recNorm(rcaLoadRecords(), 'rca');
+  var eightds   = _recNorm(d8Load(), '8d');
 
-  var all = [].concat(jobs, ncrs, ncrDrafts, rcas);
+  var all = [].concat(jobs, ncrs, ncrDrafts, rcas, eightds);
   if (recordsFilter !== 'all'){
     all = all.filter(function(r){
       if (recordsFilter === 'ncr') return r.type === 'ncr' || r.type === 'ncr_draft';
@@ -27838,6 +28079,7 @@ function openRecordEntry(type, id){
   if (type === 'ncr') return openRecordNCR(id);
   if (type === 'ncr_draft') return openRecordNCRDraft(id);
   if (type === 'rca') return openRecordRCA(id);
+  if (type === '8d') return openRecordEightd(id);
 }
 
 /* ── Jobs ──
@@ -29942,6 +30184,610 @@ window.addEventListener('storage', function(e){
 
   resetAll(); // initialize grids + disabled buttons once at load
 })();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   8D REPORT — the longer, 8-discipline corrective-action format, next to the CAR.
+   Same look (it reuses the CAR's cards, tabs, chips and buttons — see the
+   #view-eightd copy of the #view-rca styles) and the same flow:
+     Tab 1  D1–D3  Team, problem description, interim containment
+     Tab 2  D4–D5  Root cause (5 Why's + escape point), permanent corrective action
+     Tab 3  D6–D8  Implement & validate, prevent recurrence, close & recognize the team
+   Status is Open → Pending Verification → Closed, exactly like the CAR.
+   Storage is THIS DEVICE ONLY (localStorage 'moquin-qa-8ds'); nothing here makes a
+   network call, so it adds zero Cloudflare / Apps Script traffic. There is deliberately
+   NO photo field: photos go in "Attached documents" by name/location, so an 8D can never
+   embed a big image in a record (the Oct 30 spike). Printing reuses #rca-pdf-report.
+   All state lives in d8Cur / d8Load._mem; every browser-storage call is try/caught.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var D8_KEY = 'moquin-qa-8ds';
+var D8_SOURCES = [['Customer Complaint','Queja del cliente'],['Internal Observation','Observación interna'],['Internal Audit','Auditoría interna'],['External Audit','Auditoría externa'],['Management Review','Revisión de gerencia'],['Supplier','Proveedor'],['Employee Report','Reporte de empleado'],['Other','Otro']];
+var D8_VERIFY = [['Next production run check','Revisión en la próxima corrida de producción'],['Visual inspection','Inspección visual'],['Sample check','Revisión de muestra'],['100% inspection','Inspección al 100%'],['Follow-up audit','Auditoría de seguimiento'],['Customer confirmation','Confirmación del cliente'],['Manager sign-off','Aprobación del gerente'],['Other (explain in results)','Otro (explique en los resultados)']];
+var D8_CAUSES = [['People','Personas'],['Machine / Equipment','Máquina / Equipo'],['Material','Material'],['Method / Process','Método / Proceso'],['Measurement / Inspection','Medición / Inspección'],['Environment','Ambiente'],['Other','Otro']];
+var D8_PREVENT = [['SOP / WINS updated','SOP / WINS actualizado'],['FMEA / control plan updated','AMEF / plan de control actualizado'],['Training completed','Capacitación completada'],['Inspection step added or changed','Paso de inspección agregado o cambiado'],['Preventive maintenance updated','Mantenimiento preventivo actualizado'],['Similar jobs / stations reviewed','Trabajos / estaciones similares revisados'],['Customer informed','Cliente informado'],['Other','Otro']];
+var D8_YESNO_PENDING = [['Yes','Sí'],['No','No'],['Pending','Pendiente']];
+var D8_YESNO_NA = [['Yes','Sí'],['No','No'],['N/A','No aplica']];
+var D8_FFF = [['No','No'],['Yes — customer approval required','Sí — requiere aprobación del cliente'],['Yes — customer approved','Sí — el cliente aprobó']];
+var D8_EFFECTIVE = [['Yes','Sí — efectiva, sin recurrencia'],['No','No — no fue efectiva (reabrir plan)']];
+var D8_DISP = [["▶️","Continue Run — Monitor Issue","Continue Run — Monitor Issue","Continuar Corrida — Monitorear Problema"],["✅","Use With Approval","Use With Approval","Usar Con Aprobación"],["⏸️","Hold — Awaiting Decision","Hold — Awaiting Decision","Retener — Esperando Decisión"],["⛔","Keep Separate — Do Not Use","Keep Separate — Do Not Use","Mantener Separado — No Usar"],["🔍","Keep Separate — Inspect Before Use","Keep Separate — Inspect Before Use","Mantener Separado — Inspeccionar Antes de Usar"],["🗂️","Sort — Remove Defects","Sort — Remove Defects","Clasificar — Remover Defectos"],["🔎","100% Inspect — Remove Defects","100% Inspect — Remove Defects","Inspeccionar 100% — Remover Defectos"],["🗑️","Pull & Discard When Found","Pull & Discard When Found","Retirar y Descartar al Encontrar"],["🔧","Rework Before Use","Rework Before Use","Reprocesar Antes de Usar"],["🏷️","Relabel Case — Correct Label","Relabel Case — Correct Label","Reetiquetar Caja — Etiqueta Correcta"],["🔀","Repack — Remove Mixed Items","Repack — Remove Mixed Items","Reempacar — Retirar Producto Mezclado"],["✂️","Rework Perfs Before Use","Rework Perfs Before Use","Reprocesar Perforados Antes de Usar"],["🗂️","Sort — Remove Bad Perfs","Sort — Remove Bad Perfs","Clasificar — Retirar Perforados Malos"],["🔁","Re-Perf — Rerun Through Die Cutter","Re-Perf — Rerun Through Die Cutter","Re-Perforar — Repasar por la Troqueladora"],["🛠️","Use for Makeready Only","Use for Makeready Only","Usar Solo para Preparación"],["📦","Save as Extra Quantity","Save as Extra Quantity","Guardar como Cantidad Extra"],["❌","Scrap — Do Not Use","Scrap — Do Not Use","Desechar — No Usar"],["🔁","Rerun Required","Rerun Required","Requiere Repetir Corrida"],["🔢","Use for Count only","Use for Count only","Usar Solo para Conteo"],["✏️","Other — Add Comment","Other — Add Comment","Otro — Agregar Comentario"]];
+var D8_QA_NAMES = ['Anthony M','Norma S','Mariah G','Mathias H'];
+var d8Cur = { id: '', status: 'Open', phase: 1, createdAt: '', readOnly: false };
+var D8_REG = { pairs: {}, lists: {} };   // remembered so dropdown text can be re-translated when the language changes
+
+/* ── tiny HTML builders (everything the form shows is generated here, so the label /
+      field / id / data-f stay in one place) ── */
+function d8T(en, es){ return '<span data-en>' + en + '</span><span data-es>' + es + '</span>'; }
+function d8Lbl(en, es, o){
+  o = o || {};
+  return '<label>' + d8T(en, es) + (o.req ? '<span class="req">*</span>' : '') +
+    (o.hn ? ' <span class="d8-hint">(' + d8T(o.hn, o.hs) + ')</span>' : '') + '</label>';
+}
+function d8Ph(o){ return (o && o.ph) ? ' placeholder="' + o.ph[0] + '" data-ph-en="' + o.ph[0] + '" data-ph-es="' + o.ph[1] + '"' : ''; }
+function d8Text(id, en, es, o){
+  o = o || {};
+  return '<div class="field-group">' + d8Lbl(en, es, o) + '<input type="' + (o.type || 'text') + '" id="ed-' + id + '" data-f="' + id + '"' + d8Ph(o) + (o.on ? ' ' + o.on : '') + '></div>';
+}
+function d8Area(id, en, es, o){
+  o = o || {};
+  return '<div class="field-group">' + d8Lbl(en, es, o) + '<textarea id="ed-' + id + '" data-f="' + id + '"' + d8Ph(o) + ' style="min-height:' + (o.h || 72) + 'px"></textarea></div>';
+}
+function d8Opts(pairs, keepEn){
+  var es = isEsLang();
+  return '<option value="">' + (es ? '— Seleccione —' : '— Select —') + '</option>' + pairs.map(function(p){
+    var v = Array.isArray(p) ? p[0] : p, t = Array.isArray(p) ? (es && !keepEn ? p[1] : p[0]) : p;
+    return '<option value="' + escHtml(v) + '">' + escHtml(t) + '</option>';
+  }).join('');
+}
+function d8Select(id, en, es, pairs, o){
+  o = o || {};
+  D8_REG.pairs[id] = pairs;
+  return '<div class="field-group">' + d8Lbl(en, es, o) + '<select id="ed-' + id + '" data-f="' + id + '" data-pairs="' + id + '"' + (o.on ? ' ' + o.on : '') + '>' + d8Opts(pairs) + '</select></div>';
+}
+// A dropdown of known names / customers with an "Other (type in)" box — the value lives in a hidden
+// #ed-<id> (data-f) so collect/fill treat it like any other field.
+function d8Combo(id, en, es, list, o){
+  o = o || {};
+  D8_REG.lists[id] = list;
+  return '<div class="field-group">' + d8Lbl(en, es, o) +
+    '<select id="ed-' + id + '-sel" data-list="' + id + '" onchange="d8ComboChange(\'' + id + '\')">' + d8ComboOpts(list) + '</select>' +
+    '<input type="text" class="hidden other-input" id="ed-' + id + '-oth" oninput="d8ComboType(\'' + id + '\')" placeholder="' + (isEsLang() ? 'Escriba el nombre…' : 'Type the name…') + '">' +
+    '<input type="hidden" id="ed-' + id + '" data-f="' + id + '" data-combo="1"></div>';
+}
+function d8ComboOpts(list){
+  var es = isEsLang();
+  return '<option value="">' + (es ? '— Seleccione —' : '— Select —') + '</option>' + list.map(function(n){ return '<option value="' + escHtml(n) + '">' + escHtml(n) + '</option>'; }).join('') +
+    '<option value="__other">' + (es ? '✏️ Otro (escribir)' : '✏️ Other (type in)') + '</option>';
+}
+function d8ComboChange(id){
+  var sel = document.getElementById('ed-' + id + '-sel'), oth = document.getElementById('ed-' + id + '-oth'), h = document.getElementById('ed-' + id);
+  if (sel.value === '__other'){ oth.classList.remove('hidden'); oth.focus(); h.value = oth.value; }
+  else { oth.classList.add('hidden'); h.value = sel.value; }
+}
+function d8ComboType(id){ document.getElementById('ed-' + id).value = document.getElementById('ed-' + id + '-oth').value; }
+function d8ComboSet(id, v){
+  var sel = document.getElementById('ed-' + id + '-sel'), oth = document.getElementById('ed-' + id + '-oth'), h = document.getElementById('ed-' + id);
+  if (!sel) return;
+  v = v || '';
+  var has = Array.prototype.some.call(sel.options, function(o){ return o.value === v && v !== '__other'; });
+  if (!v){ sel.value = ''; oth.classList.add('hidden'); oth.value = ''; }
+  else if (has){ sel.value = v; oth.classList.add('hidden'); oth.value = ''; }
+  else { sel.value = '__other'; oth.classList.remove('hidden'); oth.value = v; }
+  h.value = v;
+}
+// Tap-to-select chips, one hidden value (comma-joined) — multi-select, like the CAR's issue chips.
+function d8Chips(id, pairs){
+  return '<div class="rca-chip-row" id="ed-' + id + '-chips" data-chips="' + id + '">' + pairs.map(function(p){
+    return '<div class="rca-chip" data-v="' + escHtml(p[0]) + '" onclick="d8Chip(this)">' + d8T(escHtml(p[0]), escHtml(p[1])) + '</div>';
+  }).join('') + '</div><input type="hidden" id="ed-' + id + '" data-f="' + id + '">';
+}
+function d8Chip(el){
+  if (d8Cur.readOnly) return;
+  el.classList.toggle('selected');
+  var box = el.parentNode, vals = [];
+  Array.prototype.forEach.call(box.querySelectorAll('.rca-chip.selected'), function(c){ vals.push(c.getAttribute('data-v')); });
+  document.getElementById('ed-' + box.getAttribute('data-chips')).value = vals.join(', ');
+}
+function d8ChipsSet(id, v){
+  var box = document.getElementById('ed-' + id + '-chips'); if (!box) return;
+  var picked = String(v || '').split(', ');
+  Array.prototype.forEach.call(box.querySelectorAll('.rca-chip'), function(c){ c.classList.toggle('selected', picked.indexOf(c.getAttribute('data-v')) !== -1); });
+  document.getElementById('ed-' + id).value = v || '';
+}
+function d8DispGrid(id){
+  return '<div class="disposition-grid" id="ed-' + id + '-grid" data-chips="' + id + '">' + D8_DISP.map(function(d){
+    return '<div class="disp-option" data-v="' + escHtml(d[1]) + '" onclick="d8Chip(this)"><div class="disp-icon">' + d[0] + '</div>' + d8T(escHtml(d[2]), escHtml(d[3])) + '</div>';
+  }).join('') + '</div><input type="hidden" id="ed-' + id + '" data-f="' + id + '">';
+}
+function d8DispSet(id, v){
+  var box = document.getElementById('ed-' + id + '-grid'); if (!box) return;
+  var picked = String(v || '').split(', ');
+  Array.prototype.forEach.call(box.querySelectorAll('.disp-option'), function(c){ c.classList.toggle('selected', picked.indexOf(c.getAttribute('data-v')) !== -1); });
+  document.getElementById('ed-' + id).value = v || '';
+}
+function d8Sec(num, en, es, badge, inner, phase){
+  return '<div class="section" data-d8phase="' + phase + '"><div class="section-header">' + (num ? '<div class="section-num">' + num + '</div>' : '') +
+    '<div class="section-title">' + d8T(en, es) + '</div>' + (badge ? '<span class="section-badge badge-qa">' + d8T(badge[0], badge[1]) + '</span>' : '') + '</div>' + inner + '</div>';
+}
+function d8Row(){ return '<div class="field-row">' + Array.prototype.join.call(arguments, '') + '</div>'; }
+function d8One(h){ return '<div class="field-row single">' + h + '</div>'; }
+function d8Names(){
+  var seen = {}, out = [];
+  D8_QA_NAMES.concat(typeof RCA_MANAGER_NAMES !== 'undefined' ? RCA_MANAGER_NAMES : []).forEach(function(n){ if (!seen[n]){ seen[n] = 1; out.push(n); } });
+  return out;
+}
+function d8StationPairs(){
+  var out = (typeof NCR_STATIONS !== 'undefined' ? NCR_STATIONS : []).map(function(s){ return [s, stationLabel(s)]; });
+  out.push(['Other / Not listed', isEsLang() ? 'Otra / No aparece' : 'Other / Not listed']);
+  out.push(['Combination (more than one station)', isEsLang() ? 'Combinación (más de una estación)' : 'Combination (more than one station)']);
+  return out;
+}
+function d8NavRow(back, save, next, nextId){
+  return '<div class="action-row rca-phase-nav">' +
+    (back ? '<button type="button" class="btn" onclick="d8GoPhase(' + back + ')">← ' + d8T('Back', 'Atrás') + '</button>' : '') +
+    '<button type="button" class="btn d8-edit-only" onclick="d8SaveClick()">💾 ' + d8T('Save', 'Guardar') + '</button>' + next + '</div>';
+}
+
+/* ── the form itself, built once on first open ── */
+function d8BuildForm(){
+  var names = d8Names();
+  var p1 =
+    d8Sec('D0', 'Incident information', 'Información del incidente', ['QA Tech', 'Técnico de Calidad'],
+      d8One('<div class="field-group">' + d8Lbl('Pull from existing record', 'Extraer de un registro existente', { hn: 'optional', hs: 'opcional' }) +
+        '<select id="ed-prefill" onchange="d8Prefill(this.value)"><option value="">—</option></select></div>') +
+      d8Row(d8Text('d8No', '8D #', '8D #', { req: 1, hn: 'unique — e.g. 8D-2026-01', hs: 'único — ej. 8D-2026-01', ph: ['8D-2026-01', '8D-2026-01'] }),
+            d8Text('openDate', 'Date opened', 'Fecha de apertura', { req: 1, type: 'date', on: 'onchange="d8OpenDateChanged()"' }),
+            d8Text('targetClose', 'Target close date', 'Fecha objetivo de cierre', { type: 'date', on: 'oninput="this.dataset.touched=\'1\'"' })) +
+      d8Row(d8Select('source', 'Source of the 8D', 'Origen del 8D', D8_SOURCES, { req: 1 }),
+            d8Text('originatedBy', 'Originated by', 'Originado por', { req: 1, hn: 'customer contact, employee, auditor…', hs: 'contacto del cliente, empleado, auditor…' })) +
+      d8One(d8Text('origRef', 'Original complaint / NCR / CAR reference', 'Queja original / referencia de RNC / ACR', { hn: 'email subject, NCR or CAR #, PO…', hs: 'asunto del correo, # de RNC o ACR, PO…' })) +
+      d8Row(d8Text('moquinNcr', 'Moquin NCR #', '# de RNC de Moquin', { hn: 'if any', hs: 'si hay' }), d8Text('customerNcr', 'Customer NCR #', '# de RNC del cliente', { hn: 'if any', hs: 'si hay' })) +
+      d8Row(d8Text('lotQty', 'Lot qty', 'Cant. del lote'), d8Text('qtyInsp', 'Qty inspected', 'Cant. inspeccionada'), d8Text('qtyRej', 'Qty rejected', 'Cant. rechazada')) +
+      d8Row(d8Text('jobNumber', 'Job number(s)', 'Número(s) de trabajo', { req: 1, hn: 'separate several with commas', hs: 'separe varios con comas' }),
+            d8Text('productNumber', 'Product ID(s)', 'ID(s) de producto')) +
+      d8Row(d8Combo('customer', 'Customer name', 'Nombre del cliente', typeof CUSTOMERS !== 'undefined' ? CUSTOMERS : []),
+            d8Text('dateFound', 'Date found', 'Fecha en que se encontró', { req: 1, type: 'date' })) +
+      d8Row(d8Select('station', 'Station', 'Estación', d8StationPairs(), { req: 1 }),
+            d8Combo('qaTech', 'QA tech name', 'Nombre del técnico de calidad', D8_QA_NAMES, { req: 1 })), 1) +
+    d8Sec('D1', 'Team', 'Equipo', null,
+      d8Row(d8Combo('teamLeader', 'Team leader', 'Líder del equipo', names, { req: 1 }), d8Combo('champion', 'Champion / sponsor', 'Patrocinador', names, { hn: 'optional', hs: 'opcional' })) +
+      d8One(d8Area('teamMembers', 'Team members', 'Miembros del equipo', { hn: 'one per line — name, department / role', hs: 'uno por línea — nombre, departamento / función', h: 80, ph: ['Name — department / role', 'Nombre — departamento / función'] })), 1) +
+    d8Sec('D2', 'Describe the problem', 'Describa el problema', null,
+      d8One(d8Area('problemStmt', 'Problem statement', 'Planteamiento del problema', { req: 1, h: 84, ph: ['What is wrong, in one or two clear sentences.', 'Qué está mal, en una o dos frases claras.'] })) +
+      d8Row(d8Text('pWhat', 'What (the defect)', 'Qué (el defecto)'), d8Text('pWhere', 'Where it was found', 'Dónde se encontró')) +
+      d8Row(d8Text('pWhen', 'When (date / shift)', 'Cuándo (fecha / turno)'), d8Text('pHowMany', 'How many (qty / lots)', 'Cuántos (cant. / lotes)')) +
+      d8One(d8Text('pDetected', 'How was it detected?', '¿Cómo se detectó?')) +
+      d8One(d8Area('pIsNot', 'What it is NOT', 'Lo que NO es', { hn: 'optional — helps narrow the cause', hs: 'opcional — ayuda a acotar la causa', h: 56 })), 1) +
+    d8Sec('D3', 'Interim containment', 'Contención provisional', null,
+      d8One(d8Area('containment', 'Containment actions taken', 'Acciones de contención realizadas', { req: 1, h: 72, ph: ['What was done right now to protect the customer and contain the issue?', '¿Qué se hizo de inmediato para proteger al cliente y contener el problema?'] })) +
+      '<div style="font-size:14px;color:var(--text-secondary);margin:6px 0 10px">' + d8T('What happens to the affected product?', '¿Qué sucede con el producto afectado?') + '</div>' + d8DispGrid('disposition') +
+      d8One(d8Text('dispNotes', 'Disposition notes', 'Notas de disposición')) +
+      d8Row(d8Combo('contResp', 'Containment responsible', 'Responsable de la contención', names), d8Text('contDate', 'Date implemented', 'Fecha de implementación', { type: 'date' })) +
+      d8One(d8Select('contVerified', 'Containment verified effective?', '¿Contención verificada como efectiva?', D8_YESNO_PENDING)), 1) +
+    d8NavRow(0, 1, '<button type="button" class="btn btn-primary d8-edit-only" onclick="d8Next(1)">' + d8T('Next: Root cause &amp; action →', 'Siguiente: Causa raíz y acción →') + '</button>');
+
+  var p2 =
+    d8Sec('D4', 'Root cause', 'Causa raíz', null,
+      '<div class="field-group" style="margin-bottom:12px">' + d8Lbl('Root cause category', 'Categoría de la causa raíz', { hn: 'tap all that apply', hs: 'toque todas las que apliquen' }) + d8Chips('causeCats', D8_CAUSES) + '</div>' +
+      [1, 2, 3, 4, 5].map(function(n){
+        return '<div class="why-row"><div class="why-num">Why ' + n + '</div><input type="text" id="ed-why' + n + '" data-f="why' + n + '"></div>' + (n < 5 ? '<div class="arrow-down">↓</div>' : '');
+      }).join('') +
+      d8One(d8Area('rcSummary', 'Root cause summary', 'Resumen de la causa raíz', { req: 1, h: 72 })) +
+      d8One(d8Area('escapePoint', 'Escape point — why was it not caught before it reached the customer?', 'Punto de escape — ¿por qué no se detectó antes de llegar al cliente?', { req: 1, h: 72 })) +
+      d8One(d8Text('rcVerified', 'How was the root cause confirmed?', '¿Cómo se confirmó la causa raíz?')) +
+      d8Row(d8Combo('rcResp', 'Root cause investigation — responsible', 'Investigación de causa raíz — responsable', names), d8Text('rcDue', 'Due date', 'Fecha límite', { type: 'date' }), d8Text('rcDone', 'Completion date', 'Fecha de finalización', { type: 'date' })), 2) +
+    d8Sec('D5', 'Permanent corrective action', 'Acción correctiva permanente', null,
+      d8One(d8Area('pca', 'Chosen permanent corrective action — what will be done so it cannot happen again', 'Acción correctiva permanente elegida — qué se hará para que no vuelva a pasar', { req: 1, h: 84 })) +
+      d8One(d8Area('pcaAlt', 'Other options considered', 'Otras opciones consideradas', { hn: 'optional', hs: 'opcional', h: 56 })) +
+      d8One(d8Area('pcaRisk', 'Check for side effects / risks of the action', 'Revisión de efectos secundarios / riesgos de la acción', { hn: 'optional', hs: 'opcional', h: 56 })) +
+      d8Row(d8Combo('pcaResp', 'Responsible for this action', 'Responsable de esta acción', names, { req: 1 }), d8Text('pcaDue', 'Due date', 'Fecha límite', { req: 1, type: 'date' }), d8Text('pcaDone', 'Completion date', 'Fecha de finalización', { type: 'date', hn: 'when it is actually implemented', hs: 'cuando realmente se implementa' })) +
+      d8Row(d8Select('custApproval', 'Changes form, fit or function? (needs customer approval first)', '¿Cambia forma, ajuste o función? (requiere aprobación del cliente)', D8_FFF),
+            d8Text('sopRef', 'New / revised SOP #', '# de SOP nuevo / revisado', { hn: 'if this action needs one', hs: 'si esta acción lo necesita' })), 2) +
+    '<div class="action-row rca-phase-nav"><button type="button" class="btn" onclick="d8GoPhase(1)">← ' + d8T('Back: Team &amp; containment', 'Atrás: Equipo y contención') + '</button>' +
+    '<button type="button" class="btn d8-edit-only" onclick="d8SaveClick()">💾 ' + d8T('Save', 'Guardar') + '</button>' +
+    '<button type="button" class="btn btn-primary d8-edit-only" id="ed-btn-submitplan" onclick="d8SubmitPlan()">' + d8T('Submit plan → Pending Verification', 'Enviar plan → Pendiente de verificación') + '</button></div>';
+
+  var p3 =
+    '<div class="d8-pv-intro" style="font-size:14px;color:var(--text-secondary);line-height:1.5;margin-bottom:12px">' +
+      d8T('Do this tab <b>after</b> the permanent corrective action is really in place. The 8D stays <b>Pending Verification</b> until it is confirmed effective.', 'Haga esta pestaña <b>después</b> de que la acción correctiva permanente esté realmente implementada. El 8D permanece <b>Pendiente de verificación</b> hasta confirmar que es efectiva.') + '</div>' +
+    d8Sec('D6', 'Implement &amp; validate', 'Implementar y validar', null,
+      d8Row(d8Text('implDate', 'Implementation date', 'Fecha de implementación', { req: 1, type: 'date' }), d8Text('contRemoved', 'Interim containment removed on', 'Contención provisional retirada el', { type: 'date', hn: 'if it applied', hs: 'si aplicó' })) +
+      d8Row(d8Select('validateMethod', 'Validation method', 'Método de validación', D8_VERIFY, { req: 1 }), d8Combo('validatedBy', 'Validated by', 'Validado por', names, { req: 1 }), d8Text('validateDate', 'Validation date', 'Fecha de validación', { req: 1, type: 'date' })) +
+      d8One(d8Area('validateResults', 'Validation results / evidence', 'Resultados / evidencia de la validación', { req: 1, h: 84 })) +
+      d8One(d8Text('evidenceRef', 'Attached documents / objective evidence', 'Documentos adjuntos / evidencia objetiva', { hn: 'list file names or where they are kept — no photos are stored in this form', hs: 'liste nombres de archivo o dónde se guardan — este formulario no guarda fotos' })) +
+      d8One(d8Select('effective', 'Was the corrective action effective?', '¿Fue efectiva la acción correctiva?', D8_EFFECTIVE, { req: 1 })), 3) +
+    d8Sec('D7', 'Prevent recurrence', 'Prevenir la recurrencia', null,
+      '<div class="field-group" style="margin-bottom:12px">' + d8Lbl('What was updated or checked so this cannot repeat?', '¿Qué se actualizó o revisó para que esto no se repita?', { hn: 'tap all that apply', hs: 'toque todas las que apliquen' }) + d8Chips('prevent', D8_PREVENT) + '</div>' +
+      d8One(d8Area('horizontal', 'Other jobs, products, stations or customers reviewed', 'Otros trabajos, productos, estaciones o clientes revisados', { hn: 'optional', hs: 'opcional', h: 64 })) +
+      d8One(d8Area('preventNotes', 'Prevention notes', 'Notas de prevención', { h: 64 })), 3) +
+    d8Sec('D8', 'Close &amp; recognize the team', 'Cerrar y reconocer al equipo', null,
+      d8Row(d8Text('closeDate', 'Closure date', 'Fecha de cierre', { req: 1, type: 'date' }), d8Combo('approvedBy', '8D approved by', '8D aprobado por', names, { req: 1 }), d8Text('approvalDate', 'Approval date', 'Fecha de aprobación', { req: 1, type: 'date' })) +
+      d8One(d8Area('lessons', 'Lessons learned / team recognition', 'Lecciones aprendidas / reconocimiento al equipo', { h: 64 })) +
+      d8One(d8Area('closeNotes', 'Close-out notes', 'Notas de cierre', { h: 64 })) +
+      d8One(d8Combo('closeQaTech', 'QA tech name (closing)', 'Nombre del técnico de calidad (cierre)', D8_QA_NAMES, { req: 1 })), 3) +
+    '<div class="action-row rca-phase-nav"><button type="button" class="btn" onclick="d8GoPhase(2)">← ' + d8T('Back: Corrective action', 'Atrás: Acción correctiva') + '</button>' +
+    '<button type="button" class="btn d8-edit-only" onclick="d8SaveClick()">💾 ' + d8T('Save (stay Pending Verification)', 'Guardar (seguir pendiente de verificación)') + '</button>' +
+    '<button type="button" class="btn btn-warn d8-edit-only" onclick="d8Reopen()">↩️ ' + d8T('Not effective — reopen plan', 'No efectiva — reabrir plan') + '</button>' +
+    '<button type="button" class="btn btn-success d8-edit-only" id="ed-btn-close" onclick="d8Close()">✅ ' + d8T('Approve &amp; close 8D', 'Aprobar y cerrar 8D') + '</button></div>';
+
+  document.getElementById('ed-form-sections').innerHTML =
+    '<div class="d8-phase" data-phase="1">' + p1 + '</div><div class="d8-phase" data-phase="2">' + p2 + '</div><div class="d8-phase" data-phase="3">' + p3 + '</div>';
+  d8Cur.built = true;
+}
+
+/* ── storage (this device only) ── */
+function d8Load(){
+  if (d8Load._mem) return d8Load._mem;
+  try { var a = JSON.parse(localStorage.getItem(D8_KEY)); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function d8Store(list){
+  try { localStorage.setItem(D8_KEY, JSON.stringify(list)); d8Load._mem = null; return true; }
+  catch (e) { d8Load._mem = list; return false; }   // storage refused: keep this session's copy in memory
+}
+function d8Today(){ var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function d8AddDays(iso, n){
+  var p = String(iso || '').split('-'); if (p.length !== 3) return '';
+  var d = new Date(+p[0], +p[1] - 1, +p[2] + n);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function d8Val(id){ var e = document.getElementById('ed-' + id); return e ? String(e.value || '').trim() : ''; }
+function d8StatusLabel(s){
+  if (!isEsLang()) return s || 'Open';
+  return ({ 'Open': 'Abierto', 'Pending Verification': 'Pendiente de verificación', 'Closed': 'Cerrado' })[s] || s;
+}
+
+/* ── read / write the form ── */
+function d8Collect(){
+  var rec = {};
+  Array.prototype.forEach.call(document.querySelectorAll('#ed-form-sections [data-f]'), function(el){ rec[el.getAttribute('data-f')] = String(el.value || '').trim(); });
+  return rec;
+}
+function d8Fill(rec){
+  rec = rec || {};
+  Array.prototype.forEach.call(document.querySelectorAll('#ed-form-sections [data-f]'), function(el){
+    var f = el.getAttribute('data-f'), v = rec[f] == null ? '' : String(rec[f]);
+    if (el.getAttribute('data-combo')) d8ComboSet(f, v);
+    else if (document.getElementById('ed-' + f + '-chips')) d8ChipsSet(f, v);
+    else if (document.getElementById('ed-' + f + '-grid')) d8DispSet(f, v);
+    else el.value = v;
+  });
+}
+function d8Defaults(){
+  var t = d8Today();
+  document.getElementById('ed-openDate').value = t;
+  document.getElementById('ed-targetClose').value = d8AddDays(t, 30);   // ~30 days to close; edit freely
+  document.getElementById('ed-targetClose').dataset.touched = '';
+}
+function d8OpenDateChanged(){
+  var t = document.getElementById('ed-targetClose'); if (!t || t.dataset.touched) return;
+  var o = d8Val('openDate'); if (o) t.value = d8AddDays(o, 30);
+}
+
+/* ── screens ── */
+function d8Relang(){
+  Object.keys(D8_REG.pairs).forEach(function(id){
+    var sel = document.getElementById('ed-' + id); if (!sel) return;
+    var v = sel.value; sel.innerHTML = d8Opts(id === 'station' ? d8StationPairs() : D8_REG.pairs[id]); sel.value = v;
+  });
+  Object.keys(D8_REG.lists).forEach(function(id){
+    var sel = document.getElementById('ed-' + id + '-sel'), h = document.getElementById('ed-' + id), oth = document.getElementById('ed-' + id + '-oth');
+    if (!sel || !h) return;
+    var cur = h.value; sel.innerHTML = d8ComboOpts(D8_REG.lists[id]);
+    if (oth) oth.placeholder = isEsLang() ? 'Escriba el nombre…' : 'Type the name…';
+    d8ComboSet(id, cur);
+  });
+}
+function d8OnOpen(){
+  if (!d8Cur.built) d8BuildForm();
+  d8Relang();
+  d8RenderList();
+  d8PopulatePrefill();
+  if (!d8Cur.open) d8ShowList();
+}
+function d8ShowList(){
+  d8Cur.open = false;
+  document.getElementById('ed-form-body').classList.add('hidden');
+  document.getElementById('ed-list-box').classList.remove('hidden');
+  d8SetStatus('draft', isEsLang() ? 'Elija un 8D o inicie uno nuevo' : 'Pick an 8D or start a new one');
+  d8RenderList();
+}
+function d8ShowForm(){
+  d8Cur.open = true;
+  document.getElementById('ed-list-box').classList.add('hidden');
+  document.getElementById('ed-form-body').classList.remove('hidden');
+}
+function d8SetStatus(kind, msg){
+  var dot = document.getElementById('ed-status-dot'), txt = document.getElementById('ed-status-text');
+  if (dot) dot.className = 'status-dot dot-' + (kind || 'draft');
+  if (txt) txt.textContent = msg;
+}
+function d8NewClick(){
+  d8Relang();
+  d8Cur = { id: '', status: 'Open', phase: 1, createdAt: '', readOnly: false, built: true, open: true };
+  d8Fill({}); d8Defaults(); d8SetReadOnly(false);
+  d8ShowForm(); d8GoPhase(1, true); d8PopulatePrefill();
+  d8SetStatus('draft', isEsLang() ? '8D nuevo — sin guardar' : 'New 8D — not saved yet');
+  _scrollMainToTop();
+}
+function d8Open(id){
+  if (!d8Cur.built) d8BuildForm();
+  d8Relang();
+  var rec = d8Load().filter(function(r){ return r && r.id === id; })[0];
+  if (!rec) return;
+  d8Cur = { id: rec.id, status: rec.status || 'Open', phase: +rec.phase || 1, createdAt: rec.createdAt || '', readOnly: rec.status === 'Closed', built: true, open: true };
+  d8Fill(rec); d8SetReadOnly(d8Cur.readOnly);
+  d8ShowForm();
+  d8GoPhase(rec.status === 'Pending Verification' ? 3 : (+rec.phase || 1), true);
+  d8SetStatus(rec.status === 'Closed' ? 'closed' : 'draft', (isEsLang() ? 'Abierto — guardado ' : 'Opened — saved ') + (rec.savedAt || ''));
+  _scrollMainToTop();
+}
+// Records tab → tap an 8D row
+function openRecordEightd(id){ switchView('eightd'); d8Open(id); }
+function d8SetReadOnly(on){
+  d8Cur.readOnly = !!on;
+  var fs = document.getElementById('ed-form-sections');
+  Array.prototype.forEach.call(fs.querySelectorAll('input,select,textarea'), function(el){ el.disabled = !!on; });
+  fs.classList.toggle('d8-readonly', !!on);
+  Array.prototype.forEach.call(document.querySelectorAll('#ed-form-body .d8-edit-only'), function(b){ b.style.display = on ? 'none' : ''; });
+  var ro = document.getElementById('ed-closed-note');
+  ro.classList.toggle('hidden', !on);
+  var rb = document.getElementById('ed-btn-reopen');
+  if (rb) rb.style.display = (on && _isDataEditAllowedUser()) ? '' : 'none';
+}
+function d8GoPhase(n, noScroll){
+  d8Cur.phase = n;
+  Array.prototype.forEach.call(document.querySelectorAll('#ed-form-sections > .d8-phase'), function(el){
+    el.classList.toggle('d8-sec-off', +el.getAttribute('data-phase') !== n);
+  });
+  [1, 2, 3].forEach(function(i){
+    var t = document.getElementById('ed-phasetab-' + i);
+    t.classList.toggle('active', i === n);
+    t.classList.toggle('done', i < n || d8Cur.status === 'Closed');
+  });
+  var pill = document.getElementById('ed-status-pill');
+  pill.textContent = d8StatusLabel(d8Cur.status);
+  pill.className = 'rca-carpill' + (d8Cur.status === 'Pending Verification' ? ' pv' : d8Cur.status === 'Closed' ? ' cl' : '');
+  if (!noScroll){ var bar = document.getElementById('ed-phasebar'); if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+function d8Next(from){
+  if (from === 1 && !d8Check(d8Phase1Required())) return;
+  d8GoPhase(from + 1);
+}
+
+/* ── validation ── */
+function d8Phase1Required(){
+  return [
+    ['d8No', '8D #', '# de 8D'], ['openDate', 'Date opened', 'Fecha de apertura'], ['source', 'Source of the 8D', 'Origen del 8D'],
+    ['originatedBy', 'Originated by', 'Originado por'], ['jobNumber', 'Job number', 'Número de trabajo'], ['dateFound', 'Date found', 'Fecha en que se encontró'],
+    ['station', 'Station', 'Estación'], ['qaTech', 'QA tech name', 'Nombre del técnico de calidad'], ['teamLeader', 'Team leader', 'Líder del equipo'],
+    ['problemStmt', 'Problem statement', 'Planteamiento del problema'], ['containment', 'Containment actions taken', 'Acciones de contención realizadas']
+  ];
+}
+function d8Phase2Required(){
+  return [['rcSummary', 'Root cause summary', 'Resumen de la causa raíz'], ['escapePoint', 'Escape point', 'Punto de escape'], ['pca', 'Permanent corrective action', 'Acción correctiva permanente'],
+    ['pcaResp', 'Responsible for this action', 'Responsable de esta acción'], ['pcaDue', 'Due date', 'Fecha límite']];
+}
+function d8Phase3Required(){
+  return [['implDate', 'Implementation date', 'Fecha de implementación'], ['validateMethod', 'Validation method', 'Método de validación'], ['validatedBy', 'Validated by', 'Validado por'],
+    ['validateDate', 'Validation date', 'Fecha de validación'], ['validateResults', 'Validation results / evidence', 'Resultados / evidencia de la validación'],
+    ['effective', 'Was the corrective action effective?', '¿Fue efectiva la acción correctiva?'], ['closeDate', 'Closure date', 'Fecha de cierre'],
+    ['approvedBy', '8D approved by', '8D aprobado por'], ['approvalDate', 'Approval date', 'Fecha de aprobación'], ['closeQaTech', 'QA tech name (closing)', 'Nombre del técnico de calidad (cierre)']];
+}
+function d8Check(reqs){
+  var es = isEsLang();
+  for (var i = 0; i < reqs.length; i++){
+    if (d8Val(reqs[i][0])) continue;
+    var field = document.getElementById('ed-' + reqs[i][0] + '-sel') || document.getElementById('ed-' + reqs[i][0]);
+    var ph = field && field.closest ? field.closest('.d8-phase') : null;
+    if (ph && ph.classList.contains('d8-sec-off')) d8GoPhase(+ph.getAttribute('data-phase'), true);
+    showAlert(es ? 'Complete el campo: ' + reqs[i][2] : 'Please fill in: ' + reqs[i][1]);
+    _scrollToField(field);
+    return false;
+  }
+  return true;
+}
+function d8NumberTaken(no, id){
+  var k = String(no).toLowerCase();
+  return d8Load().some(function(r){ return r && r.id !== id && String(r.d8No || '').trim().toLowerCase() === k; });
+}
+
+/* ── save / submit / close / reopen ── */
+function d8Persist(status){
+  var rec = d8Collect();
+  if (!rec.d8No){ showAlert(isEsLang() ? 'Escriba el # de 8D antes de guardar.' : 'Type the 8D # before saving.'); _scrollToField(document.getElementById('ed-d8No')); d8GoPhase(1, true); return null; }
+  if (d8NumberTaken(rec.d8No, d8Cur.id)){ showAlert(isEsLang() ? 'Ya existe otro 8D con ese número. Use un # de 8D único.' : 'Another 8D already uses that number. Use a unique 8D #.'); _scrollToField(document.getElementById('ed-d8No')); d8GoPhase(1, true); return null; }
+  if (!d8Cur.id) d8Cur.id = 'd8-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  rec.id = d8Cur.id;
+  rec.status = status;
+  rec.phase = d8Cur.phase;
+  rec.createdAt = d8Cur.createdAt || (d8Cur.createdAt = new Date().toISOString());
+  rec.savedAt = formatTS();
+  rec.updatedAt = new Date().toISOString();
+  var prev = d8Load().filter(function(r){ return r && r.id === rec.id; })[0];
+  if (prev && prev.reopenLog) rec.reopenLog = prev.reopenLog;
+  var list = d8Load().filter(function(r){ return r && r.id !== rec.id; });
+  list.push(rec);
+  var ok = d8Store(list);
+  d8Cur.status = status;
+  if (!ok) showAlert(isEsLang() ? '⚠️ Este dispositivo no pudo guardar el 8D (almacenamiento lleno o bloqueado). Quedó guardado solo mientras esta página siga abierta. Imprima o guarde el PDF ahora.' : '⚠️ This device could not save the 8D (storage full or blocked). It is kept only while this page stays open. Print or save the PDF now.');
+  return rec;
+}
+function d8SaveClick(){
+  var rec = d8Persist(d8Cur.status === 'Closed' ? 'Closed' : d8Cur.status || 'Open'); if (!rec) return;
+  d8GoPhase(d8Cur.phase, true);
+  d8SetStatus('draft', (isEsLang() ? '8D guardado — ' : '8D saved — ') + new Date().toLocaleTimeString());
+  showToast(isEsLang() ? '💾 8D guardado en este dispositivo' : '💾 8D saved on this device', 'pass');
+}
+function d8SubmitPlan(){
+  if (!d8Check(d8Phase1Required()) || !d8Check(d8Phase2Required())) return;
+  var rec = d8Persist('Pending Verification'); if (!rec) return;
+  d8GoPhase(3);
+  showToast(isEsLang() ? '✅ Plan enviado. Vuelva a la pestaña 3 cuando la acción esté implementada.' : '✅ Plan submitted. Come back to tab 3 once the action is in place.', 'pass');
+  d8SetStatus('draft', (isEsLang() ? 'Plan enviado — pendiente de verificación' : 'Plan submitted — pending verification'));
+}
+function d8Close(){
+  if (!d8Check(d8Phase1Required()) || !d8Check(d8Phase2Required()) || !d8Check(d8Phase3Required())) return;
+  if (d8Val('effective') !== 'Yes'){
+    showAlert(isEsLang() ? 'Solo puede cerrar un 8D si la acción correctiva fue efectiva. Si no lo fue, use "No efectiva — reabrir plan".' : 'An 8D can only be closed when the corrective action was effective. If it was not, use "Not effective — reopen plan".');
+    _scrollToField(document.getElementById('ed-effective')); return;
+  }
+  var rec = d8Persist('Closed'); if (!rec) return;
+  d8SetReadOnly(true); d8GoPhase(3, true);
+  d8SetStatus('closed', isEsLang() ? '8D cerrado' : '8D closed');
+  showToast(isEsLang() ? '✅ 8D cerrado' : '✅ 8D closed', 'pass');
+}
+function d8Reopen(){
+  if (!d8Check(d8Phase1Required())) return;
+  if (!d8Val('validateResults')){
+    showAlert(isEsLang() ? 'Escriba en "Resultados / evidencia" qué se encontró; queda en el historial.' : 'Write what was found under "Validation results / evidence" — it is kept in the record history.');
+    _scrollToField(document.getElementById('ed-validateResults')); return;
+  }
+  var res = d8Val('validateResults'), by = d8Val('validatedBy') || 'n/a';
+  var stamp = new Date().toISOString().slice(0, 10);
+  var prev = d8Load().filter(function(r){ return r && r.id === d8Cur.id; })[0];
+  var log = ((prev && prev.reopenLog) || '') + (prev && prev.reopenLog ? '\n' : '') + '[' + stamp + '] Validation found the action NOT effective (' + by + '): ' + res;
+  var rec = d8Persist('Open'); if (!rec) return;
+  rec.reopenLog = log;
+  var list = d8Load().filter(function(r){ return r && r.id !== rec.id; }); list.push(rec); d8Store(list);
+  ['validateResults', 'validateDate', 'effective'].forEach(function(f){ var e = document.getElementById('ed-' + f); if (e) e.value = ''; });
+  d8GoPhase(2);
+  showToast(isEsLang() ? '↩️ 8D reabierto — corrija el plan' : '↩️ 8D reopened — revise the plan', 'pass');
+}
+// Closed 8Ds are read-only; only the DATA EDIT roster can reopen one for correction.
+function d8ReopenClosed(){
+  if (!_isDataEditAllowedUser()){ showAlert(isEsLang() ? 'Reabrir un 8D cerrado está restringido a una cuenta específica.' : 'Reopening a closed 8D is restricted to a specific account.'); return; }
+  showConfirm(isEsLang() ? '¿Reabrir este 8D cerrado para corregirlo?' : 'Reopen this closed 8D so it can be corrected?', function(ok){
+    if (!ok) return;
+    var list = d8Load(), rec = list.filter(function(r){ return r && r.id === d8Cur.id; })[0]; if (!rec) return;
+    rec.status = 'Pending Verification'; rec.reopenLog = (rec.reopenLog ? rec.reopenLog + '\n' : '') + '[' + new Date().toISOString().slice(0, 10) + '] Closed 8D reopened for correction';
+    d8Store(list); d8Cur.status = 'Pending Verification'; d8SetReadOnly(false); d8GoPhase(3, true);
+  }, { okLabel: isEsLang() ? 'Reabrir' : 'Reopen' });
+}
+
+/* ── pull from an existing NCR / CAR (only fills blanks) ── */
+function d8PopulatePrefill(){
+  var sel = document.getElementById('ed-prefill'); if (!sel) return;
+  var es = isEsLang(), html = '<option value="">' + (es ? '— elija un RNC o ACR para rellenar —' : '— select an NCR or CAR to pre-fill —') + '</option>';
+  try {
+    ncrLoad().slice().reverse().slice(0, 60).forEach(function(n){
+      html += '<option value="ncr:' + escHtml(n.ncrId) + '">NCR ' + escHtml(n.ncrNumber || n.ncrId) + ' — ' + escHtml(n.jobNumber || '—') + (n.customerFinal ? ' — ' + escHtml(n.customerFinal) : '') + '</option>';
+    });
+  } catch (e) {}
+  try {
+    rcaLoadRecords().forEach(function(r, i){
+      if (r && (r.carNo || r.carTbd) && r.status !== 'Draft') html += '<option value="car:' + i + '">' + (es ? 'ACR ' : 'CAR ') + escHtml(r.carNo || 'TBD') + ' — ' + escHtml(r.jobNumber || '—') + (r.customer ? ' — ' + escHtml(r.customer) : '') + '</option>';
+    });
+  } catch (e) {}
+  sel.innerHTML = html;
+}
+function d8Prefill(v){
+  if (!v) return;
+  var src = null, ref = '', issue = '';
+  try {
+    if (v.indexOf('ncr:') === 0){
+      src = ncrLoad().filter(function(n){ return String(n.ncrId) === v.slice(4); })[0];
+      if (src){ ref = 'NCR ' + (src.ncrNumber || src.ncrId); }
+    } else if (v.indexOf('car:') === 0){
+      src = rcaLoadRecords()[parseInt(v.slice(4), 10)];
+      if (src){ ref = 'CAR ' + (src.carNo || 'TBD'); issue = src.issueDesc || ''; }
+    }
+  } catch (e) {}
+  if (!src) return;
+  var map = {
+    jobNumber: src.jobNumber, productNumber: src.productNumber || src.product || '', customer: src.customerFinal || src.customer || '',
+    station: src.station, dateFound: src.dateFound || '', origRef: ref, originatedBy: src.originatedBy || '', problemStmt: issue
+  };
+  Object.keys(map).forEach(function(f){
+    var val = map[f]; if (!val || d8Val(f)) return;
+    if (f === 'customer') d8ComboSet('customer', val);
+    else { var e = document.getElementById('ed-' + f); if (e) e.value = val; }
+  });
+  if (src.carSource && !d8Val('source')){ var s = document.getElementById('ed-source'); if (s) s.value = src.carSource; }
+  document.getElementById('ed-prefill').value = '';
+  showToast(isEsLang() ? 'Datos rellenados — revise cada campo' : 'Pre-filled — please check each field', 'pass');
+}
+
+/* ── the list of open 8Ds ── */
+function d8RenderList(){
+  var box = document.getElementById('ed-list-inner'); if (!box) return;
+  var es = isEsLang(), list = d8Load().filter(function(r){ return r && r.status !== 'Closed'; });
+  list.sort(function(a, b){ return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); });
+  var today = d8Today();
+  function row(r){
+    var overdue = r.status === 'Pending Verification' && /^\d{4}-/.test(r.targetClose || '') && r.targetClose < today;
+    var meta = [r.station ? stationLabel(r.station) : '', r.customer || '', r.targetClose ? (es ? 'cierre objetivo ' : 'target close ') + r.targetClose : '', r.savedAt ? (es ? 'guardado ' : 'saved ') + r.savedAt : ''].filter(Boolean).map(escHtml).join(' · ');
+    return '<div class="d8-listrow"><div style="min-width:0"><div style="font-weight:700;font-size:15px">8D ' + escHtml(r.d8No || '—') + ' · ' + (es ? 'Trabajo ' : 'Job ') + escHtml(r.jobNumber || '—') +
+      (overdue ? ' <span style="color:var(--red);font-size:12px;font-weight:700">' + (es ? 'VENCIDO' : 'OVERDUE') + '</span>' : '') + '</div>' +
+      '<div style="font-size:13px;color:var(--text-tertiary)">' + escHtml(d8StatusLabel(r.status)) + (meta ? ' · ' + meta : '') + '</div></div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex:0 0 auto">' +
+      '<button type="button" class="btn btn-primary" onclick="d8Open(\'' + r.id + '\')">▶️ ' + (r.status === 'Pending Verification' ? (es ? 'Verificar' : 'Verify') : (es ? 'Continuar' : 'Continue')) + '</button>' +
+      '<button type="button" class="btn" title="' + (es ? 'Imprimir / PDF' : 'Print / PDF') + '" onclick="d8PrintRecord(\'' + r.id + '\')">🖨️</button>' +
+      (_isDataEditAllowedUser() ? '<button type="button" class="btn" style="border-color:var(--red);color:var(--red)" onclick="d8Delete(\'' + r.id + '\')">🗑️</button>' : '') + '</div></div>';
+  }
+  box.innerHTML = list.length
+    ? '<div class="section-title" style="margin-bottom:6px">📝 ' + (es ? 'Continuar un 8D en progreso' : 'Continue an open 8D') + ' (' + list.length + ')</div>' + list.map(row).join('')
+    : '<div class="section-title">' + (es ? 'No hay 8D en progreso' : 'No open 8Ds') + '</div><div style="font-size:14px;color:var(--text-secondary);margin-top:6px;line-height:1.5">' + (es ? 'Toque “＋ Iniciar nuevo 8D” para empezar. Los 8D cerrados están en Registros.' : 'Tap “＋ Start a new 8D” to begin. Closed 8Ds are in Records.') + '</div>';
+}
+function d8Delete(id){
+  if (!_isDataEditAllowedUser()){ showAlert(isEsLang() ? 'Eliminar registros está restringido a una cuenta específica.' : 'Deleting records is restricted to a specific account.'); return; }
+  var r = d8Load().filter(function(x){ return x && x.id === id; })[0]; if (!r) return;
+  var es = isEsLang(), label = '8D ' + (r.d8No || '—') + ' · ' + (es ? 'Trabajo ' : 'Job ') + (r.jobNumber || '—');
+  showConfirm(es ? 'Esto eliminará ' + label + ' de forma permanente. Esta acción no se puede deshacer.' : 'This will permanently delete ' + label + '. This cannot be undone.', function(ok){
+    if (!ok) return;
+    _logDataEditAuditThenDelete('8d', id, 'DATA EDIT — 8D Deleted').then(function(){
+      d8RenderList();
+      if (typeof renderRecords === 'function' && document.getElementById('records-list')) renderRecords();
+      showToast(es ? '8D eliminado' : '8D deleted', 'pass');
+    });
+  }, { okLabel: es ? 'Eliminar' : 'Delete' });
+}
+
+/* ── print / save as PDF — same report card look as the CAR (reuses #rca-pdf-report) ── */
+function d8BuildReport(d){
+  var es = isEsLang(), T = function(en, esx){ return es ? esx : en; };
+  var rep = document.getElementById('rca-pdf-report');
+  var h = '<div class="rca-pdf-page" style="font-family:Georgia,\'Times New Roman\',serif;max-width:800px;margin:0 auto;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #1d4ed8;padding-bottom:10px;margin-bottom:16px;">' +
+    '<div><div style="font-size:20px;font-weight:700;">' + T('8D Report', 'Informe 8D') + '</div><div style="font-size:15px;color:#666;">' + T('Quality Management — Moquin Press', 'Gestión de Calidad — Moquin Press') + '</div></div>' +
+    '<div style="font-size:14px;color:#999;">' + escHtml(formatTS()) + '</div></div>';
+  var chips = [_rcaPdfChip('8D #', d.d8No), _rcaPdfChip(T('Status', 'Estado'), d8StatusLabel(d.status)), _rcaPdfChip(T('Job number', 'Número de trabajo'), d.jobNumber),
+    _rcaPdfChip(T('Customer', 'Cliente'), d.customer), _rcaPdfChip(T('Station', 'Estación'), stationLabel(d.station))].filter(Boolean);
+  if (chips.length) h += '<div class="rca-pdf-glance">' + chips.join('') + '</div>';
+  var F = _rcaPdfField, N = _rcaPdfNarrative, G = _rcaPdfGrid, S = _rcaPdfSection;
+  h += S('📋', T('Incident information', 'Información del incidente'), G([
+    F('8D #', d.d8No), F(T('Status', 'Estado'), d8StatusLabel(d.status)), F(T('Source', 'Origen'), d.source), F(T('Originated by', 'Originado por'), d.originatedBy),
+    F(T('Date opened', 'Fecha de apertura'), d.openDate), F(T('Target close date', 'Fecha objetivo de cierre'), d.targetClose), F(T('Moquin NCR #', '# RNC Moquin'), d.moquinNcr), F(T('Customer NCR #', '# RNC cliente'), d.customerNcr),
+    F(T('Job number(s)', 'Número(s) de trabajo'), d.jobNumber), F(T('Product ID(s)', 'ID(s) de producto'), d.productNumber), F(T('Customer', 'Cliente'), d.customer), F(T('Date found', 'Fecha en que se encontró'), d.dateFound),
+    F(T('Station', 'Estación'), stationLabel(d.station)), F(T('QA tech', 'Técnico de calidad'), d.qaTech), F(T('Lot qty', 'Cant. lote'), d.lotQty), F(T('Qty inspected', 'Cant. inspeccionada'), d.qtyInsp), F(T('Qty rejected', 'Cant. rechazada'), d.qtyRej)
+  ]) + N(T('Original complaint / reference', 'Queja original / referencia'), d.origRef));
+  h += S('👥', 'D1 — ' + T('Team', 'Equipo'), G([F(T('Team leader', 'Líder del equipo'), d.teamLeader), F(T('Champion / sponsor', 'Patrocinador'), d.champion)]) + N(T('Team members', 'Miembros del equipo'), d.teamMembers));
+  h += S('🔎', 'D2 — ' + T('Describe the problem', 'Describa el problema'), N(T('Problem statement', 'Planteamiento del problema'), d.problemStmt) +
+    G([F(T('What', 'Qué'), d.pWhat), F(T('Where', 'Dónde'), d.pWhere), F(T('When', 'Cuándo'), d.pWhen), F(T('How many', 'Cuántos'), d.pHowMany)]) + F(T('How detected', 'Cómo se detectó'), d.pDetected) + N(T('What it is NOT', 'Lo que NO es'), d.pIsNot));
+  h += S('🛡️', 'D3 — ' + T('Interim containment', 'Contención provisional'), N(T('Containment actions', 'Acciones de contención'), d.containment) +
+    (d.disposition ? '<div class="rca-pdf-field" style="margin-bottom:12px;"><b>' + T('Disposition', 'Disposición') + '</b><span>' + escHtml(d.disposition) + '</span></div>' : '') + F(T('Disposition notes', 'Notas de disposición'), d.dispNotes) +
+    G([F(T('Responsible', 'Responsable'), d.contResp), F(T('Date implemented', 'Fecha de implementación'), d.contDate), F(T('Verified effective', 'Verificada como efectiva'), d.contVerified)]));
+  var whys = [d.why1, d.why2, d.why3, d.why4, d.why5].filter(Boolean).map(function(w, i){
+    return '<div class="rca-why-item"><span class="rca-why-num">' + (i + 1) + '</span><b>Why ' + (i + 1) + '</b><span class="rca-why-text">' + escHtml(w) + '</span></div>';
+  }).join('');
+  h += S('❓', 'D4 — ' + T('Root cause', 'Causa raíz'), F(T('Root cause category', 'Categoría de la causa raíz'), d.causeCats) + whys + N(T('Root cause summary', 'Resumen de la causa raíz'), d.rcSummary) +
+    N(T('Escape point', 'Punto de escape'), d.escapePoint) + F(T('Root cause confirmed by', 'Causa raíz confirmada por'), d.rcVerified) + G([F(T('Responsible', 'Responsable'), d.rcResp), F(T('Due date', 'Fecha límite'), d.rcDue), F(T('Completed', 'Completado'), d.rcDone)]));
+  h += S('🛠️', 'D5 — ' + T('Permanent corrective action', 'Acción correctiva permanente'), N(T('Permanent corrective action', 'Acción correctiva permanente'), d.pca) + N(T('Other options considered', 'Otras opciones consideradas'), d.pcaAlt) +
+    N(T('Side effects / risks', 'Efectos secundarios / riesgos'), d.pcaRisk) + G([F(T('Responsible', 'Responsable'), d.pcaResp), F(T('Due date', 'Fecha límite'), d.pcaDue), F(T('Completed', 'Completado'), d.pcaDone)]) +
+    G([F(T('Changes form, fit or function?', '¿Cambia forma, ajuste o función?'), d.custApproval), F(T('SOP #', '# de SOP'), d.sopRef)]));
+  h += S('✅', 'D6 — ' + T('Implement & validate', 'Implementar y validar'), G([F(T('Implementation date', 'Fecha de implementación'), d.implDate), F(T('Containment removed on', 'Contención retirada el'), d.contRemoved),
+    F(T('Validation method', 'Método de validación'), d.validateMethod), F(T('Validated by', 'Validado por'), d.validatedBy), F(T('Validation date', 'Fecha de validación'), d.validateDate), F(T('Effective?', '¿Efectiva?'), d.effective)]) +
+    N(T('Validation results / evidence', 'Resultados / evidencia de la validación'), d.validateResults) + F(T('Attached documents', 'Documentos adjuntos'), d.evidenceRef));
+  h += S('🔁', 'D7 — ' + T('Prevent recurrence', 'Prevenir la recurrencia'), F(T('Updated / checked', 'Actualizado / revisado'), d.prevent) + N(T('Other jobs, products, stations or customers reviewed', 'Otros trabajos, productos, estaciones o clientes revisados'), d.horizontal) + N(T('Prevention notes', 'Notas de prevención'), d.preventNotes));
+  h += S('🏁', 'D8 — ' + T('Close & recognize the team', 'Cerrar y reconocer al equipo'), G([F(T('Closure date', 'Fecha de cierre'), d.closeDate), F(T('Approved by', 'Aprobado por'), d.approvedBy),
+    F(T('Approval date', 'Fecha de aprobación'), d.approvalDate), F(T('QA tech (closing)', 'Técnico de calidad (cierre)'), d.closeQaTech)]) + N(T('Lessons learned / team recognition', 'Lecciones aprendidas / reconocimiento'), d.lessons) + N(T('Close-out notes', 'Notas de cierre'), d.closeNotes) + N(T('History', 'Historial'), d.reopenLog));
+  h += '</div>';
+  rep.innerHTML = h;
+}
+function d8PrintNow(d){
+  d8BuildReport(d);
+  document.body.classList.add('rca-printing');
+  setTimeout(function(){ window.print(); document.body.classList.remove('rca-printing'); }, 60);
+}
+function d8PrintClick(){ var d = d8Collect(); d.status = d8Cur.status; d8PrintNow(d); }
+function d8PrintRecord(id){ var r = d8Load().filter(function(x){ return x && x.id === id; })[0]; if (r) d8PrintNow(r); }
 
 // BOOT SENTINEL — must stay the LAST statement of the main script. If anything earlier threw and stopped the
 // script, this never runs; the watchdog in <head> then offers the stable version, and tests/smoke.js fails.
